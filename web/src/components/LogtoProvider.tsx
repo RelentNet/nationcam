@@ -7,7 +7,7 @@ const config: LogtoConfig = {
   resources: [
     import.meta.env['VITE_LOGTO_API_RESOURCE'] ?? 'https://api.nationcam.com',
   ],
-  scopes: ['openid', 'profile', 'email'],
+  scopes: ['openid', 'profile', 'email', 'admin'],
 }
 
 export default function LogtoWrapper({
