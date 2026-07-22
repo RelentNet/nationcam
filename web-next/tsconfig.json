@@ -12,7 +12,9 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    // react-start augments the router's route options with `server.handlers`;
+    // nothing in src/ imports it directly, so load its types globally.
+    "types": ["vite/client", "@tanstack/react-start"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
