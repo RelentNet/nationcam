@@ -12,7 +12,9 @@ import (
 
 // NewRouter builds the Chi router with all routes and middleware.
 // rc may be nil if Restreamer is not configured (stream routes are not mounted).
-func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string) *chi.Mux {
+// proxyExtraHosts are hosts the stream proxy may fetch from in addition to
+// video sources stored in the database (e.g. the Restreamer host).
+func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware.
@@ -41,13 +43,14 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 
 	// Videos.
 	r.Get("/videos", ListVideos(pool, c))
+	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}", GetVideo(pool, c))
 	r.With(mw.RequireAdmin).Post("/videos", CreateVideo(pool, c))
 	r.With(mw.RequireAdmin).Put("/videos/{id}", UpdateVideo(pool, c))
 	r.With(mw.RequireAdmin).Delete("/videos/{id}", DeleteVideo(pool, c))
 	r.With(mw.RequireAdmin).Get("/videos/paginated", ListVideosPaginated(pool, c))
 
-	// Stream proxy — proxies external HLS manifests/segments to bypass CORS.
-	r.Get("/stream-proxy", StreamProxy())
+	// Stream proxy — proxies known HLS manifests/segments to bypass CORS.
+	r.Get("/stream-proxy", StreamProxy(pool, proxyExtraHosts))
 
 	// Streams (Restreamer proxy) — only mounted if configured.
 	// Accepts both X-API-Key (external tools) and Logto JWT (dashboard).

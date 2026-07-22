@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -72,7 +73,7 @@ func run() error {
 	slog.Info("redis connected")
 
 	// ── Auth middleware ─────────────────────────────────────────────
-	auth := middleware.NewAuth(cfg.LogtoEndpoint)
+	auth := middleware.NewAuth(cfg.LogtoEndpoint, cfg.LogtoAPIResource)
 
 	// ── Restreamer client (optional) ───────────────────────────────
 	var rc *restreamer.Client
@@ -82,7 +83,13 @@ func run() error {
 	}
 
 	// ── Build router ───────────────────────────────────────────────
-	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey)
+	var proxyExtraHosts []string
+	if cfg.RestreamerURL != "" {
+		if u, err := url.Parse(cfg.RestreamerURL); err == nil && u.Hostname() != "" {
+			proxyExtraHosts = append(proxyExtraHosts, u.Hostname())
+		}
+	}
+	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts)
 
 	// ── HTTP server ────────────────────────────────────────────────
 	srv := &http.Server{

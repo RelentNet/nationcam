@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -19,18 +20,33 @@ type contextKey string
 // UserIDKey is the context key for the authenticated user's Logto subject.
 const UserIDKey contextKey = "user_id"
 
+// scopesKey is the context key for the raw space-delimited `scope` claim.
+const scopesKey contextKey = "scopes"
+
+// adminScope is the Logto API-resource permission that grants write access.
+// It must exist as a permission on the `LOGTO_API_RESOURCE` API resource, be
+// attached to a role, and that role assigned to the user. See AGENTS.md.
+const adminScope = "admin"
+
 // Auth validates Logto-issued JWTs using the JWKS discovery endpoint.
 type Auth struct {
-	jwksURL string
-	mu      sync.RWMutex
-	keySet  *jose.JSONWebKeySet
-	fetched time.Time
+	jwksURL  string
+	issuer   string
+	audience string // expected API resource indicator; empty disables the aud check
+	mu       sync.RWMutex
+	keySet   *jose.JSONWebKeySet
+	fetched  time.Time
 }
 
-// NewAuth creates an Auth middleware that validates tokens from the given Logto endpoint.
-func NewAuth(logtoEndpoint string) *Auth {
+// NewAuth creates an Auth middleware that validates tokens from the given Logto
+// endpoint. apiResource is the Logto API resource indicator expected in the
+// token's aud claim (empty string skips audience validation).
+func NewAuth(logtoEndpoint, apiResource string) *Auth {
+	base := strings.TrimRight(logtoEndpoint, "/")
 	return &Auth{
-		jwksURL: strings.TrimRight(logtoEndpoint, "/") + "/oidc/jwks",
+		jwksURL:  base + "/oidc/jwks",
+		issuer:   base + "/oidc",
+		audience: apiResource,
 	}
 }
 
@@ -52,18 +68,21 @@ func (a *Auth) Authenticate(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.Subject)
+		ctx = context.WithValue(ctx, scopesKey, claims.Scope)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-// RequireAdmin is middleware that rejects unauthenticated requests.
-// Currently any authenticated Logto user is treated as admin.
-// TODO: add proper role-based access control via Logto roles.
+// RequireAdmin rejects any request whose validated access token does not carry
+// the adminScope permission in its `scope` claim. Unauthenticated requests have
+// no scopes and are therefore rejected too — this fails closed.
 func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID, _ := r.Context().Value(UserIDKey).(string)
-		if userID == "" {
-			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+		scopes, _ := r.Context().Value(scopesKey).(string)
+		if !slices.Contains(strings.Fields(scopes), adminScope) {
+			slog.Warn("admin access denied",
+				"user_id", UserID(r.Context()), "path", r.URL.Path, "scopes", scopes)
+			http.Error(w, `{"error":"forbidden","detail":"missing required permission: `+adminScope+`"}`, http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -78,7 +97,34 @@ func UserID(ctx context.Context) string {
 
 type tokenClaims struct {
 	Subject string `json:"sub"`
+	// Scope holds the space-delimited permissions Logto granted for this API
+	// resource, filtered by the user's roles.
+	Scope     string   `json:"scope"`
+	Issuer    string   `json:"iss"`
+	Audience  audience `json:"aud"`
+	Expiry    int64    `json:"exp"`
+	NotBefore int64    `json:"nbf"`
 }
+
+// audience accepts both the string and array forms of the JWT aud claim.
+type audience []string
+
+func (a *audience) UnmarshalJSON(b []byte) error {
+	var single string
+	if err := json.Unmarshal(b, &single); err == nil {
+		*a = audience{single}
+		return nil
+	}
+	var many []string
+	if err := json.Unmarshal(b, &many); err != nil {
+		return err
+	}
+	*a = audience(many)
+	return nil
+}
+
+// clockSkewLeeway tolerates small clock drift between Logto and the API.
+const clockSkewLeeway = 60 * time.Second
 
 func (a *Auth) validateToken(ctx context.Context, rawToken string) (*tokenClaims, error) {
 	keys, err := a.getKeys(ctx)
@@ -106,6 +152,32 @@ func (a *Auth) validateToken(ctx context.Context, rawToken string) (*tokenClaims
 	var claims tokenClaims
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return nil, fmt.Errorf("decode claims: %w", err)
+	}
+
+	now := time.Now()
+	if claims.Expiry == 0 {
+		return nil, fmt.Errorf("token has no exp claim")
+	}
+	if now.After(time.Unix(claims.Expiry, 0).Add(clockSkewLeeway)) {
+		return nil, fmt.Errorf("token expired at %s", time.Unix(claims.Expiry, 0))
+	}
+	if claims.NotBefore != 0 && now.Add(clockSkewLeeway).Before(time.Unix(claims.NotBefore, 0)) {
+		return nil, fmt.Errorf("token not valid yet (nbf %s)", time.Unix(claims.NotBefore, 0))
+	}
+	if claims.Issuer != a.issuer {
+		return nil, fmt.Errorf("unexpected issuer %q (want %q)", claims.Issuer, a.issuer)
+	}
+	if a.audience != "" {
+		found := false
+		for _, aud := range claims.Audience {
+			if aud == a.audience {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("token audience %v does not include %q", claims.Audience, a.audience)
+		}
 	}
 
 	return &claims, nil

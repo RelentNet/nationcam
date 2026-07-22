@@ -19,6 +19,39 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Videos use `title` rather than `name`, and their slugs must be unique within
+-- (state_id, sublocation_id) so /locations/{state}/{sublocation}/{camera} resolves
+-- to exactly one row. Duplicate titles get a -2, -3, … suffix instead of erroring.
+-- ponytail: the EXISTS loop is not concurrency-safe — two simultaneous inserts of the
+-- same title in the same sublocation can pick the same suffix, and the unique index
+-- below rejects the loser. Writes are admin-only and rare; add an advisory lock if
+-- camera creation ever becomes automated/bulk.
+CREATE OR REPLACE FUNCTION set_video_slug() RETURNS TRIGGER AS $$
+DECLARE
+  base TEXT;
+  n    INT := 1;
+BEGIN
+  IF NEW.slug IS NULL OR NEW.slug = '' THEN
+    base := generate_slug(NEW.title);
+    IF base = '' THEN
+      base := 'camera';
+    END IF;
+    NEW.slug := base;
+    WHILE EXISTS (
+      SELECT 1 FROM videos
+      WHERE slug = NEW.slug
+        AND state_id = NEW.state_id
+        AND sublocation_id IS NOT DISTINCT FROM NEW.sublocation_id
+        AND video_id IS DISTINCT FROM NEW.video_id
+    ) LOOP
+      n := n + 1;
+      NEW.slug := base || '-' || n;
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at := now();
@@ -62,6 +95,17 @@ CREATE TABLE IF NOT EXISTS videos (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ────────────────────────────────────────────────
+-- Column additions
+--
+-- CREATE TABLE IF NOT EXISTS is a no-op against an existing table, so columns
+-- added after the first production deploy live here instead. Every statement is
+-- idempotent and non-destructive — nothing is ever dropped or recreated.
+-- ────────────────────────────────────────────────
+
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS slug TEXT NOT NULL DEFAULT '';
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS view_count BIGINT NOT NULL DEFAULT 0;
 
 -- ────────────────────────────────────────────────
 -- Indexes
@@ -152,7 +196,26 @@ CREATE OR REPLACE TRIGGER trg_sublocations_updated
   BEFORE UPDATE ON sublocations
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE TRIGGER trg_videos_slug
+  BEFORE INSERT OR UPDATE ON videos
+  FOR EACH ROW EXECUTE FUNCTION set_video_slug();
+
 CREATE OR REPLACE TRIGGER trg_videos_updated
   BEFORE UPDATE ON videos
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ────────────────────────────────────────────────
+-- Backfills
+--
+-- Runs after the triggers exist so the UPDATE below fires trg_videos_slug and
+-- reuses its dedup logic. Matches no rows once every video has a slug, so it is
+-- a no-op on subsequent startups.
+-- ────────────────────────────────────────────────
+
+UPDATE videos SET slug = '' WHERE slug = '';
+
+-- Unique per (state_id, sublocation_id, slug). NULLS NOT DISTINCT (PG 15+) makes
+-- the sublocation-less rows of a state compare equal instead of always-unique.
+-- Created after the backfill so it never sees duplicate slugs.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_videos_slug_scope
+  ON videos (state_id, sublocation_id, slug) NULLS NOT DISTINCT;
