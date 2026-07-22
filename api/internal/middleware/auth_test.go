@@ -158,6 +158,59 @@ func TestValidateTokenSkipsAudWhenUnconfigured(t *testing.T) {
 	}
 }
 
+// TestRequireAdmin exercises the real Authenticate -> RequireAdmin chain, so it
+// covers the scope claim surviving token validation and the context hand-off.
+func TestRequireAdmin(t *testing.T) {
+	auth, signer, done := testIssuer(t)
+	defer done()
+
+	handler := auth.Authenticate(RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	token := func(scope any) string {
+		claims := map[string]any{
+			"sub": "user-1",
+			"iss": auth.issuer,
+			"aud": "https://api.nationcam.com",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		}
+		if scope != nil {
+			claims["scope"] = scope
+		}
+		return signToken(t, signer, claims)
+	}
+
+	cases := []struct {
+		name     string
+		token    string
+		wantCode int
+	}{
+		{name: "admin scope alone", token: token("admin"), wantCode: http.StatusOK},
+		{name: "admin scope among others", token: token("openid profile admin email"), wantCode: http.StatusOK},
+		{name: "authenticated without admin scope", token: token("openid profile email"), wantCode: http.StatusForbidden},
+		{name: "authenticated with no scope claim", token: token(nil), wantCode: http.StatusForbidden},
+		{name: "scope is a prefix of admin", token: token("admin:read"), wantCode: http.StatusForbidden},
+		{name: "unauthenticated", token: "", wantCode: http.StatusForbidden},
+		{name: "garbage token", token: "not-a-jwt", wantCode: http.StatusForbidden},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/videos", nil)
+			if tc.token != "" {
+				req.Header.Set("Authorization", "Bearer "+tc.token)
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantCode {
+				t.Fatalf("expected status %d, got %d (body %q)", tc.wantCode, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestValidateTokenRejectsUnsignedGarbage(t *testing.T) {
 	auth, _, done := testIssuer(t)
 	defer done()

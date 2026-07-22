@@ -32,8 +32,26 @@ Browser ──▶ auth.nationcam.com ──▶ Logto (separate Coolify service, 
 2. Browser redirects to Logto at `auth.nationcam.com` (`/callback` route handles return)
 3. Logto issues access token scoped to API resource (`https://api.nationcam.com`)
 4. Frontend sends `Authorization: Bearer <token>` on admin write requests
-5. Go API validates JWT via Logto's JWKS endpoint (cached 1 hour)
-6. Admin role checked for write operations (POST endpoints)
+5. Go API validates JWT via Logto's JWKS endpoint (cached 1 hour), checking `exp`/`nbf`/`iss`/`aud`
+6. `RequireAdmin` requires the `admin` permission in the token's `scope` claim (space-delimited) — write endpoints fail closed with 403 without it
+
+**Admin RBAC — required Logto console setup.** `RequireAdmin` keys on the `scope`
+claim of the API-resource access token. Logto only puts a permission there if it
+is (a) defined on the API resource, (b) granted to the user via a role, **and**
+(c) requested by the client. All three are required:
+
+1. API resources → `https://api.nationcam.com` → Permissions → add `admin`
+   ("Full administrative access to NationCam write endpoints").
+2. Roles → create `admin` → assign the `admin` permission from that API resource.
+3. Users → your account → Roles → assign `admin`.
+4. `web/src/components/LogtoProvider.tsx` → `scopes` must include `'admin'`.
+   Logto's *scope subset rule* means a token can only carry scopes the client
+   asked for at sign-in, so without this the claim is empty no matter what roles
+   the user has. Existing sessions must sign out and back in after this changes.
+
+Symptom if any step is missing: every admin write endpoint returns
+`403 {"error":"forbidden","detail":"missing required permission: admin"}`, and
+the API logs `WARN admin access denied` with the scopes it actually saw.
 
 Logto is a **separate Coolify service** (not part of this docker-compose stack). The Go API reaches Logto via the public URL (`https://auth.nationcam.com`), not an internal Docker network address.
 
@@ -69,7 +87,8 @@ STREAMER_API_KEY=<secret key for /api/streams/* endpoints>
 3. Create a "React" application, set redirect URI to `https://nationcam.com/callback`
 4. Set post sign-out redirect URI to `https://nationcam.com`
 5. Set CORS allowed origins to `https://nationcam.com`
-6. Create an API resource with identifier `https://api.nationcam.com`
+6. Create an API resource with identifier `https://api.nationcam.com`, add the
+   `admin` permission to it, and assign it via an `admin` role (see Auth Flow above)
 7. Copy the App ID → set `LOGTO_APP_ID` in Coolify env vars → redeploy the main stack
 
 **Technical notes:**
