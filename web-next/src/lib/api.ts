@@ -1,4 +1,5 @@
 import type {
+  CameraDetail,
   CreateStateInput,
   CreateStreamInput,
   CreateSublocationInput,
@@ -361,4 +362,18 @@ export async function restartStream(
   token?: string | null,
 ): Promise<StreamResponse> {
   return post<StreamResponse>(`/streams/${id}/restart`, {}, token)
+}
+
+/**
+ * Single camera plus its related cameras. Hitting this endpoint is what
+ * increments the camera's view count — the API does that server-side.
+ */
+export async function fetchCamera(
+  stateSlug: string,
+  sublocationSlug: string,
+  cameraSlug: string,
+): Promise<CameraDetail> {
+  return get<CameraDetail>(
+    `/videos/${stateSlug}/${sublocationSlug}/${cameraSlug}`,
+  )
 }

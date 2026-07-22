@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { MapPin } from 'lucide-react'
 import type { Video } from '@/lib/types'
 import StreamPlayer from '@/components/StreamPlayer'
@@ -7,6 +8,13 @@ interface VideoCardProps {
   video: Video
   /** Show sublocation name beneath the title */
   showLocation?: boolean
+  /**
+   * Slugs of the camera's state and sublocation. Both are needed to build the
+   * camera page URL — without them the title renders unlinked (the video list
+   * endpoints do not return the parent slugs).
+   */
+  stateSlug?: string
+  sublocationSlug?: string
 }
 
 function formatDate(dateString: string): string {
@@ -21,8 +29,16 @@ function formatDate(dateString: string): string {
 export default function VideoCard({
   video,
   showLocation = false,
+  stateSlug,
+  sublocationSlug,
 }: VideoCardProps) {
   const isActive = video.status === 'active'
+
+  const title = (
+    <h4 className="mb-0 line-clamp-2 font-display text-base leading-snug font-semibold tracking-tight text-text transition-colors group-hover:text-accent sm:text-lg">
+      {video.title}
+    </h4>
+  )
 
   return (
     <article className="reveal-scale group relative flex flex-col overflow-hidden rounded-2xl border border-overlay0/60 bg-surface0 shadow-md ring-1 ring-black/[0.03] transition-all duration-350 ease-[var(--spring-snappy)] hover:-translate-y-1 hover:border-accent/40 hover:shadow-xl hover:ring-accent/10 dark:ring-white/[0.02]">
@@ -45,10 +61,21 @@ export default function VideoCard({
 
       {/* ── Card body ── */}
       <div className="flex flex-1 flex-col gap-1.5 px-4 py-3.5">
-        {/* Title */}
-        <h4 className="mb-0 line-clamp-2 font-display text-base leading-snug font-semibold tracking-tight text-text transition-colors group-hover:text-accent sm:text-lg">
-          {video.title}
-        </h4>
+        {/* Title — links to the camera page when we know its parent slugs */}
+        {stateSlug && sublocationSlug && video.slug ? (
+          <Link
+            to="/locations/$slug/$sublocationSlug/$cameraSlug"
+            params={{
+              slug: stateSlug,
+              sublocationSlug,
+              cameraSlug: video.slug,
+            }}
+          >
+            {title}
+          </Link>
+        ) : (
+          title
+        )}
 
         {/* Meta row */}
         <div className="flex items-center gap-3 font-mono text-xs text-subtext0">
