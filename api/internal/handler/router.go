@@ -66,5 +66,15 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 		})
 	}
 
+	// Ads. /ads/next is public and on the playback hot path; the two tracking
+	// endpoints are public because the viewer's player calls them directly.
+	r.Get("/ads/next", AdsNext(pool, c))
+	r.Post("/ads/{id}/impression", RecordAdImpression(pool))
+	r.Get("/ads/{id}/click", RecordAdClick(pool))
+	r.With(mw.RequireAdmin).Get("/ads", ListAds(pool))
+	r.With(mw.RequireAdmin).Post("/ads", CreateAd(pool, c))
+	r.With(mw.RequireAdmin).Put("/ads/{id}", UpdateAd(pool, c))
+	r.With(mw.RequireAdmin).Delete("/ads/{id}", DeleteAd(pool, c))
+
 	return r
 }
