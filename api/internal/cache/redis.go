@@ -44,6 +44,18 @@ func (c *Cache) Set(ctx context.Context, key string, value string, ttl time.Dura
 	return c.client.Set(ctx, key, value, ttl).Err()
 }
 
+// Incr atomically increments the integer at key and returns the new value.
+// Missing keys start at 0.
+func (c *Cache) Incr(ctx context.Context, key string) (int64, error) {
+	return c.client.Incr(ctx, key).Result()
+}
+
+// DecrBy atomically subtracts n from the integer at key. Used to drain a counter
+// without losing increments that landed while it was being read.
+func (c *Cache) DecrBy(ctx context.Context, key string, n int64) error {
+	return c.client.DecrBy(ctx, key, n).Err()
+}
+
 // Invalidate deletes all keys matching the given pattern (e.g. "states:*").
 // Uses a pipeline for efficient batch deletion.
 func (c *Cache) Invalidate(ctx context.Context, pattern string) error {
