@@ -13,7 +13,7 @@ import (
 const createVideo = `-- name: CreateVideo :one
 INSERT INTO videos (title, src, type, state_id, sublocation_id, status, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING video_id, title, src, type, state_id, sublocation_id, status, created_by, created_at, updated_at
+RETURNING video_id, title, src, type, slug, state_id, sublocation_id, status, created_by, created_at, updated_at
 `
 
 type CreateVideoParams struct {
@@ -26,7 +26,21 @@ type CreateVideoParams struct {
 	CreatedBy     string `json:"created_by"`
 }
 
-func (q *Queries) CreateVideo(ctx context.Context, arg CreateVideoParams) (Video, error) {
+type CreateVideoRow struct {
+	VideoID       int32     `json:"video_id"`
+	Title         string    `json:"title"`
+	Src           string    `json:"src"`
+	Type          string    `json:"type"`
+	Slug          string    `json:"slug"`
+	StateID       int32     `json:"state_id"`
+	SublocationID *int32    `json:"sublocation_id"`
+	Status        string    `json:"status"`
+	CreatedBy     string    `json:"created_by"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateVideo(ctx context.Context, arg CreateVideoParams) (CreateVideoRow, error) {
 	row := q.db.QueryRow(ctx, createVideo,
 		arg.Title,
 		arg.Src,
@@ -36,12 +50,13 @@ func (q *Queries) CreateVideo(ctx context.Context, arg CreateVideoParams) (Video
 		arg.Status,
 		arg.CreatedBy,
 	)
-	var i Video
+	var i CreateVideoRow
 	err := row.Scan(
 		&i.VideoID,
 		&i.Title,
 		&i.Src,
 		&i.Type,
+		&i.Slug,
 		&i.StateID,
 		&i.SublocationID,
 		&i.Status,
@@ -62,7 +77,7 @@ func (q *Queries) DeleteVideo(ctx context.Context, videoID int32) error {
 }
 
 const getVideoByID = `-- name: GetVideoByID :one
-SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name
@@ -77,6 +92,7 @@ type GetVideoByIDRow struct {
 	Title           string    `json:"title"`
 	Src             string    `json:"src"`
 	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
 	StateID         int32     `json:"state_id"`
 	SublocationID   *int32    `json:"sublocation_id"`
 	Status          string    `json:"status"`
@@ -95,6 +111,7 @@ func (q *Queries) GetVideoByID(ctx context.Context, videoID int32) (GetVideoByID
 		&i.Title,
 		&i.Src,
 		&i.Type,
+		&i.Slug,
 		&i.StateID,
 		&i.SublocationID,
 		&i.Status,
@@ -105,6 +122,165 @@ func (q *Queries) GetVideoByID(ctx context.Context, videoID int32) (GetVideoByID
 		&i.SublocationName,
 	)
 	return i, err
+}
+
+const getVideoBySlug = `-- name: GetVideoBySlug :one
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
+       v.status, v.view_count, v.created_by, v.created_at, v.updated_at,
+       s.name AS state_name, s.slug AS state_slug,
+       COALESCE(sub.name, '') AS sublocation_name,
+       COALESCE(sub.slug, '') AS sublocation_slug
+FROM videos v
+JOIN states s ON s.state_id = v.state_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+  AND s.slug = $1
+  AND COALESCE(sub.slug, '') = $2
+  AND v.slug = $3
+`
+
+type GetVideoBySlugParams struct {
+	StateSlug       string `json:"state_slug"`
+	SublocationSlug string `json:"sublocation_slug"`
+	Slug            string `json:"slug"`
+}
+
+type GetVideoBySlugRow struct {
+	VideoID         int32     `json:"video_id"`
+	Title           string    `json:"title"`
+	Src             string    `json:"src"`
+	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
+	StateID         int32     `json:"state_id"`
+	SublocationID   *int32    `json:"sublocation_id"`
+	Status          string    `json:"status"`
+	ViewCount       int64     `json:"view_count"`
+	CreatedBy       string    `json:"created_by"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	StateName       string    `json:"state_name"`
+	StateSlug       string    `json:"state_slug"`
+	SublocationName string    `json:"sublocation_name"`
+	SublocationSlug string    `json:"sublocation_slug"`
+}
+
+// GetVideoBySlug backs the public per-camera page at
+// /locations/{state_slug}/{sublocation_slug}/{slug}. Cameras with no sublocation
+// match on an empty sublocation_slug.
+func (q *Queries) GetVideoBySlug(ctx context.Context, arg GetVideoBySlugParams) (GetVideoBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getVideoBySlug, arg.StateSlug, arg.SublocationSlug, arg.Slug)
+	var i GetVideoBySlugRow
+	err := row.Scan(
+		&i.VideoID,
+		&i.Title,
+		&i.Src,
+		&i.Type,
+		&i.Slug,
+		&i.StateID,
+		&i.SublocationID,
+		&i.Status,
+		&i.ViewCount,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StateName,
+		&i.StateSlug,
+		&i.SublocationName,
+		&i.SublocationSlug,
+	)
+	return i, err
+}
+
+const incrementVideoViews = `-- name: IncrementVideoViews :exec
+UPDATE videos SET view_count = view_count + $2 WHERE video_id = $1
+`
+
+type IncrementVideoViewsParams struct {
+	VideoID   int32 `json:"video_id"`
+	ViewCount int64 `json:"view_count"`
+}
+
+func (q *Queries) IncrementVideoViews(ctx context.Context, arg IncrementVideoViewsParams) error {
+	_, err := q.db.Exec(ctx, incrementVideoViews, arg.VideoID, arg.ViewCount)
+	return err
+}
+
+const listRelatedVideos = `-- name: ListRelatedVideos :many
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
+       v.status, v.created_by, v.created_at, v.updated_at,
+       s.name AS state_name, s.slug AS state_slug,
+       COALESCE(sub.name, '') AS sublocation_name,
+       COALESCE(sub.slug, '') AS sublocation_slug
+FROM videos v
+JOIN states s ON s.state_id = v.state_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+  AND v.video_id <> $1
+  AND (v.sublocation_id = $2 OR v.state_id = $3)
+ORDER BY (v.sublocation_id IS NOT DISTINCT FROM $2) DESC, v.title
+LIMIT 6
+`
+
+type ListRelatedVideosParams struct {
+	VideoID       int32  `json:"video_id"`
+	SublocationID *int32 `json:"sublocation_id"`
+	StateID       int32  `json:"state_id"`
+}
+
+type ListRelatedVideosRow struct {
+	VideoID         int32     `json:"video_id"`
+	Title           string    `json:"title"`
+	Src             string    `json:"src"`
+	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
+	StateID         int32     `json:"state_id"`
+	SublocationID   *int32    `json:"sublocation_id"`
+	Status          string    `json:"status"`
+	CreatedBy       string    `json:"created_by"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	StateName       string    `json:"state_name"`
+	StateSlug       string    `json:"state_slug"`
+	SublocationName string    `json:"sublocation_name"`
+	SublocationSlug string    `json:"sublocation_slug"`
+}
+
+// ListRelatedVideos returns other cameras to show alongside a camera page:
+// same sublocation first, then the rest of the state.
+func (q *Queries) ListRelatedVideos(ctx context.Context, arg ListRelatedVideosParams) ([]ListRelatedVideosRow, error) {
+	rows, err := q.db.Query(ctx, listRelatedVideos, arg.VideoID, arg.SublocationID, arg.StateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRelatedVideosRow{}
+	for rows.Next() {
+		var i ListRelatedVideosRow
+		if err := rows.Scan(
+			&i.VideoID,
+			&i.Title,
+			&i.Src,
+			&i.Type,
+			&i.Slug,
+			&i.StateID,
+			&i.SublocationID,
+			&i.Status,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StateName,
+			&i.StateSlug,
+			&i.SublocationName,
+			&i.SublocationSlug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listVideoSources = `-- name: ListVideoSources :many
@@ -132,7 +308,7 @@ func (q *Queries) ListVideoSources(ctx context.Context) ([]string, error) {
 }
 
 const listVideos = `-- name: ListVideos :many
-SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name
@@ -148,6 +324,7 @@ type ListVideosRow struct {
 	Title           string    `json:"title"`
 	Src             string    `json:"src"`
 	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
 	StateID         int32     `json:"state_id"`
 	SublocationID   *int32    `json:"sublocation_id"`
 	Status          string    `json:"status"`
@@ -172,6 +349,7 @@ func (q *Queries) ListVideos(ctx context.Context) ([]ListVideosRow, error) {
 			&i.Title,
 			&i.Src,
 			&i.Type,
+			&i.Slug,
 			&i.StateID,
 			&i.SublocationID,
 			&i.Status,
@@ -192,7 +370,7 @@ func (q *Queries) ListVideos(ctx context.Context) ([]ListVideosRow, error) {
 }
 
 const listVideosByState = `-- name: ListVideosByState :many
-SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name
@@ -208,6 +386,7 @@ type ListVideosByStateRow struct {
 	Title           string    `json:"title"`
 	Src             string    `json:"src"`
 	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
 	StateID         int32     `json:"state_id"`
 	SublocationID   *int32    `json:"sublocation_id"`
 	Status          string    `json:"status"`
@@ -232,6 +411,7 @@ func (q *Queries) ListVideosByState(ctx context.Context, stateID int32) ([]ListV
 			&i.Title,
 			&i.Src,
 			&i.Type,
+			&i.Slug,
 			&i.StateID,
 			&i.SublocationID,
 			&i.Status,
@@ -252,7 +432,7 @@ func (q *Queries) ListVideosByState(ctx context.Context, stateID int32) ([]ListV
 }
 
 const listVideosBySublocation = `-- name: ListVideosBySublocation :many
-SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name
@@ -268,6 +448,7 @@ type ListVideosBySublocationRow struct {
 	Title           string    `json:"title"`
 	Src             string    `json:"src"`
 	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
 	StateID         int32     `json:"state_id"`
 	SublocationID   *int32    `json:"sublocation_id"`
 	Status          string    `json:"status"`
@@ -292,6 +473,7 @@ func (q *Queries) ListVideosBySublocation(ctx context.Context, sublocationID *in
 			&i.Title,
 			&i.Src,
 			&i.Type,
+			&i.Slug,
 			&i.StateID,
 			&i.SublocationID,
 			&i.Status,
@@ -312,7 +494,7 @@ func (q *Queries) ListVideosBySublocation(ctx context.Context, sublocationID *in
 }
 
 const listVideosPaginated = `-- name: ListVideosPaginated :many
-SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name,
@@ -320,7 +502,6 @@ SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.status = 'active'
 ORDER BY v.title
 LIMIT $1 OFFSET $2
 `
@@ -335,6 +516,7 @@ type ListVideosPaginatedRow struct {
 	Title           string    `json:"title"`
 	Src             string    `json:"src"`
 	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
 	StateID         int32     `json:"state_id"`
 	SublocationID   *int32    `json:"sublocation_id"`
 	Status          string    `json:"status"`
@@ -346,6 +528,9 @@ type ListVideosPaginatedRow struct {
 	TotalCount      int32     `json:"total_count"`
 }
 
+// ListVideosPaginated backs the admin dashboard, so it deliberately returns
+// inactive cameras too — filtering them out here made deactivated cameras
+// unreachable from the dashboard with no way to reactivate them.
 func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginatedParams) ([]ListVideosPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listVideosPaginated, arg.Limit, arg.Offset)
 	if err != nil {
@@ -360,6 +545,7 @@ func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginat
 			&i.Title,
 			&i.Src,
 			&i.Type,
+			&i.Slug,
 			&i.StateID,
 			&i.SublocationID,
 			&i.Status,

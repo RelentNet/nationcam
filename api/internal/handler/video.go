@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -63,6 +64,100 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			}
 			writeJSON(w, http.StatusOK, rows)
 		})(w, r)
+	}
+}
+
+// viewFlushThreshold is how many buffered views accumulate in Redis before one
+// Postgres write drains them.
+const viewFlushThreshold = 10
+
+// cameraPage is the payload for a single camera page: the camera itself plus the
+// handful of related cameras rendered beside it, so SSR needs one round trip.
+type cameraPage struct {
+	Camera  db.GetVideoBySlugRow      `json:"camera"`
+	Related []db.ListRelatedVideosRow `json:"related"`
+}
+
+// GetVideo handles GET /videos/{stateSlug}/{sublocationSlug}/{slug} — the public
+// per-camera page. Cameras with no sublocation are not reachable here; the URL
+// shape requires a sublocation segment.
+func GetVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := db.GetVideoBySlugParams{
+			StateSlug:       chi.URLParam(r, "stateSlug"),
+			SublocationSlug: chi.URLParam(r, "sublocationSlug"),
+			Slug:            chi.URLParam(r, "slug"),
+		}
+
+		key := "videos:camera:" + params.StateSlug + ":" + params.SublocationSlug + ":" + params.Slug
+		handler := cachedHandler(c, key, func(w http.ResponseWriter, r *http.Request) {
+			q := db.New(pool)
+			camera, err := q.GetVideoBySlug(r.Context(), params)
+			if err != nil {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
+				return
+			}
+
+			related, err := q.ListRelatedVideos(r.Context(), db.ListRelatedVideosParams{
+				VideoID:       camera.VideoID,
+				SublocationID: camera.SublocationID,
+				StateID:       camera.StateID,
+			})
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+
+			writeJSON(w, http.StatusOK, cameraPage{Camera: camera, Related: related})
+		})
+
+		// Counted outside cachedHandler so cache hits still register a view, and
+		// only on a 200 so requests for slugs that do not exist cannot fill Redis
+		// with counter keys. On a cache hit the status is the only signal there is.
+		rec := &responseRecorder{ResponseWriter: w, body: &bytes.Buffer{}}
+		handler(rec, r)
+		if rec.status == http.StatusOK {
+			recordView(r, pool, c, params)
+		}
+	}
+}
+
+// recordView buffers one view in Redis and flushes to Postgres every
+// viewFlushThreshold views, so the hot path is a single INCR rather than a write.
+//
+// ponytail: counts raw requests with no bot or repeat-visitor filtering, and the
+// flush is not atomic — a crash between the UPDATE and the DecrBy double-counts up
+// to viewFlushThreshold views, a Redis flush loses up to that many, and the
+// view_count in the response lags by the same amount. Fine for a "views" badge;
+// move to a real analytics pipeline if the number ever has to be exact or
+// ad-billable.
+func recordView(r *http.Request, pool *pgxpool.Pool, c *cache.Cache, params db.GetVideoBySlugParams) {
+	ctx := r.Context()
+	key := "views:pending:" + params.StateSlug + ":" + params.SublocationSlug + ":" + params.Slug
+
+	pending, err := c.Incr(ctx, key)
+	if err != nil {
+		slog.Warn("view counter increment failed", "key", key, "error", err)
+		return
+	}
+	if pending < viewFlushThreshold {
+		return
+	}
+
+	q := db.New(pool)
+	camera, err := q.GetVideoBySlug(ctx, params)
+	if err != nil {
+		return // Unknown slug — nothing to flush to.
+	}
+	if err := q.IncrementVideoViews(ctx, db.IncrementVideoViewsParams{
+		VideoID:   camera.VideoID,
+		ViewCount: pending,
+	}); err != nil {
+		slog.Warn("view counter flush failed", "video_id", camera.VideoID, "error", err)
+		return // Leave the buffer intact; the next request retries.
+	}
+	if err := c.DecrBy(ctx, key, pending); err != nil {
+		slog.Warn("view counter drain failed", "key", key, "error", err)
 	}
 }
 
@@ -188,12 +283,12 @@ func UpdateVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 }
 
 type createVideoRequest struct {
-	Title          string `json:"title"`
-	Src            string `json:"src"`
-	Type           string `json:"type"`
-	StateID        int32  `json:"state_id"`
-	SublocationID  *int32 `json:"sublocation_id"`
-	Status         string `json:"status"`
+	Title         string `json:"title"`
+	Src           string `json:"src"`
+	Type          string `json:"type"`
+	StateID       int32  `json:"state_id"`
+	SublocationID *int32 `json:"sublocation_id"`
+	Status        string `json:"status"`
 }
 
 // CreateVideo handles POST /videos (admin only).
