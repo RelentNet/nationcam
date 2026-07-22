@@ -51,8 +51,10 @@ services:
       RESTREAMER_PASS: ${RESTREAMER_PASS:-}
       STREAMER_API_KEY: ${STREAMER_API_KEY:-}
 
-  # ── Web (nginx + React SPA) ───────────────────────────────
-  # Domain set in Coolify general tab: https://nationcam.com
+  # ── Web (nginx + React SPA) — LEGACY, kept for rollback ───
+  # Still built and running, but no longer holds the domain after the P1c
+  # cutover. To roll back: move https://nationcam.com off `web-next` and back
+  # onto this service in Coolify's general tab. No rebuild required.
   web:
     build:
       context: ./web
@@ -61,6 +63,26 @@ services:
         VITE_LOGTO_APP_ID: ${LOGTO_APP_ID:-}
         VITE_LOGTO_API_RESOURCE: ${LOGTO_API_RESOURCE:-https://api.nationcam.com}
     restart: unless-stopped
+    depends_on:
+      - api
+
+  # ── Web Next (TanStack Start SSR on Nitro) ────────────────
+  # Domain set in Coolify general tab: https://nationcam.com
+  # Serves /* itself and proxies /api/* to the Go API over this network, so it
+  # is a drop-in replacement for the nginx `web` service on the same domain.
+  web-next:
+    build:
+      context: ./web-next
+      args:
+        VITE_LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-https://auth.nationcam.com}
+        VITE_LOGTO_APP_ID: ${LOGTO_APP_ID:-}
+        VITE_LOGTO_API_RESOURCE: ${LOGTO_API_RESOURCE:-https://api.nationcam.com}
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      # Internal address. Server renders and the /api proxy must stay inside
+      # the Docker network — the app refuses to start in production without it.
+      API_URL: ${API_URL:-http://api:8080}
     depends_on:
       - api
 

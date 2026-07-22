@@ -2,29 +2,39 @@
 
 ## Project Overview
 
-NationCam — a live camera aggregation platform. React 19 SPA (TanStack Router) served by nginx, backed by a custom Go API (Chi router) with PostgreSQL and Redis. Authentication via self-hosted Logto (OIDC), deployed as a separate Coolify service. The main stack is deployed via Docker Compose on Coolify.
+NationCam — a live camera aggregation platform. React 19 + TanStack Start (SSR on Nitro) in `web-next/`, backed by a custom Go API (Chi router) with PostgreSQL and Redis. The original client-only SPA in `web/` (nginx) is kept built and running purely as a rollback target. Authentication via self-hosted Logto (OIDC), deployed as a separate Coolify service. The main stack is deployed via Docker Compose on Coolify.
 
 ## Architecture
 
 ```
-Browser ──▶ nginx (web service)
+Browser ──▶ web-next (TanStack Start SSR on Nitro)
                │
-               ├── /api/streams/*  ──▶  Go API ──▶ Restreamer Core API (streamer.nationcam.com)
-               ├── /api/*          ──▶  Go API (Chi) ──▶ PostgreSQL + Redis
+               ├── /api/*  ──▶  Go API (Chi) ──▶ PostgreSQL + Redis
+               │                  └─ /api/streams/* ──▶ Restreamer Core API
                │
-               └── /*              ──▶  React SPA (static files, index.html fallback)
+               └── /*      ──▶  server-rendered React
+                                (/dashboard, /admin, /callback are ssr:false —
+                                 shell renders, page mounts client-side)
+
+Server loaders ──▶ http://api:8080 (internal, never the public URL)
 
 Browser ──▶ auth.nationcam.com ──▶ Logto (separate Coolify service, not in this compose)
 ```
 
-### Services (Docker Compose — 4 total)
+### Services (Docker Compose — 5 total)
 
-| Service    | Image / Build        | Purpose                         | Port  |
-| ---------- | -------------------- | ------------------------------- | ----- |
-| `postgres` | postgres:17-alpine   | App database (states, videos)   | 5432  |
-| `redis`    | redis:7-alpine       | Response cache (5-min TTL)      | 6379  |
-| `api`      | ./api (Go, built)    | Custom REST API                 | 8080  |
-| `web`      | ./web (nginx + SPA)  | Static frontend + /api/ proxy   | 80    |
+| Service    | Image / Build            | Purpose                          | Port  |
+| ---------- | ------------------------ | -------------------------------- | ----- |
+| `postgres` | postgres:17-alpine       | App database (states, videos)     | 5432  |
+| `redis`    | redis:7-alpine           | Response cache (5-min TTL)        | 6379  |
+| `api`      | ./api (Go, built)        | Custom REST API                   | 8080  |
+| `web-next` | ./web-next (Node/Nitro)  | SSR frontend + /api/ proxy        | 3000  |
+| `web`      | ./web (nginx + SPA)      | Legacy SPA — rollback target only | 80    |
+
+**Cutover / rollback.** The domain `https://nationcam.com` lives on `web-next`.
+To roll back, move that domain back onto `web` in Coolify's general tab and
+redeploy — both services stay built and running, so it is a config flip with no
+code change.
 
 ### Auth Flow
 
@@ -44,7 +54,8 @@ is (a) defined on the API resource, (b) granted to the user via a role, **and**
    ("Full administrative access to NationCam write endpoints").
 2. Roles → create `admin` → assign the `admin` permission from that API resource.
 3. Users → your account → Roles → assign `admin`.
-4. `web/src/components/LogtoProvider.tsx` → `scopes` must include `'admin'`.
+4. `web-next/src/components/LogtoProvider.tsx` (and `web/`'s copy) → `scopes`
+   must include `'admin'`.
    Logto's *scope subset rule* means a token can only carry scopes the client
    asked for at sign-in, so without this the claim is empty no matter what roles
    the user has. Existing sessions must sign out and back in after this changes.
@@ -58,8 +69,9 @@ Logto is a **separate Coolify service** (not part of this docker-compose stack).
 ### Deployment (Coolify)
 
 **Domains** — set in Coolify's general tab per service (NOT env vars):
-- `web`: `https://nationcam.com`
-- `api`: `https://api.nationcam.com` (optional — frontend accesses API via nginx proxy at `/api/*`)
+- `web-next`: `https://nationcam.com` (port 3000)
+- `web`: no domain — legacy SPA kept only as a rollback target
+- `api`: `https://api.nationcam.com` (optional — the frontend reaches the API via the same-origin `/api/*` proxy)
 
 Logto is deployed as a separate Coolify service with its own domains:
 - Auth endpoint: `https://auth.nationcam.com`
@@ -73,6 +85,7 @@ POSTGRES_PASSWORD=<strong password>
 LOGTO_ENDPOINT=https://auth.nationcam.com
 LOGTO_APP_ID=<from Logto admin console>
 LOGTO_API_RESOURCE=https://api.nationcam.com
+API_URL=http://api:8080   # internal Go API address for SSR; web-next 500s without it in production
 
 # Optional — enable RTSP-to-HLS stream management
 RESTREAMER_URL=https://streamer.nationcam.com
@@ -94,7 +107,8 @@ STREAMER_API_KEY=<secret key for /api/streams/* endpoints>
 **Technical notes:**
 - **Go API LOGTO_ENDPOINT**: Points to the public Logto URL (`https://auth.nationcam.com`). The API fetches JWKS from `{LOGTO_ENDPOINT}/oidc/.well-known/openid-configuration` to validate JWTs.
 - **Go API DATABASE_URL**: Uses pgx key-value DSN format (`host=... password=...`) instead of URL format to avoid issues with special characters in passwords.
-- **Web Dockerfile build args**: `VITE_LOGTO_ENDPOINT`, `VITE_LOGTO_APP_ID`, and `VITE_LOGTO_API_RESOURCE` are passed as build args and baked into the SPA at build time.
+- **Web Dockerfile build args**: `VITE_LOGTO_ENDPOINT`, `VITE_LOGTO_APP_ID`, and `VITE_LOGTO_API_RESOURCE` are passed as build args and baked into the client bundle at build time — for both `web` and `web-next`.
+- **web-next API_URL**: read at *runtime*, not baked in, so one image works anywhere. It has no production fallback on purpose: a deploy that forgot it would otherwise silently round-trip every server render out to the public internet, so `web-next` returns 500 with `API_URL is not set...` instead.
 
 ## Commands
 

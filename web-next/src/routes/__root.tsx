@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import GrainOverlay from '@/components/GrainOverlay'
 import ThemeProvider, { themeInitScript } from '@/components/ThemeProvider'
+import LogtoProvider from '@/components/LogtoProvider'
 
 import appCss from '@/styles.css?url'
 
@@ -51,12 +52,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <ThemeProvider>
-          <GrainOverlay />
-          <Navbar />
-          <main className="pt-14">{children}</main>
-          <Footer />
-        </ThemeProvider>
+        {/* Logto's browser client is SSR-safe (its storage no-ops without a
+            `window`) and starts in the loading state on both sides, so the
+            provider can wrap the server-rendered shell without a mismatch. */}
+        <LogtoProvider>
+          <ThemeProvider>
+            <GrainOverlay />
+            <Navbar />
+            <main className="pt-14">{children}</main>
+            <Footer />
+          </ThemeProvider>
+        </LogtoProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',

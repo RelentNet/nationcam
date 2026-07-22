@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Github, Home, Mail, MapPin, Menu, Moon, Sun, X } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 import Logo from '@/components/Logo'
+import UserMenu from '@/components/UserMenu'
 
 const navLinks = [
   { to: '/' as const, label: 'Home', icon: Home },
@@ -84,7 +85,10 @@ export default function Navbar() {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          {/* User avatar / sign-in — desktop. Restored in P1c with Logto. */}
+          {/* User avatar / sign-in — desktop */}
+          <div className="hidden md:block">
+            <UserMenu />
+          </div>
 
           {/* Mobile menu toggle */}
           <button
@@ -100,9 +104,7 @@ export default function Navbar() {
       {/* Mobile menu — smooth spring slide */}
       <div
         className={`border-t border-overlay0/30 transition-[clip-path,opacity] duration-500 ease-[var(--spring-smooth)] md:hidden ${
-          menuOpen
-            ? 'opacity-100'
-            : 'opacity-0 border-transparent'
+          menuOpen ? 'opacity-100' : 'opacity-0 border-transparent'
         }`}
         style={{
           clipPath: menuOpen ? 'inset(0)' : 'inset(0 0 100% 0)',
@@ -118,9 +120,7 @@ export default function Navbar() {
                   key={to}
                   style={{
                     opacity: menuOpen ? 1 : 0,
-                    transform: menuOpen
-                      ? 'translateX(0)'
-                      : 'translateX(-12px)',
+                    transform: menuOpen ? 'translateX(0)' : 'translateX(-12px)',
                     transition: `opacity 300ms ease ${index * 60}ms, transform 400ms var(--spring-smooth) ${index * 60}ms`,
                   }}
                 >
@@ -141,7 +141,10 @@ export default function Navbar() {
             })}
           </ul>
 
-          {/* Mobile auth section. Restored in P1c with Logto. */}
+          {/* Mobile auth section */}
+          <div className="mt-2 border-t border-overlay0/30 pt-2">
+            <UserMenu />
+          </div>
         </div>
       </div>
     </nav>
