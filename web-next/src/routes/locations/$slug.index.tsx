@@ -85,6 +85,12 @@ function StatePage() {
   // Search + sort across ALL videos on this state page
   const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
 
+  // The video payload carries sublocation_id but not its slug, which the
+  // camera-page links need.
+  const subSlugById = new Map(
+    sublocations.map((sub) => [sub.sublocation_id, sub.slug]),
+  )
+
   // When searching, show a flat list (search crosses sublocation boundaries)
   const isSearching = search.trim().length > 0
 
@@ -131,6 +137,12 @@ function StatePage() {
                       key={video.video_id}
                       video={video}
                       showLocation
+                      stateSlug={slug}
+                      sublocationSlug={
+                        video.sublocation_id
+                          ? subSlugById.get(video.sublocation_id)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -161,7 +173,12 @@ function StatePage() {
                   <Reveal stagger>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {subVideos.map((video) => (
-                        <VideoCard key={video.video_id} video={video} />
+                        <VideoCard
+                          key={video.video_id}
+                          video={video}
+                          stateSlug={slug}
+                          sublocationSlug={sublocation.slug}
+                        />
                       ))}
                     </div>
                   </Reveal>

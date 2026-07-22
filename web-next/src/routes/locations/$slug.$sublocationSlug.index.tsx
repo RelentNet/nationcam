@@ -8,7 +8,7 @@ import CameraToolbar from '@/components/CameraToolbar'
 import Reveal from '@/components/Reveal'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
 
-export const Route = createFileRoute('/locations/$slug/$sublocationSlug')({
+export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
   loader: async ({ params }) => {
     const sublocation = await fetchSublocationBySlug(
       params.sublocationSlug,
@@ -74,6 +74,7 @@ function SublocationNotFound() {
 }
 
 function SublocationPage() {
+  const { slug, sublocationSlug } = Route.useParams()
   const { sublocation, videos } = Route.useLoaderData()
 
   const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
@@ -98,7 +99,12 @@ function SublocationPage() {
           <Reveal stagger>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((video) => (
-                <VideoCard key={video.video_id} video={video} />
+                <VideoCard
+                  key={video.video_id}
+                  video={video}
+                  stateSlug={slug}
+                  sublocationSlug={sublocationSlug}
+                />
               ))}
             </div>
           </Reveal>
