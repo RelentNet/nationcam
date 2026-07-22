@@ -31,6 +31,9 @@ LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.sublocation_id = $1 AND v.status = 'active'
 ORDER BY v.title;
 
+-- name: ListVideoSources :many
+SELECT DISTINCT src FROM videos;
+
 -- name: GetVideoByID :one
 SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,

@@ -107,6 +107,30 @@ func (q *Queries) GetVideoByID(ctx context.Context, videoID int32) (GetVideoByID
 	return i, err
 }
 
+const listVideoSources = `-- name: ListVideoSources :many
+SELECT DISTINCT src FROM videos
+`
+
+func (q *Queries) ListVideoSources(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listVideoSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var src string
+		if err := rows.Scan(&src); err != nil {
+			return nil, err
+		}
+		items = append(items, src)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVideos = `-- name: ListVideos :many
 SELECT v.video_id, v.title, v.src, v.type, v.state_id, v.sublocation_id,
        v.status, v.created_by, v.created_at, v.updated_at,

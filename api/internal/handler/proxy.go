@@ -7,23 +7,79 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/brandon-relentnet/nationcam/api/internal/db"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
-	proxyTimeout     = 10 * time.Second
-	proxyMaxBodySize = 50 * 1024 * 1024 // 50 MB
+	proxyTimeout      = 10 * time.Second
+	proxyMaxBodySize  = 50 * 1024 * 1024 // 50 MB
+	allowlistCacheTTL = 5 * time.Minute
 )
 
-var proxyClient = &http.Client{
-	Timeout: proxyTimeout,
-	// Don't follow redirects automatically — we'll handle them
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 5 {
-			return fmt.Errorf("too many redirects")
+// hostAllowlist restricts the stream proxy to hosts of video sources that
+// actually exist in the database (plus statically configured extras such as
+// the Restreamer host). This prevents the proxy from being used as an open
+// relay or an SSRF vector into the internal network.
+type hostAllowlist struct {
+	pool  *pgxpool.Pool
+	extra map[string]struct{}
+
+	mu      sync.RWMutex
+	hosts   map[string]struct{}
+	fetched time.Time
+}
+
+func newHostAllowlist(pool *pgxpool.Pool, extraHosts []string) *hostAllowlist {
+	extra := make(map[string]struct{}, len(extraHosts))
+	for _, h := range extraHosts {
+		if h != "" {
+			extra[strings.ToLower(h)] = struct{}{}
 		}
-		return nil
-	},
+	}
+	return &hostAllowlist{pool: pool, extra: extra}
+}
+
+func (a *hostAllowlist) allowed(r *http.Request, host string) bool {
+	host = strings.ToLower(host)
+	if _, ok := a.extra[host]; ok {
+		return true
+	}
+
+	a.mu.RLock()
+	fresh := a.hosts != nil && time.Since(a.fetched) < allowlistCacheTTL
+	_, ok := a.hosts[host]
+	a.mu.RUnlock()
+	if fresh {
+		return ok
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.hosts == nil || time.Since(a.fetched) >= allowlistCacheTTL {
+		srcs, err := db.New(a.pool).ListVideoSources(r.Context())
+		if err != nil {
+			slog.Warn("proxy: allowlist refresh failed", "err", err)
+			// Fall back to the stale set if we have one; deny otherwise.
+			if a.hosts == nil {
+				return false
+			}
+		} else {
+			hosts := make(map[string]struct{}, len(srcs))
+			for _, src := range srcs {
+				if u, err := url.Parse(src); err == nil && u.Hostname() != "" {
+					hosts[strings.ToLower(u.Hostname())] = struct{}{}
+				}
+			}
+			a.hosts = hosts
+			a.fetched = time.Now()
+		}
+	}
+	_, ok = a.hosts[host]
+	return ok
 }
 
 // StreamProxy fetches an HLS manifest or segment from a remote URL and returns
@@ -32,9 +88,28 @@ var proxyClient = &http.Client{
 //
 // Usage: GET /stream-proxy?url=<encoded-url>
 //
+// Only URLs whose host matches a video source stored in the database (or an
+// explicitly configured extra host) are proxied.
+//
 // For .m3u8 manifests the handler rewrites relative and absolute segment URLs
 // so the browser fetches those through the proxy too.
-func StreamProxy() http.HandlerFunc {
+func StreamProxy(pool *pgxpool.Pool, extraHosts []string) http.HandlerFunc {
+	allowlist := newHostAllowlist(pool, extraHosts)
+
+	proxyClient := &http.Client{
+		Timeout: proxyTimeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			// Redirect targets must also be allowlisted.
+			if !allowlist.allowed(req, req.URL.Hostname()) {
+				return fmt.Errorf("redirect to disallowed host %q", req.URL.Hostname())
+			}
+			return nil
+		},
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		rawURL := r.URL.Query().Get("url")
 		if rawURL == "" {
@@ -45,6 +120,12 @@ func StreamProxy() http.HandlerFunc {
 		parsed, err := url.Parse(rawURL)
 		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 			http.Error(w, `{"error":"invalid url — only http/https allowed"}`, http.StatusBadRequest)
+			return
+		}
+
+		if !allowlist.allowed(r, parsed.Hostname()) {
+			slog.Warn("proxy: disallowed host", "url", rawURL, "host", parsed.Hostname())
+			http.Error(w, `{"error":"host not allowed"}`, http.StatusForbidden)
 			return
 		}
 

@@ -43,6 +43,7 @@ services:
       DATABASE_URL: "host=postgres port=5432 user=nationcam password=${POSTGRES_PASSWORD} dbname=nationcam sslmode=disable"
       REDIS_URL: redis://redis:6379/0
       LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-https://auth.nationcam.com}
+      LOGTO_API_RESOURCE: ${LOGTO_API_RESOURCE:-https://api.nationcam.com}
       CORS_ORIGINS: ${SERVICE_URL_WEB:-http://localhost:3000}
       # Restreamer (optional — leave empty to disable stream management)
       RESTREAMER_URL: ${RESTREAMER_URL:-}
