@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NationCam — Build Roadmap</title>
+<style>
+  :root{
+    --color-text-primary:#1b1d21;
+    --color-text-secondary:#5a616b;
+    --color-background-primary:#ffffff;
+    --color-border-secondary:#d6d9de;
+    --page-bg:#f6f7f9;
+    --card-bg:#ffffff;
+    --done:#2f9e6b;
+    --now:#e08a2b;
+    --addon:#6b6fe0;
+    --defer:#9aa0a6;
+    --row-alt:#fafbfc;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --color-text-primary:#ececee;
+      --color-text-secondary:#a0a5ad;
+      --color-background-primary:#23262b;
+      --color-border-secondary:#3a3f47;
+      --page-bg:#16181c;
+      --card-bg:#1e2127;
+      --row-alt:#22262c;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;padding:40px 20px;background:var(--page-bg);
+    color:var(--color-text-primary);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;
+  }
+  .wrap{max-width:880px;margin:0 auto;}
+  header.doc{margin-bottom:8px;}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-0.01em;}
+  .sub{color:var(--color-text-secondary);font-size:14px;margin:0 0 12px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 26px;}
+  .chip{font-size:12.5px;font-weight:600;padding:3px 11px;border-radius:999px;background:rgba(47,158,107,.15);color:var(--done);}
+  .card{
+    background:var(--card-bg);border:1px solid var(--color-border-secondary);
+    border-radius:14px;padding:22px 24px;margin:0 0 22px;
+  }
+  .card.viz{padding:14px;}
+  h2{font-size:16px;margin:0 0 14px;letter-spacing:.02em;text-transform:uppercase;color:var(--color-text-secondary);font-weight:700;}
+  svg{display:block;width:100%;height:auto;}
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--color-border-secondary);}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-secondary);}
+  tbody tr:nth-child(odd){background:var(--row-alt);}
+  td.code{font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;}
+  .b-done{background:rgba(47,158,107,.15);color:var(--done);}
+  .b-now{background:rgba(224,138,43,.18);color:var(--now);}
+  .b-addon{background:rgba(107,111,224,.15);color:var(--addon);}
+  .b-todo{border:1px solid var(--color-border-secondary);color:var(--color-text-secondary);}
+  .b-partial{background:rgba(224,138,43,.10);color:var(--now);border:1px solid rgba(224,138,43,.35);}
+  ul{margin:0;padding-left:20px;}
+  li{margin:7px 0;}
+  .path{font-size:15px;line-height:2;}
+  .path b{background:rgba(224,138,43,.14);padding:1px 7px;border-radius:6px;}
+  .path b.addon{background:rgba(107,111,224,.16);}
+  .note{font-size:13px;color:var(--color-text-secondary);margin-top:20px;text-align:center;}
+  code{background:var(--row-alt);padding:1px 5px;border-radius:5px;font-size:.9em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc">
+    <h1>NationCam — Build Roadmap</h1>
+    <p class="sub">Snapshot <strong>2026-07-21</strong> — security hardening shipped; next up: server-rendered relaunch of the web tier for SEO, then camera pages and locally-targeted pre-roll ads.</p>
+    <div class="chips">
+      <span class="chip">1 / 8 core phases shipped</span>
+      <span class="chip">Competitor benchmark: EarthCam</span>
+      <span class="chip">Stack: Go API · Postgres · Redis · Logto · Restreamer</span>
+    </div>
+  </header>
+
+  <!-- ============ ROADMAP VISUAL ============ -->
+  <div class="card viz">
+    <svg viewBox="0 0 768 490" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <title>NationCam — Build Roadmap</title>
+    <desc>Timeline of the NationCam overhaul: security hardening shipped; TanStack Start SSR migration up next; then camera pages, scoped local ads, RBAC and accounts, unified camera model, restream dashboard, viewer experience; programmatic ads and an advertiser portal as add-ons.</desc>
+    <text x="24" y="34" font-size="22" font-weight="700" fill="var(--color-text-primary)">NationCam — Build Roadmap</text>
+    <text x="24" y="57" font-size="13" fill="var(--color-text-secondary)">Overhaul: SSR relaunch → camera pages → local ads → restream platform</text>
+    <text x="744" y="78" font-size="11" text-anchor="end" fill="var(--color-text-secondary)">~11%</text>
+    <rect x="24" y="84" width="720" height="6" rx="3" fill="var(--color-border-secondary)" opacity="0.5"/>
+    <rect x="24" y="84" width="79.2" height="6" rx="3" fill="#2f9e6b"/>
+    <path d="M397,180 C397,250 70,250 70,310" fill="none" stroke="var(--color-border-secondary)" stroke-width="2.5"/>
+    <line x1="70" y1="310" x2="82" y2="310" stroke="#e08a2b" stroke-width="3"/>
+    <line x1="82" y1="310" x2="700" y2="310" stroke="var(--color-border-secondary)" stroke-width="2.5"/>
+    <g fill="#2f9e6b">
+    <circle cx="397" cy="180" r="13"/>
+    </g>
+    <g font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">
+    <text x="397" y="183.5">SEC</text>
+    </g>
+    <g font-size="10" fill="var(--color-text-secondary)" text-anchor="middle">
+    <text x="397" y="205">Security</text>
+    </g>
+    <circle cx="70" cy="310" r="19" fill="none" stroke="#e08a2b" stroke-width="2" opacity="0.4"/>
+    <circle cx="70" cy="310" r="13" fill="#e08a2b"/>
+    <text x="70" y="313.5" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">P1</text>
+    <rect x="52" y="266" width="36" height="17" rx="8.5" fill="#e08a2b"/>
+    <text x="70" y="278.5" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">NEXT</text>
+    <circle cx="149" cy="310" r="13" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/>
+    <circle cx="228" cy="310" r="13" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/>
+    <circle cx="306" cy="310" r="13" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/>
+    <circle cx="385" cy="310" r="13" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/>
+    <circle cx="464" cy="310" r="13" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/>
+    <circle cx="543" cy="310" r="13" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/>
+    <circle cx="621" cy="310" r="13" fill="var(--color-background-primary)" stroke="#6b6fe0" stroke-width="2.5"/>
+    <circle cx="700" cy="310" r="13" fill="var(--color-background-primary)" stroke="#6b6fe0" stroke-width="2.5"/>
+    <text x="149" y="313.5" font-size="9" font-weight="700" fill="var(--color-text-secondary)" text-anchor="middle">P2</text>
+    <text x="228" y="313.5" font-size="9" font-weight="700" fill="var(--color-text-secondary)" text-anchor="middle">P3</text>
+    <text x="306" y="313.5" font-size="9" font-weight="700" fill="var(--color-text-secondary)" text-anchor="middle">P4</text>
+    <text x="385" y="313.5" font-size="9" font-weight="700" fill="var(--color-text-secondary)" text-anchor="middle">P5</text>
+    <text x="464" y="313.5" font-size="9" font-weight="700" fill="var(--color-text-secondary)" text-anchor="middle">P6</text>
+    <text x="543" y="313.5" font-size="9" font-weight="700" fill="var(--color-text-secondary)" text-anchor="middle">P7</text>
+    <text x="621" y="313.5" font-size="9" font-weight="700" fill="#6b6fe0" text-anchor="middle">IMA</text>
+    <text x="700" y="313.5" font-size="9" font-weight="700" fill="#6b6fe0" text-anchor="middle">ADP</text>
+    <text x="70" y="335" font-size="10.5" fill="var(--color-text-primary)" font-weight="600" text-anchor="middle">SSR relaunch</text>
+    <text x="149" y="335" font-size="10.5" fill="var(--color-text-primary)" font-weight="600" text-anchor="middle">Camera pages</text>
+    <text x="228" y="335" font-size="10.5" fill="var(--color-text-secondary)" text-anchor="middle">Local ads</text>
+    <text x="306" y="335" font-size="10.5" fill="var(--color-text-secondary)" text-anchor="middle">Accounts</text>
+    <text x="385" y="335" font-size="10.5" fill="var(--color-text-secondary)" text-anchor="middle">Camera model</text>
+    <text x="464" y="335" font-size="10.5" fill="var(--color-text-secondary)" text-anchor="middle">Restream</text>
+    <text x="543" y="335" font-size="10.5" fill="var(--color-text-secondary)" text-anchor="middle">Viewer UX</text>
+    <text x="621" y="335" font-size="10.5" fill="#6b6fe0" font-weight="600" text-anchor="middle">IMA ads</text>
+    <text x="700" y="335" font-size="10.5" fill="#6b6fe0" font-weight="600" text-anchor="middle">Ad portal</text>
+    <g font-size="11" fill="var(--color-text-secondary)">
+    <circle cx="110" cy="388" r="6" fill="#2f9e6b"/><text x="122" y="392">Shipped &amp; live</text>
+    <circle cx="330" cy="388" r="6" fill="#e08a2b"/><text x="342" y="392">Up next</text>
+    <circle cx="420" cy="388" r="6" fill="var(--color-background-primary)" stroke="var(--color-border-secondary)" stroke-width="2"/><text x="432" y="392">Ahead</text>
+    <circle cx="500" cy="388" r="6" fill="var(--color-background-primary)" stroke="#6b6fe0" stroke-width="2.5"/><text x="512" y="392">Add-on</text>
+    </g>
+    <line x1="24" y1="410" x2="744" y2="410" stroke="var(--color-border-secondary)" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="24" y="430" font-size="12" font-weight="700" letter-spacing="0.04em" fill="#9aa0a6">Deferred — long-term ideas</text>
+    <g fill="var(--color-background-primary)" stroke="#9aa0a6" stroke-width="2" stroke-dasharray="3 2">
+    <circle cx="64" cy="452" r="12"/>
+    <circle cx="397" cy="452" r="12"/>
+    <circle cx="730" cy="452" r="12"/>
+    </g>
+    <g font-size="9" font-weight="700" fill="#9aa0a6" text-anchor="middle">
+    <text x="64" y="455.5">TV</text>
+    <text x="397" y="455.5">B2B</text>
+    <text x="730" y="455.5">EMB</text>
+    </g>
+    <g font-size="10" fill="#9aa0a6" text-anchor="middle">
+    <text x="64" y="474">Ambient TV</text>
+    <text x="397" y="474">B2B</text>
+    <text x="730" y="474">Embeds</text>
+    </g>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h2>Build packages</h2>
+    <table>
+      <thead><tr><th>#</th><th>Phase</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="code">SEC</td><td>Security hardening <em>(JWT exp/aud/iss validation · stream-proxy host allowlist · first tests)</em></td><td><span class="badge b-done">Shipped 07-21</span></td></tr>
+        <tr><td class="code">P1</td><td>SSR relaunch — <strong>TanStack Start</strong> web tier <em>(port shell + public pages, meta/OG, sitemap)</em></td><td><span class="badge b-now">Up next</span></td></tr>
+        <tr><td class="code">P2</td><td>Camera pages v1 <em>(per-camera URLs + slugs, view counts, share/OG, related cams, JSON-LD)</em></td><td><span class="badge b-todo">Not started</span></td></tr>
+        <tr><td class="code">P3</td><td>Scoped local ads <em>(house MP4 pre-roll · camera/sublocation/state targeting · impressions &amp; clicks reporting)</em></td><td><span class="badge b-todo">Not started</span></td></tr>
+        <tr><td class="code">P4</td><td>Accounts &amp; RBAC <em>(Logto roles, public signup, ownership model — closes the everyone-is-admin hole)</em></td><td><span class="badge b-todo">Not started</span></td></tr>
+        <tr><td class="code">P5</td><td>Unified camera model <em>(merge videos + Restreamer streams, RTSP ingest workflow, real migrations, health/uptime)</em></td><td><span class="badge b-todo">Not started</span></td></tr>
+        <tr><td class="code">P6</td><td>Restream dashboard <em>(datarhei-style: per-camera egress to YouTube / Twitch / custom RTMP, per-output status)</em></td><td><span class="badge b-todo">Not started</span></td></tr>
+        <tr><td class="code">P7</td><td>Viewer experience <em>(weather, world map, favorites, thumbnails, search &amp; discovery rails)</em></td><td><span class="badge b-todo">Not started</span></td></tr>
+        <tr><td class="code">IMA</td><td>Programmatic ads <em>(Google Ad Manager + IMA SDK fill behind direct-sold local ads)</em></td><td><span class="badge b-addon">Add-on</span></td></tr>
+        <tr><td class="code">ADP</td><td>Advertiser self-serve portal <em>(advertiser role, own campaigns + stats, creative upload)</em></td><td><span class="badge b-addon">Add-on</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:14px 0 0;">Order is the recommended build order: P1 before P2 so camera pages are built once, server-rendered. P3 needs only P2; P6 needs P4 + P5. Add-ons slot in when traffic (IMA) or the first real advertisers (ADP) justify them.</p>
+  </div>
+
+  <div class="card">
+    <h2>Build log — 2026-07-21</h2>
+    <table>
+      <thead><tr><th>PR</th><th>Step</th><th>What shipped</th></tr></thead>
+      <tbody>
+        <tr><td class="code">local</td><td>SEC</td><td>JWT validation hardened — <code>exp</code>/<code>nbf</code>/<code>iss</code>/<code>aud</code> checks in auth middleware + first test suite in the repo (fake-JWKS table tests)</td></tr>
+        <tr><td class="code">local</td><td>SEC</td><td>Stream proxy locked down — DB-driven host allowlist (video sources + Restreamer host), redirects validated; closes open SSRF relay</td></tr>
+        <tr><td class="code">—</td><td>plan</td><td>EarthCam teardown (camera-page anatomy, IMA/AdSense ad stack) · scoped local-ads design · SSR decision: TanStack Start</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:12px 0 0;">Security fixes are uncommitted pending review; new env var <code>LOGTO_API_RESOURCE</code> added to docker-compose for the api service.</p>
+  </div>
+
+  <div class="card">
+    <h2>Add-ons (post-core)</h2>
+    <p style="margin:0 0 6px;"><strong style="color:var(--addon)">IMA · Programmatic ads</strong> — Google Ad Manager + IMA SDK as fill behind direct-sold local ads (EarthCam's exact stack). Needs GAM approval + consent management; adopt once traffic justifies it.</p>
+    <p style="margin:0 0 6px;"><strong style="color:var(--addon)">ADP · Advertiser portal</strong> — self-serve campaigns on top of the P3 schema + P4 roles: advertisers manage their own creatives, targeting, and see per-camera impression/click reports.</p>
+  </div>
+
+  <div class="card">
+    <h2>Critical path from here</h2>
+    <p class="path"><b>P1 SSR relaunch</b> → <b>P2 Camera pages</b> → <b>P3 Local ads</b> → <b>P4 Accounts/RBAC</b> → <b>P5 Camera model</b> → <b>P6 Restream</b></p>
+    <p style="font-size:13.5px;color:var(--color-text-secondary);margin:6px 0 0;">P7 Viewer UX layers onto P2 incrementally (weather → map → favorites) and doesn't block the path. Revenue arrives at P3; the differentiator vs EarthCam lands at P6.</p>
+  </div>
+
+  <div class="card">
+    <h2>Deferred — long-term ideas</h2>
+    <ul>
+      <li><strong>TV</strong> — NationCamTV — lean-back ambient channel (rotating best cams, TV apps)</li>
+      <li><strong>B2B</strong> — Construction / time-lapse monitoring SaaS (EarthCam.net's revenue model)</li>
+      <li><strong>EMB</strong> — Embeddable player for third-party sites (traffic + backlink flywheel)</li>
+    </ul>
+    <p style="margin:12px 0 0;font-size:13.5px;color:var(--color-text-secondary);">EarthCam legs worth copying eventually, parked until the core platform ships.</p>
+  </div>
+
+  <div class="card">
+    <h2>Open follow-ups (non-blocking)</h2>
+    <ul>
+      <li>Commit + deploy the SEC fixes (build/tests green; <code>LOGTO_API_RESOURCE</code> defaults to the prod resource so no Coolify change needed)</li>
+      <li>Contact form is a stub — fakes success, discards the message (task chip spawned)</li>
+      <li>Admin dashboard can't see inactive cameras — paginated query filters <code>status='active'</code> (task chip spawned)</li>
+      <li>Fold the 2,215-line dashboard monolith split + TanStack Query adoption into the P1 port rather than doing it twice</li>
+    </ul>
+  </div>
+
+  <p class="note">Backend (Go API, Postgres, Redis, Logto, Restreamer) is kept through the relaunch — only the web tier is rebuilt.</p>
+</div>
+<script type="application/json" id="roadmap-model">
+{
+  "meta": {
+    "title": "NationCam — Build Roadmap",
+    "svgTitle": "NationCam — Build Roadmap",
+    "svgSubtitle": "Overhaul: SSR relaunch → camera pages → local ads → restream platform",
+    "desc": "Timeline of the NationCam overhaul: security hardening shipped; TanStack Start SSR migration up next; then camera pages, scoped local ads, RBAC and accounts, unified camera model, restream dashboard, viewer experience; programmatic ads and an advertiser portal as add-ons.",
+    "snapshot": "2026-07-21",
+    "progress": 11,
+    "subtitle": "Snapshot <strong>2026-07-21<\/strong> — security hardening shipped; next up: server-rendered relaunch of the web tier for SEO, then camera pages and locally-targeted pre-roll ads.",
+    "chips": [
+      "1 / 8 core phases shipped",
+      "Competitor benchmark: EarthCam",
+      "Stack: Go API · Postgres · Redis · Logto · Restreamer"
+    ],
+    "footer": "Backend (Go API, Postgres, Redis, Logto, Restreamer) is kept through the relaunch — only the web tier is rebuilt."
+  },
+  "phases": [
+    {
+      "code": "SEC",
+      "label": "Security hardening <em>(JWT exp/aud/iss validation · stream-proxy host allowlist · first tests)<\/em>",
+      "short": "Security",
+      "status": "shipped",
+      "statusLabel": "Shipped 07-21",
+      "revisions": []
+    },
+    {
+      "code": "P1",
+      "label": "SSR relaunch — <strong>TanStack Start<\/strong> web tier <em>(port shell + public pages, meta/OG, sitemap)<\/em>",
+      "short": "SSR relaunch",
+      "status": "next",
+      "revisions": []
+    },
+    {
+      "code": "P2",
+      "label": "Camera pages v1 <em>(per-camera URLs + slugs, view counts, share/OG, related cams, JSON-LD)<\/em>",
+      "short": "Camera pages",
+      "status": "ahead",
+      "emphasis": true,
+      "revisions": []
+    },
+    {
+      "code": "P3",
+      "label": "Scoped local ads <em>(house MP4 pre-roll · camera/sublocation/state targeting · impressions &amp; clicks reporting)<\/em>",
+      "short": "Local ads",
+      "status": "ahead",
+      "revisions": []
+    },
+    {
+      "code": "P4",
+      "label": "Accounts &amp; RBAC <em>(Logto roles, public signup, ownership model — closes the everyone-is-admin hole)<\/em>",
+      "short": "Accounts",
+      "status": "ahead",
+      "revisions": []
+    },
+    {
+      "code": "P5",
+      "label": "Unified camera model <em>(merge videos + Restreamer streams, RTSP ingest workflow, real migrations, health/uptime)<\/em>",
+      "short": "Camera model",
+      "status": "ahead",
+      "revisions": []
+    },
+    {
+      "code": "P6",
+      "label": "Restream dashboard <em>(datarhei-style: per-camera egress to YouTube / Twitch / custom RTMP, per-output status)<\/em>",
+      "short": "Restream",
+      "status": "ahead",
+      "revisions": []
+    },
+    {
+      "code": "P7",
+      "label": "Viewer experience <em>(weather, world map, favorites, thumbnails, search &amp; discovery rails)<\/em>",
+      "short": "Viewer UX",
+      "status": "ahead",
+      "revisions": []
+    },
+    {
+      "code": "IMA",
+      "label": "Programmatic ads <em>(Google Ad Manager + IMA SDK fill behind direct-sold local ads)<\/em>",
+      "short": "IMA ads",
+      "status": "addon",
+      "revisions": []
+    },
+    {
+      "code": "ADP",
+      "label": "Advertiser self-serve portal <em>(advertiser role, own campaigns + stats, creative upload)<\/em>",
+      "short": "Ad portal",
+      "status": "addon",
+      "revisions": []
+    }
+  ],
+  "tableNote": "Order is the recommended build order: P1 before P2 so camera pages are built once, server-rendered. P3 needs only P2; P6 needs P4 + P5. Add-ons slot in when traffic (IMA) or the first real advertisers (ADP) justify them.",
+  "buildLog": {
+    "title": "Build log — 2026-07-21",
+    "rows": [
+      {
+        "pr": "local",
+        "step": "SEC",
+        "what": "JWT validation hardened — <code>exp<\/code>/<code>nbf<\/code>/<code>iss<\/code>/<code>aud<\/code> checks in auth middleware + first test suite in the repo (fake-JWKS table tests)"
+      },
+      {
+        "pr": "local",
+        "step": "SEC",
+        "what": "Stream proxy locked down — DB-driven host allowlist (video sources + Restreamer host), redirects validated; closes open SSRF relay"
+      },
+      {
+        "pr": "—",
+        "step": "plan",
+        "what": "EarthCam teardown (camera-page anatomy, IMA/AdSense ad stack) · scoped local-ads design · SSR decision: TanStack Start"
+      }
+    ],
+    "note": "Security fixes are uncommitted pending review; new env var <code>LOGTO_API_RESOURCE<\/code> added to docker-compose for the api service."
+  },
+  "addons": {
+    "title": "Add-ons (post-core)",
+    "items": [
+      {
+        "html": "<strong style=\"color:var(--addon)\">IMA · Programmatic ads<\/strong> — Google Ad Manager + IMA SDK as fill behind direct-sold local ads (EarthCam's exact stack). Needs GAM approval + consent management; adopt once traffic justifies it."
+      },
+      {
+        "html": "<strong style=\"color:var(--addon)\">ADP · Advertiser portal<\/strong> — self-serve campaigns on top of the P3 schema + P4 roles: advertisers manage their own creatives, targeting, and see per-camera impression/click reports."
+      }
+    ]
+  },
+  "criticalPath": {
+    "title": "Critical path from here",
+    "steps": [
+      {
+        "label": "P1 SSR relaunch"
+      },
+      {
+        "label": "P2 Camera pages"
+      },
+      {
+        "label": "P3 Local ads"
+      },
+      {
+        "label": "P4 Accounts/RBAC"
+      },
+      {
+        "label": "P5 Camera model"
+      },
+      {
+        "label": "P6 Restream"
+      }
+    ],
+    "note": "P7 Viewer UX layers onto P2 incrementally (weather → map → favorites) and doesn't block the path. Revenue arrives at P3; the differentiator vs EarthCam lands at P6."
+  },
+  "followUps": {
+    "title": "Open follow-ups (non-blocking)",
+    "items": [
+      "Commit + deploy the SEC fixes (build/tests green; <code>LOGTO_API_RESOURCE<\/code> defaults to the prod resource so no Coolify change needed)",
+      "Contact form is a stub — fakes success, discards the message (task chip spawned)",
+      "Admin dashboard can't see inactive cameras — paginated query filters <code>status='active'<\/code> (task chip spawned)",
+      "Fold the 2,215-line dashboard monolith split + TanStack Query adoption into the P1 port rather than doing it twice"
+    ]
+  },
+  "deferred": {
+    "title": "Deferred — long-term ideas",
+    "note": "EarthCam legs worth copying eventually, parked until the core platform ships.",
+    "items": [
+      {
+        "code": "TV",
+        "short": "Ambient TV",
+        "label": "NationCamTV — lean-back ambient channel (rotating best cams, TV apps)"
+      },
+      {
+        "code": "B2B",
+        "short": "B2B",
+        "label": "Construction / time-lapse monitoring SaaS (EarthCam.net's revenue model)"
+      },
+      {
+        "code": "EMB",
+        "short": "Embeds",
+        "label": "Embeddable player for third-party sites (traffic + backlink flywheel)"
+      }
+    ]
+  },
+  "palette": {
+    "done": "#2f9e6b",
+    "now": "#e08a2b",
+    "addon": "#6b6fe0",
+    "defer": "#9aa0a6"
+  }
+}
+</script>
+</body>
+</html>
