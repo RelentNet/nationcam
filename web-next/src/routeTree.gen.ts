@@ -10,8 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as LocationsIndexRouteImport } from './routes/locations/index'
 import { Route as LocationsSlugIndexRouteImport } from './routes/locations/$slug.index'
 import { Route as LocationsSlugSublocationSlugRouteImport } from './routes/locations/$slug.$sublocationSlug'
@@ -21,14 +25,34 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CallbackRoute = CallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LocationsIndexRoute = LocationsIndexRouteImport.update({
@@ -50,16 +74,24 @@ const LocationsSlugSublocationSlugRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/callback': typeof CallbackRoute
   '/contact': typeof ContactRoute
+  '/dashboard': typeof DashboardRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/$': typeof ApiSplatRoute
   '/locations/': typeof LocationsIndexRoute
   '/locations/$slug/$sublocationSlug': typeof LocationsSlugSublocationSlugRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/callback': typeof CallbackRoute
   '/contact': typeof ContactRoute
+  '/dashboard': typeof DashboardRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/$': typeof ApiSplatRoute
   '/locations': typeof LocationsIndexRoute
   '/locations/$slug/$sublocationSlug': typeof LocationsSlugSublocationSlugRoute
   '/locations/$slug': typeof LocationsSlugIndexRoute
@@ -67,8 +99,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/callback': typeof CallbackRoute
   '/contact': typeof ContactRoute
+  '/dashboard': typeof DashboardRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/$': typeof ApiSplatRoute
   '/locations/': typeof LocationsIndexRoute
   '/locations/$slug/$sublocationSlug': typeof LocationsSlugSublocationSlugRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
@@ -77,24 +113,36 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/callback'
     | '/contact'
+    | '/dashboard'
     | '/sitemap.xml'
+    | '/api/$'
     | '/locations/'
     | '/locations/$slug/$sublocationSlug'
     | '/locations/$slug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
+    | '/callback'
     | '/contact'
+    | '/dashboard'
     | '/sitemap.xml'
+    | '/api/$'
     | '/locations'
     | '/locations/$slug/$sublocationSlug'
     | '/locations/$slug'
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/callback'
     | '/contact'
+    | '/dashboard'
     | '/sitemap.xml'
+    | '/api/$'
     | '/locations/'
     | '/locations/$slug/$sublocationSlug'
     | '/locations/$slug/'
@@ -102,8 +150,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  CallbackRoute: typeof CallbackRoute
   ContactRoute: typeof ContactRoute
+  DashboardRoute: typeof DashboardRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiSplatRoute: typeof ApiSplatRoute
   LocationsIndexRoute: typeof LocationsIndexRoute
   LocationsSlugSublocationSlugRoute: typeof LocationsSlugSublocationSlugRoute
   LocationsSlugIndexRoute: typeof LocationsSlugIndexRoute
@@ -118,6 +170,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/callback': {
+      id: '/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof CallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
@@ -125,11 +191,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/locations/': {
@@ -158,8 +238,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  CallbackRoute: CallbackRoute,
   ContactRoute: ContactRoute,
+  DashboardRoute: DashboardRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiSplatRoute: ApiSplatRoute,
   LocationsIndexRoute: LocationsIndexRoute,
   LocationsSlugSublocationSlugRoute: LocationsSlugSublocationSlugRoute,
   LocationsSlugIndexRoute: LocationsSlugIndexRoute,
