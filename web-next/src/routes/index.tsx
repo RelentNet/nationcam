@@ -9,9 +9,20 @@ import {
   Radio,
 } from 'lucide-react'
 import StreamPlayer from '@/components/StreamPlayer'
+import ContactCTA from '@/components/ContactCTA'
 import Reveal from '@/components/Reveal'
+import { seo } from '@/lib/seo'
 
-export const Route = createFileRoute('/')({ component: HomePage })
+export const Route = createFileRoute('/')({
+  head: () =>
+    seo({
+      title: 'NationCam — Live Cameras Across America',
+      description:
+        'Watch live camera feeds from cities, landmarks, and communities across the United States. Free, real-time streams from coast to coast.',
+      path: '/',
+    }),
+  component: HomePage,
+})
 
 function HomePage() {
   return (
@@ -20,6 +31,7 @@ function HomePage() {
       <FeaturedStream />
       <StatsSection />
       <FAQSection />
+      <ContactCTA />
     </div>
   )
 }
