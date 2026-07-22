@@ -25,6 +25,7 @@ export interface Video {
   title: string
   src: string
   type: string
+  slug: string
   state_id: number
   sublocation_id: number | null
   status: 'active' | 'inactive'
@@ -33,6 +34,22 @@ export interface Video {
   updated_at: string
   state_name: string
   sublocation_name: string
+}
+
+/**
+ * A video as returned by the per-camera endpoint, which also resolves the
+ * state/sublocation slugs needed to build camera URLs. `view_count` is only
+ * present on the primary camera, not on the `related` entries.
+ */
+export interface Camera extends Video {
+  state_slug: string
+  sublocation_slug: string
+  view_count?: number
+}
+
+export interface CameraDetail {
+  camera: Camera
+  related: Array<Camera>
 }
 
 export interface CreateStateInput {

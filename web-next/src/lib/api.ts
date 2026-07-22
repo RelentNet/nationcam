@@ -1,4 +1,4 @@
-import type { State, Sublocation, Video } from '@/lib/types'
+import type { CameraDetail, State, Sublocation, Video } from '@/lib/types'
 
 /**
  * The browser reaches the Go API through a same-origin `/api` proxy, so a
@@ -69,4 +69,18 @@ export async function fetchVideosBySublocation(
   sublocationId: number,
 ): Promise<Array<Video>> {
   return get<Array<Video>>(`/videos?sublocation_id=${sublocationId}`)
+}
+
+/**
+ * Single camera plus its related cameras. Hitting this endpoint is what
+ * increments the camera's view count — the API does that server-side.
+ */
+export async function fetchCamera(
+  stateSlug: string,
+  sublocationSlug: string,
+  cameraSlug: string,
+): Promise<CameraDetail> {
+  return get<CameraDetail>(
+    `/videos/${stateSlug}/${sublocationSlug}/${cameraSlug}`,
+  )
 }
