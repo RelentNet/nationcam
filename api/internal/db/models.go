@@ -6,7 +6,34 @@ package db
 
 import (
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Ad struct {
+	AdID          int32              `json:"ad_id"`
+	Name          string             `json:"name"`
+	VideoUrl      string             `json:"video_url"`
+	ClickUrl      string             `json:"click_url"`
+	Weight        int32              `json:"weight"`
+	StartsAt      pgtype.Timestamptz `json:"starts_at"`
+	EndsAt        pgtype.Timestamptz `json:"ends_at"`
+	Enabled       bool               `json:"enabled"`
+	StateID       *int32             `json:"state_id"`
+	SublocationID *int32             `json:"sublocation_id"`
+	VideoID       *int32             `json:"video_id"`
+	CreatedBy     string             `json:"created_by"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+}
+
+type AdImpression struct {
+	ImpressionID int64     `json:"impression_id"`
+	AdID         int32     `json:"ad_id"`
+	VideoID      *int32    `json:"video_id"`
+	Kind         string    `json:"kind"`
+	CreatedAt    time.Time `json:"created_at"`
+}
 
 type State struct {
 	StateID     int32     `json:"state_id"`
