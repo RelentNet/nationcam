@@ -56,9 +56,21 @@ type Process struct {
 	Metadata              ProcessMeta    `json:"metadata,omitempty"`
 }
 
-// ProcessMeta is the top-level metadata object on a process.
+// ProcessMeta is the top-level metadata object on a process, as returned by
+// GET /api/v3/process. Restreamer's restreamer-ui metadata is a large,
+// loosely-typed blob (encode profiles store FFmpeg mappings as arrays of
+// arrays, filter graphs as either strings or arrays, etc.), so we decode only
+// the one field we actually consume — the display name. Decoding the whole
+// blob into the rich UI* build types fails on real egress processes and 502s
+// the /streams endpoints. The rich types (UIMetadata) are used only to build
+// the create payload, where we control the shape.
 type ProcessMeta struct {
-	RestreamerUI *UIMetadata `json:"restreamer-ui,omitempty"`
+	RestreamerUI *ProcessMetaUI `json:"restreamer-ui,omitempty"`
+}
+
+// ProcessMetaUI is the minimal read view of restreamer-ui metadata.
+type ProcessMetaUI struct {
+	Meta UIMeta `json:"meta"`
 }
 
 // UIMetadata is the restreamer-ui metadata blob that makes a process
