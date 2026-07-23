@@ -129,6 +129,25 @@ export interface Ad {
   clicks: number
 }
 
+/**
+ * The ad the resolver serves to viewers via `GET /ads/next` and `/ads/banner`
+ * — a slimmer row than the dashboard `Ad` (no counts, no lifecycle columns).
+ * `scope` is how specific the winning target was (higher = more specific).
+ */
+export interface ServedAd {
+  ad_id: number
+  name: string
+  type: AdType
+  video_url: string
+  html_code: string
+  placement: AdPlacement | ''
+  click_url: string
+  weight: number
+  starts_at: string | null
+  ends_at: string | null
+  scope: number
+}
+
 export interface AdInput {
   name: string
   type: AdType

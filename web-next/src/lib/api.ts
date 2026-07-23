@@ -7,6 +7,7 @@ import type {
   CreateSublocationInput,
   CreateVideoInput,
   PaginatedResponse,
+  ServedAd,
   State,
   StreamDetail,
   StreamResponse,
@@ -389,6 +390,65 @@ export async function updateAd(
 
 export async function deleteAd(id: number, token?: string | null): Promise<void> {
   return del(`/ads/${id}`, token)
+}
+
+/* ──── Ads — viewer delivery ──── */
+
+/**
+ * Ask the resolver for an ad. 204 (nothing sold) and *any* failure both return
+ * null: an ad must never block or break the page it sits on, so the callers
+ * treat null as "just show the content". Browser-only — hits the same-origin
+ * `/api` proxy.
+ */
+async function fetchServedAd(path: string): Promise<ServedAd | null> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (res.status === 204 || !res.ok) return null
+    return (await res.json()) as ServedAd
+  } catch {
+    return null
+  }
+}
+
+export function fetchNextAd(videoId: number): Promise<ServedAd | null> {
+  return fetchServedAd(`/ads/next?video_id=${videoId}`)
+}
+
+export function fetchBannerAd(scope: {
+  placement: 'left' | 'right' | 'mobile'
+  videoId?: number
+  sublocationId?: number
+  stateId?: number
+}): Promise<ServedAd | null> {
+  const q = new URLSearchParams({ placement: scope.placement })
+  if (scope.videoId) q.set('video_id', String(scope.videoId))
+  if (scope.sublocationId) q.set('sublocation_id', String(scope.sublocationId))
+  if (scope.stateId) q.set('state_id', String(scope.stateId))
+  return fetchServedAd(`/ads/banner?${q.toString()}`)
+}
+
+/**
+ * Record one impression. Fire-and-forget: these are billing rows, but a failed
+ * beacon must never surface to the viewer. video_id is optional (banners may be
+ * viewed off a camera page).
+ */
+export function recordAdImpression(adId: number, videoId?: number): void {
+  const q = videoId ? `?video_id=${videoId}` : ''
+  void fetch(`${API_BASE}/ads/${adId}/impression${q}`, {
+    method: 'POST',
+  }).catch(() => {})
+}
+
+/**
+ * URL of the click tracker, which records the click then 302-redirects to the
+ * ad's click_url. Use as an anchor href / `window.open` target so the redirect
+ * lands in a new tab and never navigates the player away.
+ */
+export function adClickUrl(adId: number, videoId?: number): string {
+  const q = videoId ? `?video_id=${videoId}` : ''
+  return `${API_BASE}/ads/${adId}/click${q}`
 }
 
 /**
