@@ -137,7 +137,7 @@ function PageBody({ children }: { children: React.ReactNode }) {
 
   return (
     <main className="pt-14">
-      <div className="relative mx-auto flex w-full justify-center gap-6 xl:px-2.5">
+      <div className="relative mx-auto flex w-full justify-center gap-6 xl:px-6">
         <div className={gutter}>
           <BannerSlot placement="left" {...scope} />
         </div>
