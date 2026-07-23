@@ -117,12 +117,12 @@ function adScopeFromMatches(
 }
 
 /**
- * Page body with banner ad slots in reserved sticky gutter columns on wide
- * screens (they scroll with the page in their own space rather than hovering
- * over content) plus one in-flow mobile slot below the content. Gutters are
- * dimmed until hovered so an ad never dominates the page. Each `BannerSlot`
- * renders nothing until an ad is sold, so empty gutters just stay empty.
- * Dashboard/admin/auth surfaces render full-width with no ad slots.
+ * Page body with banner ad slots in reserved in-flow gutter columns on wide
+ * screens plus one mobile slot below the content. The gutter ads sit at the top
+ * of the page and scroll out of view with the rest of the content — they do not
+ * hover or follow the viewport. Each `BannerSlot` renders nothing until an ad is
+ * sold, so empty gutters just stay empty. Dashboard/admin/auth surfaces render
+ * full-width with no ad slots.
  */
 function PageBody({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -133,8 +133,7 @@ function PageBody({ children }: { children: React.ReactNode }) {
   }
 
   const scope = adScopeFromMatches(matches)
-  const gutter =
-    'sticky top-20 hidden h-fit w-40 shrink-0 self-start opacity-60 transition-opacity duration-200 hover:opacity-100 xl:block'
+  const gutter = 'hidden h-fit w-40 shrink-0 pt-2 xl:block'
 
   return (
     <main className="pt-14">
