@@ -40,7 +40,10 @@ services:
         condition: service_healthy
     environment:
       PORT: "8080"
-      DATABASE_URL: "host=postgres port=5432 user=nationcam password=${POSTGRES_PASSWORD} dbname=nationcam sslmode=disable"
+      # Overridable via the DATABASE_URL env var (e.g. a Coolify-managed Postgres).
+      # Falls back to the in-compose `postgres` service when unset, so clearing
+      # the env var reverts to the bundled database.
+      DATABASE_URL: "${DATABASE_URL:-host=postgres port=5432 user=nationcam password=${POSTGRES_PASSWORD} dbname=nationcam sslmode=disable}"
       REDIS_URL: redis://redis:6379/0
       LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-https://auth.nationcam.com}
       LOGTO_API_RESOURCE: ${LOGTO_API_RESOURCE:-https://api.nationcam.com}
