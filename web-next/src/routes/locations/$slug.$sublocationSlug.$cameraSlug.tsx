@@ -3,7 +3,7 @@ import { ChevronRight, Eye } from 'lucide-react'
 import type { Camera } from '@/lib/types'
 import { fetchCamera } from '@/lib/api'
 import { SITE_URL, seo } from '@/lib/seo'
-import StreamPlayer from '@/components/StreamPlayer'
+import CameraPlayer from '@/components/CameraPlayer'
 import VideoCard from '@/components/VideoCard'
 import LiveBadge from '@/components/LiveBadge'
 import Reveal from '@/components/Reveal'
@@ -184,17 +184,8 @@ function CameraPage() {
         </span>
       </nav>
 
-      {/* ── Player ── */}
-      <StreamPlayer
-        src={camera.src}
-        type={camera.type}
-        autoplay
-        muted
-        controls
-        fluid
-        live={isLive}
-        className="shadow-xl"
-      />
+      {/* ── Player (optional skippable pre-roll, then the live stream) ── */}
+      <CameraPlayer camera={camera} />
 
       {/* ── Title + meta ── */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
