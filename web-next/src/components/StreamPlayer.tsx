@@ -4,7 +4,6 @@ import {
   Minimize,
   Pause,
   Play,
-  Radio,
   RefreshCw,
   Volume2,
   VolumeX,
@@ -469,15 +468,18 @@ export default function StreamPlayer({
                 aria-label="Audio channel"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className={radioActive ? 'text-accent' : ''}
+                className={`px-1.5 font-mono text-xs font-semibold tracking-wide uppercase ${radioActive ? 'text-accent' : ''}`}
               >
-                <Radio size={16} />
+                Audio
               </button>
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 bottom-full z-20 mb-2 min-w-36 overflow-hidden rounded-lg border border-overlay0 bg-crust/95 py-1 shadow-xl backdrop-blur"
+                  className="absolute right-0 bottom-full z-20 mb-2 w-52 overflow-hidden rounded-lg border border-overlay0 bg-crust/95 py-1.5 shadow-xl backdrop-blur"
                 >
+                  <div className="px-4 pt-1 pb-1.5 font-mono text-[10px] font-semibold tracking-wider text-overlay1 uppercase">
+                    Audio channel
+                  </div>
                   <AudioMenuItem
                     label="Live audio"
                     active={!radioActive}
@@ -528,7 +530,7 @@ function AudioMenuItem({
       role="menuitemradio"
       aria-checked={active}
       onClick={onSelect}
-      className={`block w-full px-3 py-1.5 text-left font-mono text-xs transition-colors hover:bg-surface0 ${
+      className={`block w-full px-4 py-2.5 text-left font-mono text-sm transition-colors hover:bg-surface0 ${
         active ? 'text-accent' : 'text-subtext1'
       }`}
     >
