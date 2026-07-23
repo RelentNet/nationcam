@@ -53,7 +53,7 @@ services:
 
   # ── Web (nginx + React SPA) — LEGACY, kept for rollback ───
   # Still built and running, but no longer holds the domain after the P1c
-  # cutover. To roll back: move https://nationcam.com off `web-next` and back
+  # cutover. To roll back: move https://nationcam.com off `web_next` and back
   # onto this service in Coolify's general tab. No rebuild required.
   web:
     build:
@@ -70,7 +70,8 @@ services:
   # Domain set in Coolify general tab: https://nationcam.com
   # Serves /* itself and proxies /api/* to the Go API over this network, so it
   # is a drop-in replacement for the nginx `web` service on the same domain.
-  web-next:
+  # Named web_next (underscore) to match how Coolify keys the domain mapping.
+  web_next:
     build:
       context: ./web-next
       args:
