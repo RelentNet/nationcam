@@ -4,6 +4,7 @@ import { fetchSublocationBySlug, fetchVideosBySublocation } from '@/lib/api'
 import { seo } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import VideoCard from '@/components/VideoCard'
+import FeaturedHero, { pickFeatured } from '@/components/FeaturedHero'
 import CameraToolbar from '@/components/CameraToolbar'
 import Reveal from '@/components/Reveal'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
@@ -16,7 +17,8 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
     if (!sublocation) throw notFound()
 
     const videos = await fetchVideosBySublocation(sublocation.sublocation_id)
-    return { sublocation, videos }
+    // Pick the featured camera server-side so the client hydrates the same one.
+    return { sublocation, videos, featured: pickFeatured(videos) }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -75,17 +77,32 @@ function SublocationNotFound() {
 
 function SublocationPage() {
   const { slug, sublocationSlug } = Route.useParams()
-  const { sublocation, videos } = Route.useLoaderData()
+  const { sublocation, videos, featured } = Route.useLoaderData()
 
-  const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
+  // The featured camera is shown in the hero, so drop it from the grid below.
+  const gridVideos = featured
+    ? videos.filter((v) => v.video_id !== featured.video_id)
+    : videos
+
+  const { search, setSearch, sort, setSort, filtered } =
+    useCameraFilter(gridVideos)
 
   return (
     <div>
       <LocationsHeroSection title={sublocation.name} slug={sublocation.slug} />
 
       <div className="page-container">
+        {/* Featured camera hero — picked in the loader (SSR-stable) */}
+        {featured && (
+          <FeaturedHero
+            video={featured}
+            stateSlug={slug}
+            sublocationSlug={sublocationSlug}
+          />
+        )}
+
         {/* Toolbar */}
-        {videos.length > 0 && (
+        {gridVideos.length > 0 && (
           <CameraToolbar
             search={search}
             onSearchChange={setSearch}
@@ -108,7 +125,7 @@ function SublocationPage() {
               ))}
             </div>
           </Reveal>
-        ) : videos.length > 0 && search.trim() ? (
+        ) : gridVideos.length > 0 && search.trim() ? (
           <Reveal variant="scale">
             <div className="section-container py-12 text-center">
               <p className="mb-0 text-subtext0">
@@ -116,7 +133,7 @@ function SublocationPage() {
               </p>
             </div>
           </Reveal>
-        ) : (
+        ) : videos.length === 0 ? (
           <Reveal variant="scale">
             <div className="section-container py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
@@ -126,7 +143,7 @@ function SublocationPage() {
               </p>
             </div>
           </Reveal>
-        )}
+        ) : null}
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ import {
 import { seo } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import VideoCard from '@/components/VideoCard'
+import FeaturedHero, { pickFeatured } from '@/components/FeaturedHero'
 import CameraToolbar from '@/components/CameraToolbar'
 import Reveal from '@/components/Reveal'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
@@ -24,7 +25,8 @@ export const Route = createFileRoute('/locations/$slug/')({
       fetchVideosByState(state.state_id),
       fetchSublocationsByState(params.slug),
     ])
-    return { state, videos, sublocations }
+    // Pick the featured camera server-side so the client hydrates the same one.
+    return { state, videos, sublocations, featured: pickFeatured(videos) }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -80,10 +82,16 @@ function StateNotFound() {
 
 function StatePage() {
   const { slug } = Route.useParams()
-  const { state, videos, sublocations } = Route.useLoaderData()
+  const { state, videos, sublocations, featured } = Route.useLoaderData()
 
-  // Search + sort across ALL videos on this state page
-  const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
+  // The featured camera is shown in the hero, so drop it from the grid below.
+  const gridVideos = featured
+    ? videos.filter((v) => v.video_id !== featured.video_id)
+    : videos
+
+  // Search + sort across the remaining videos on this state page
+  const { search, setSearch, sort, setSort, filtered } =
+    useCameraFilter(gridVideos)
 
   // The video payload carries sublocation_id but not its slug, which the
   // camera-page links need.
@@ -115,8 +123,22 @@ function StatePage() {
       <LocationsHeroSection title={state.name} slug={slug} />
 
       <div className="page-container">
-        {/* Toolbar — always visible when there are videos */}
-        {videos.length > 0 && (
+        {/* Featured camera hero — picked in the loader (SSR-stable) */}
+        {featured && (
+          <FeaturedHero
+            video={featured}
+            stateSlug={slug}
+            sublocationSlug={
+              featured.sublocation_id
+                ? subSlugById.get(featured.sublocation_id)
+                : undefined
+            }
+            showLocation
+          />
+        )}
+
+        {/* Toolbar — visible when there are grid videos */}
+        {gridVideos.length > 0 && (
           <CameraToolbar
             search={search}
             onSearchChange={setSearch}
