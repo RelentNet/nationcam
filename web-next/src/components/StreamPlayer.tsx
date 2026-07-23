@@ -4,6 +4,7 @@ import {
   Minimize,
   Pause,
   Play,
+  Radio,
   RefreshCw,
   Volume2,
   VolumeX,
@@ -29,6 +30,17 @@ interface StreamPlayerProps {
   className?: string
   /** Maintain 16:9 aspect ratio */
   fluid?: boolean
+  /**
+   * Offer the AzuraCast audio-channel picker (Live audio + radio stations).
+   * Off by default so grid previews never get it — the camera page enables it.
+   */
+  audioChannels?: boolean
+}
+
+interface AudioStation {
+  name: string
+  shortcode: string
+  stream_url: string
 }
 
 /** How long to wait for MANIFEST_PARSED before declaring the stream dead. */
@@ -61,8 +73,10 @@ export default function StreamPlayer({
   live = false,
   className = '',
   fluid = true,
+  audioChannels = false,
 }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const hlsRef = useRef<HlsType | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const retriesRef = useRef(0)
@@ -74,6 +88,16 @@ export default function StreamPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isError, setIsError] = useState(false)
+
+  // Audio channels: 'live' = the camera's native audio, otherwise a station
+  // shortcode. Radio replaces native audio (video muted, hidden <audio> plays).
+  const [stations, setStations] = useState<Array<AudioStation>>([])
+  const [channel, setChannel] = useState('live')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const radioActive = channel !== 'live'
+  // Tracks whether radio was playing, so switching back to "Live audio"
+  // restores native audio without unmuting on the initial (default) live state.
+  const wasRadioRef = useRef(false)
 
   const resolvedType = type ?? detectType(src)
   const isHls = resolvedType === 'application/x-mpegURL'
@@ -248,26 +272,31 @@ export default function StreamPlayer({
     }
   }, [])
 
+  // When a radio station is playing it — not the muted video — is the audio
+  // source, so the mute/volume controls act on the <audio> element instead.
   const toggleMute = useCallback(() => {
-    const video = videoRef.current
-    if (!video) return
-    video.muted = !video.muted
-    setIsMuted(video.muted)
-    if (!video.muted && volume === 0) {
-      video.volume = 0.5
+    const el = radioActive ? audioRef.current : videoRef.current
+    if (!el) return
+    el.muted = !el.muted
+    setIsMuted(el.muted)
+    if (!el.muted && volume === 0) {
+      el.volume = 0.5
       setVolume(0.5)
     }
-  }, [volume])
+  }, [radioActive, volume])
 
-  const handleVolume = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const video = videoRef.current
-    if (!video) return
-    const v = parseFloat(e.target.value)
-    video.volume = v
-    video.muted = v === 0
-    setVolume(v)
-    setIsMuted(v === 0)
-  }, [])
+  const handleVolume = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const el = radioActive ? audioRef.current : videoRef.current
+      if (!el) return
+      const v = parseFloat(e.target.value)
+      el.volume = v
+      el.muted = v === 0
+      setVolume(v)
+      setIsMuted(v === 0)
+    },
+    [radioActive],
+  )
 
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current
@@ -287,6 +316,76 @@ export default function StreamPlayer({
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
 
+  // ── Audio channels: fetch station list (client-only) ──
+  // Empty list (unset/unreachable AzuraCast) → no picker renders.
+  useEffect(() => {
+    if (!audioChannels) return
+    let cancelled = false
+    fetch('/api/audio/stations')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setStations(data)
+      })
+      .catch(() => {
+        /* optional feature — silently show no picker */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [audioChannels])
+
+  // A new camera resets the picker back to live audio (fresh camera starts
+  // muted like any other, so clear the "was radio" restore flag too).
+  useEffect(() => {
+    setChannel('live')
+    wasRadioRef.current = false
+  }, [src])
+
+  // ── Audio channels: drive the hidden <audio> from the selected channel ──
+  useEffect(() => {
+    const video = videoRef.current
+    const audio = audioRef.current
+    if (!video || !audio) return
+
+    const station = stations.find((s) => s.shortcode === channel)
+    if (!station) {
+      // Live audio — stop the radio. Only unmute if the user actively switched
+      // back from a station; on the initial/default live state leave the
+      // camera's mute as-is (it starts muted, and unmuting would break autoplay).
+      audio.pause()
+      audio.removeAttribute('src')
+      if (wasRadioRef.current) {
+        wasRadioRef.current = false
+        video.muted = false
+        setIsMuted(false)
+        setVolume(0.8)
+      }
+      return
+    }
+
+    // Radio replaces native audio: mute the video, play the station.
+    wasRadioRef.current = true
+    video.muted = true
+    audio.src = station.stream_url
+    audio.muted = false
+    audio.volume = 1
+    setIsMuted(false)
+    setVolume(1)
+    if (!video.paused) audio.play().catch(() => {})
+
+    // Keep radio play/pause in lockstep with the video.
+    const onPlay = () => audio.play().catch(() => {})
+    const onPause = () => audio.pause()
+    video.addEventListener('play', onPlay)
+    video.addEventListener('pause', onPause)
+    return () => {
+      video.removeEventListener('play', onPlay)
+      video.removeEventListener('pause', onPause)
+      audio.pause()
+      audio.removeAttribute('src')
+    }
+  }, [channel, stations])
+
   return (
     <div
       ref={containerRef}
@@ -298,6 +397,10 @@ export default function StreamPlayer({
         playsInline
         className="h-full w-full object-cover"
       />
+
+      {/* Hidden radio audio — replaces native audio when a station is picked. */}
+      <audio ref={audioRef} className="hidden" />
+
 
       {/* Loading shimmer */}
       {isLoading && !isError && (
@@ -359,6 +462,46 @@ export default function StreamPlayer({
 
           <div className="flex-1" />
 
+          {audioChannels && stations.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-label="Audio channel"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className={radioActive ? 'text-accent' : ''}
+              >
+                <Radio size={16} />
+              </button>
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 bottom-full z-20 mb-2 min-w-36 overflow-hidden rounded-lg border border-overlay0 bg-crust/95 py-1 shadow-xl backdrop-blur"
+                >
+                  <AudioMenuItem
+                    label="Live audio"
+                    active={!radioActive}
+                    onSelect={() => {
+                      setChannel('live')
+                      setMenuOpen(false)
+                    }}
+                  />
+                  {stations.map((s) => (
+                    <AudioMenuItem
+                      key={s.shortcode}
+                      label={s.name}
+                      active={channel === s.shortcode}
+                      onSelect={() => {
+                        setChannel(s.shortcode)
+                        setMenuOpen(false)
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
@@ -368,5 +511,28 @@ export default function StreamPlayer({
         </div>
       )}
     </div>
+  )
+}
+
+function AudioMenuItem({
+  label,
+  active,
+  onSelect,
+}: {
+  label: string
+  active: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      role="menuitemradio"
+      aria-checked={active}
+      onClick={onSelect}
+      className={`block w-full px-3 py-1.5 text-left font-mono text-xs transition-colors hover:bg-surface0 ${
+        active ? 'text-accent' : 'text-subtext1'
+      }`}
+    >
+      {label}
+    </button>
   )
 }

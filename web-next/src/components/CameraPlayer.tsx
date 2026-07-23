@@ -103,6 +103,7 @@ export default function CameraPlayer({ camera }: { camera: Camera }) {
         controls
         fluid
         live={isLive}
+        audioChannels
         className="shadow-xl"
       />
     )
