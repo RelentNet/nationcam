@@ -209,7 +209,139 @@ func TestAdImpressionsAreExact(t *testing.T) {
 	}
 }
 
+// TestAdOverrideAndBanners covers P3b: the global override beats the whole ladder
+// for its type, banner ads resolve by page scope (camera / sublocation / state /
+// home) independently of video ads, and the ads_type_check / ads_type_fields
+// constraints reject malformed rows.
+func TestAdOverrideAndBanners(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, Schema); err != nil {
+		t.Fatalf("apply schema: %v", err)
+	}
+	exec(t, ctx, tx, `DELETE FROM ad_impressions`)
+	exec(t, ctx, tx, `DELETE FROM ads`)
+	q := db.New(tx)
+
+	stateID := scalar[int32](t, ctx, tx, `INSERT INTO states (name) VALUES ('Testland') RETURNING state_id`)
+	subID := scalar[int32](t, ctx, tx,
+		`INSERT INTO sublocations (name, state_id) VALUES ('Pier District', $1) RETURNING sublocation_id`, stateID)
+	camID := scalar[int32](t, ctx, tx,
+		`INSERT INTO videos (title, src, state_id, sublocation_id) VALUES ('Pier Cam', 'x', $1, $2) RETURNING video_id`,
+		stateID, subID)
+
+	// ── Video override beats the whole ladder ─────────────────────────────
+	camVideo := scalar[int32](t, ctx, tx,
+		`INSERT INTO ads (name, type, video_url, video_id) VALUES ('cam preroll', 'preroll_video', 'https://cdn/x.mp4', $1) RETURNING ad_id`, camID)
+	overrideVideo := scalar[int32](t, ctx, tx,
+		`INSERT INTO ads (name, type, video_url, is_override) VALUES ('takeover preroll', 'preroll_video', 'https://cdn/o.mp4', true) RETURNING ad_id`)
+
+	if got := adIDs(t, ctx, q, camID); !equal(got, []int32{overrideVideo}) {
+		t.Errorf("override should beat the ladder: got %v, want %v", got, []int32{overrideVideo})
+	}
+	exec(t, ctx, tx, `UPDATE ads SET enabled = false WHERE ad_id = $1`, overrideVideo)
+	if got := adIDs(t, ctx, q, camID); !equal(got, []int32{camVideo}) {
+		t.Errorf("ladder resumes once override disabled: got %v, want %v", got, []int32{camVideo})
+	}
+	// An out-of-window override does not win either.
+	exec(t, ctx, tx, `UPDATE ads SET enabled = true, ends_at = now() - interval '1 hour' WHERE ad_id = $1`, overrideVideo)
+	if got := adIDs(t, ctx, q, camID); !equal(got, []int32{camVideo}) {
+		t.Errorf("expired override must not win: got %v, want %v", got, []int32{camVideo})
+	}
+
+	// ── Banners resolve by scope, independently of video ads ──────────────
+	html := `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><ins class="adsbygoogle"></ins>`
+	stateBanner := scalar[int32](t, ctx, tx,
+		`INSERT INTO ads (name, type, html_code, placement, state_id) VALUES ('state banner', 'banner_html', $1, 'right', $2) RETURNING ad_id`, html, stateID)
+	subBanner := scalar[int32](t, ctx, tx,
+		`INSERT INTO ads (name, type, html_code, placement, sublocation_id) VALUES ('sub banner', 'banner_html', $1, 'right', $2) RETURNING ad_id`, html, subID)
+
+	banner := func(p db.ResolveAdsParams) []int32 {
+		p.AdType = "banner_html"
+		return resolveIDs(t, ctx, q, p)
+	}
+
+	// Camera context: sublocation banner is more specific than the state banner.
+	if got := banner(db.ResolveAdsParams{VideoID: &camID, Placement: "right"}); !equal(got, []int32{subBanner}) {
+		t.Errorf("banner by camera: got %v, want sublocation banner %v", got, []int32{subBanner})
+	}
+	// Sublocation context resolves the same winner without a camera.
+	if got := banner(db.ResolveAdsParams{SublocationID: &subID, Placement: "right"}); !equal(got, []int32{subBanner}) {
+		t.Errorf("banner by sublocation: got %v, want %v", got, []int32{subBanner})
+	}
+	// State context sees only the state banner.
+	if got := banner(db.ResolveAdsParams{StateID: &stateID, Placement: "right"}); !equal(got, []int32{stateBanner}) {
+		t.Errorf("banner by state: got %v, want %v", got, []int32{stateBanner})
+	}
+	// A different placement matches nothing.
+	if got := banner(db.ResolveAdsParams{StateID: &stateID, Placement: "left"}); len(got) != 0 {
+		t.Errorf("banner by placement filter: got %v, want none", got)
+	}
+	// The banner html round-trips intact.
+	stored := scalar[string](t, ctx, tx, `SELECT html_code FROM ads WHERE ad_id = $1`, stateBanner)
+	if stored != html {
+		t.Errorf("banner html not stored verbatim:\n got %q\nwant %q", stored, html)
+	}
+	// Video resolution never returns a banner.
+	if got := adIDs(t, ctx, q, camID); contains(got, stateBanner) || contains(got, subBanner) {
+		t.Errorf("video resolution leaked a banner: %v", got)
+	}
+
+	// A banner override beats banner ladder but leaves video ads alone.
+	overrideBanner := scalar[int32](t, ctx, tx,
+		`INSERT INTO ads (name, type, html_code, placement, is_override) VALUES ('banner takeover', 'banner_html', $1, 'right', true) RETURNING ad_id`, html)
+	if got := banner(db.ResolveAdsParams{VideoID: &camID, Placement: "right"}); !equal(got, []int32{overrideBanner}) {
+		t.Errorf("banner override should win: got %v, want %v", got, []int32{overrideBanner})
+	}
+	if got := adIDs(t, ctx, q, camID); contains(got, overrideBanner) {
+		t.Errorf("banner override leaked into video resolution: %v", got)
+	}
+
+	// ── Type CHECK constraints ────────────────────────────────────────────
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ads (name, type, video_url) VALUES ('bad type', 'billboard', 'https://cdn/x.mp4')`); err == nil {
+		t.Error("ads_type_check should reject an unknown type")
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ads (name, type, video_url) VALUES ('no video', 'preroll_video', '')`); err == nil {
+		t.Error("ads_type_fields should reject a preroll_video with no video_url")
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ads (name, type, html_code, placement) VALUES ('no html', 'banner_html', '', 'right')`); err == nil {
+		t.Error("ads_type_fields should reject a banner_html with no html_code")
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ads (name, type, html_code, placement) VALUES ('bad slot', 'banner_html', '<b>x</b>', 'sidebar')`); err == nil {
+		t.Error("ads_type_fields should reject a banner_html with an invalid placement")
+	}
+}
+
 // ── helpers ────────────────────────────────────────────────
+
+func contains(xs []int32, v int32) bool {
+	for _, x := range xs {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
 
 func scalar[T any](t *testing.T, ctx context.Context, tx pgx.Tx, sql string, args ...any) T {
 	t.Helper()
@@ -236,7 +368,13 @@ func record(t *testing.T, ctx context.Context, q *db.Queries, adID, videoID int3
 
 func adIDs(t *testing.T, ctx context.Context, q *db.Queries, videoID int32) []int32 {
 	t.Helper()
-	rows, err := q.ResolveAdCandidates(ctx, videoID)
+	v := videoID
+	return resolveIDs(t, ctx, q, db.ResolveAdsParams{AdType: "preroll_video", VideoID: &v})
+}
+
+func resolveIDs(t *testing.T, ctx context.Context, q *db.Queries, params db.ResolveAdsParams) []int32 {
+	t.Helper()
+	rows, err := q.ResolveAds(ctx, params)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}

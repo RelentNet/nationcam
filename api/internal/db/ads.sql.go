@@ -13,20 +13,25 @@ import (
 )
 
 const createAd = `-- name: CreateAd :one
-INSERT INTO ads (name, video_url, click_url, weight, starts_at, ends_at, enabled,
+INSERT INTO ads (name, type, video_url, html_code, placement, click_url, weight,
+                 starts_at, ends_at, enabled, is_override,
                  state_id, sublocation_id, video_id, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING ad_id, name, video_url, click_url, weight, starts_at, ends_at, enabled, state_id, sublocation_id, video_id, created_by, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING ad_id, name, video_url, click_url, weight, starts_at, ends_at, enabled, state_id, sublocation_id, video_id, created_by, created_at, updated_at, type, html_code, placement, is_override
 `
 
 type CreateAdParams struct {
 	Name          string             `json:"name"`
+	Type          string             `json:"type"`
 	VideoUrl      string             `json:"video_url"`
+	HtmlCode      string             `json:"html_code"`
+	Placement     string             `json:"placement"`
 	ClickUrl      string             `json:"click_url"`
 	Weight        int32              `json:"weight"`
 	StartsAt      pgtype.Timestamptz `json:"starts_at"`
 	EndsAt        pgtype.Timestamptz `json:"ends_at"`
 	Enabled       bool               `json:"enabled"`
+	IsOverride    bool               `json:"is_override"`
 	StateID       *int32             `json:"state_id"`
 	SublocationID *int32             `json:"sublocation_id"`
 	VideoID       *int32             `json:"video_id"`
@@ -36,12 +41,16 @@ type CreateAdParams struct {
 func (q *Queries) CreateAd(ctx context.Context, arg CreateAdParams) (Ad, error) {
 	row := q.db.QueryRow(ctx, createAd,
 		arg.Name,
+		arg.Type,
 		arg.VideoUrl,
+		arg.HtmlCode,
+		arg.Placement,
 		arg.ClickUrl,
 		arg.Weight,
 		arg.StartsAt,
 		arg.EndsAt,
 		arg.Enabled,
+		arg.IsOverride,
 		arg.StateID,
 		arg.SublocationID,
 		arg.VideoID,
@@ -63,6 +72,10 @@ func (q *Queries) CreateAd(ctx context.Context, arg CreateAdParams) (Ad, error) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Type,
+		&i.HtmlCode,
+		&i.Placement,
+		&i.IsOverride,
 	)
 	return i, err
 }
@@ -77,7 +90,7 @@ func (q *Queries) DeleteAd(ctx context.Context, adID int32) error {
 }
 
 const getAd = `-- name: GetAd :one
-SELECT ad_id, name, video_url, click_url, weight, starts_at, ends_at, enabled, state_id, sublocation_id, video_id, created_by, created_at, updated_at FROM ads WHERE ad_id = $1
+SELECT ad_id, name, video_url, click_url, weight, starts_at, ends_at, enabled, state_id, sublocation_id, video_id, created_by, created_at, updated_at, type, html_code, placement, is_override FROM ads WHERE ad_id = $1
 `
 
 func (q *Queries) GetAd(ctx context.Context, adID int32) (Ad, error) {
@@ -98,13 +111,18 @@ func (q *Queries) GetAd(ctx context.Context, adID int32) (Ad, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Type,
+		&i.HtmlCode,
+		&i.Placement,
+		&i.IsOverride,
 	)
 	return i, err
 }
 
 const listAds = `-- name: ListAds :many
-SELECT a.ad_id, a.name, a.video_url, a.click_url, a.weight, a.starts_at, a.ends_at,
-       a.enabled, a.state_id, a.sublocation_id, a.video_id, a.created_by,
+SELECT a.ad_id, a.name, a.type, a.video_url, a.html_code, a.placement, a.click_url,
+       a.weight, a.starts_at, a.ends_at, a.enabled, a.is_override,
+       a.state_id, a.sublocation_id, a.video_id, a.created_by,
        a.created_at, a.updated_at,
        COALESCE(st.name, '') AS state_name,
        COALESCE(sub.name, '') AS sublocation_name,
@@ -123,12 +141,16 @@ ORDER BY a.ad_id
 type ListAdsRow struct {
 	AdID            int32              `json:"ad_id"`
 	Name            string             `json:"name"`
+	Type            string             `json:"type"`
 	VideoUrl        string             `json:"video_url"`
+	HtmlCode        string             `json:"html_code"`
+	Placement       string             `json:"placement"`
 	ClickUrl        string             `json:"click_url"`
 	Weight          int32              `json:"weight"`
 	StartsAt        pgtype.Timestamptz `json:"starts_at"`
 	EndsAt          pgtype.Timestamptz `json:"ends_at"`
 	Enabled         bool               `json:"enabled"`
+	IsOverride      bool               `json:"is_override"`
 	StateID         *int32             `json:"state_id"`
 	SublocationID   *int32             `json:"sublocation_id"`
 	VideoID         *int32             `json:"video_id"`
@@ -156,12 +178,16 @@ func (q *Queries) ListAds(ctx context.Context) ([]ListAdsRow, error) {
 		if err := rows.Scan(
 			&i.AdID,
 			&i.Name,
+			&i.Type,
 			&i.VideoUrl,
+			&i.HtmlCode,
+			&i.Placement,
 			&i.ClickUrl,
 			&i.Weight,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Enabled,
+			&i.IsOverride,
 			&i.StateID,
 			&i.SublocationID,
 			&i.VideoID,
@@ -195,70 +221,113 @@ type RecordAdEventParams struct {
 }
 
 // RecordAdEvent appends one impression or click. One row per delivered ad, written
-// synchronously so the caller learns if it failed and can retry.
+// synchronously so the caller learns if it failed and can retry. video_id is
+// nullable: a banner may be viewed off a camera page (home/locations) with no
+// specific camera to attribute to.
 func (q *Queries) RecordAdEvent(ctx context.Context, arg RecordAdEventParams) error {
 	_, err := q.db.Exec(ctx, recordAdEvent, arg.AdID, arg.VideoID, arg.Kind)
 	return err
 }
 
-const resolveAdCandidates = `-- name: ResolveAdCandidates :many
-WITH cam AS (
-  SELECT v.video_id, v.state_id, v.sublocation_id FROM videos v WHERE v.video_id = $1
+const resolveAds = `-- name: ResolveAds :many
+WITH ctx AS (
+  SELECT
+    v.video_id AS ctx_video,
+    COALESCE(v.sublocation_id, sub.sublocation_id) AS ctx_sub,
+    COALESCE(v.state_id, sub.state_id, $1::int) AS ctx_state
+  FROM (SELECT 1) seed
+  LEFT JOIN videos v ON v.video_id = $2::int
+  LEFT JOIN sublocations sub
+         ON sub.sublocation_id = COALESCE(v.sublocation_id, $3::int)
 ), eligible AS (
-  SELECT a.ad_id, a.name, a.video_url, a.click_url, a.weight, a.starts_at, a.ends_at,
+  SELECT a.ad_id, a.name, a.type, a.video_url, a.html_code, a.placement, a.click_url,
+         a.weight, a.starts_at, a.ends_at,
          (CASE
+            WHEN a.is_override THEN 4
             WHEN a.video_id IS NOT NULL THEN 3
             WHEN a.sublocation_id IS NOT NULL THEN 2
             WHEN a.state_id IS NOT NULL THEN 1
             ELSE 0
           END)::int AS scope
-  FROM ads a
-  JOIN cam ON a.video_id = cam.video_id
-           OR a.sublocation_id = cam.sublocation_id
-           OR a.state_id = cam.state_id
-           OR num_nonnulls(a.state_id, a.sublocation_id, a.video_id) = 0
-  WHERE a.enabled
+  FROM ads a, ctx
+  WHERE a.type = $4
+    AND a.enabled
     AND (a.starts_at IS NULL OR a.starts_at <= now())
     AND (a.ends_at IS NULL OR a.ends_at > now())
+    AND ($5::text = '' OR a.placement = $5::text)
+    AND (
+      a.is_override
+      OR a.video_id = ctx.ctx_video
+      OR a.sublocation_id = ctx.ctx_sub
+      OR a.state_id = ctx.ctx_state
+      OR num_nonnulls(a.state_id, a.sublocation_id, a.video_id) = 0
+    )
 )
-SELECT ad_id, name, video_url, click_url, weight, starts_at, ends_at, scope
+SELECT ad_id, name, type, video_url, html_code, placement, click_url,
+       weight, starts_at, ends_at, scope
 FROM eligible
 WHERE scope = (SELECT max(scope) FROM eligible)
 ORDER BY ad_id
 `
 
-type ResolveAdCandidatesRow struct {
-	AdID     int32              `json:"ad_id"`
-	Name     string             `json:"name"`
-	VideoUrl string             `json:"video_url"`
-	ClickUrl string             `json:"click_url"`
-	Weight   int32              `json:"weight"`
-	StartsAt pgtype.Timestamptz `json:"starts_at"`
-	EndsAt   pgtype.Timestamptz `json:"ends_at"`
-	Scope    int32              `json:"scope"`
+type ResolveAdsParams struct {
+	StateID       *int32 `json:"state_id"`
+	VideoID       *int32 `json:"video_id"`
+	SublocationID *int32 `json:"sublocation_id"`
+	AdType        string `json:"ad_type"`
+	Placement     string `json:"placement"`
 }
 
-// ResolveAdCandidates implements most-specific-wins targeting for one camera.
-// It collects every ad eligible for that camera (right scope, enabled, inside its
-// active window), tags each with a scope rank, and returns only the rows at the
-// highest rank present: camera (3) → sublocation (2) → state (1) → global (0).
-// No eligible ad at any level returns no rows.
+type ResolveAdsRow struct {
+	AdID      int32              `json:"ad_id"`
+	Name      string             `json:"name"`
+	Type      string             `json:"type"`
+	VideoUrl  string             `json:"video_url"`
+	HtmlCode  string             `json:"html_code"`
+	Placement string             `json:"placement"`
+	ClickUrl  string             `json:"click_url"`
+	Weight    int32              `json:"weight"`
+	StartsAt  pgtype.Timestamptz `json:"starts_at"`
+	EndsAt    pgtype.Timestamptz `json:"ends_at"`
+	Scope     int32              `json:"scope"`
+}
+
+// ResolveAds implements most-specific-wins targeting plus the global override,
+// for one creative type at a time (pre-roll video or banner HTML).
 //
-// It returns the whole winning level rather than one winner so the caller can
-// cache the level and still roll a fresh weighted pick on every request.
-func (q *Queries) ResolveAdCandidates(ctx context.Context, videoID int32) ([]ResolveAdCandidatesRow, error) {
-	rows, err := q.db.Query(ctx, resolveAdCandidates, videoID)
+// The page scope is whatever context the caller has: a camera (video_id), a
+// sublocation, a state, or nothing (home page → house/global). It is resolved into
+// (ctx_video, ctx_sub, ctx_state): a camera fills in its own sublocation and state,
+// a sublocation fills in its state, a bare state stands alone. Each eligible ad is
+// tagged with a scope rank and only the rows at the highest rank present are
+// returned, so the caller can cache the level and still roll a fresh weighted pick.
+//
+// Ranks: override (4) → camera (3) → sublocation (2) → state (1) → global (0).
+// An override is just the top rung — enabled and in-window, it is always a
+// candidate (regardless of its scope columns) and therefore always wins its type.
+// placement, when non-empty, restricts to that banner slot; it is ” for video.
+func (q *Queries) ResolveAds(ctx context.Context, arg ResolveAdsParams) ([]ResolveAdsRow, error) {
+	rows, err := q.db.Query(ctx, resolveAds,
+		arg.StateID,
+		arg.VideoID,
+		arg.SublocationID,
+		arg.AdType,
+		arg.Placement,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ResolveAdCandidatesRow{}
+	items := []ResolveAdsRow{}
 	for rows.Next() {
-		var i ResolveAdCandidatesRow
+		var i ResolveAdsRow
 		if err := rows.Scan(
 			&i.AdID,
 			&i.Name,
+			&i.Type,
 			&i.VideoUrl,
+			&i.HtmlCode,
+			&i.Placement,
 			&i.ClickUrl,
 			&i.Weight,
 			&i.StartsAt,
@@ -276,22 +345,27 @@ func (q *Queries) ResolveAdCandidates(ctx context.Context, videoID int32) ([]Res
 }
 
 const updateAd = `-- name: UpdateAd :one
-UPDATE ads SET name = $2, video_url = $3, click_url = $4, weight = $5,
-               starts_at = $6, ends_at = $7, enabled = $8,
-               state_id = $9, sublocation_id = $10, video_id = $11
+UPDATE ads SET name = $2, type = $3, video_url = $4, html_code = $5, placement = $6,
+               click_url = $7, weight = $8, starts_at = $9, ends_at = $10,
+               enabled = $11, is_override = $12,
+               state_id = $13, sublocation_id = $14, video_id = $15
 WHERE ad_id = $1
-RETURNING ad_id, name, video_url, click_url, weight, starts_at, ends_at, enabled, state_id, sublocation_id, video_id, created_by, created_at, updated_at
+RETURNING ad_id, name, video_url, click_url, weight, starts_at, ends_at, enabled, state_id, sublocation_id, video_id, created_by, created_at, updated_at, type, html_code, placement, is_override
 `
 
 type UpdateAdParams struct {
 	AdID          int32              `json:"ad_id"`
 	Name          string             `json:"name"`
+	Type          string             `json:"type"`
 	VideoUrl      string             `json:"video_url"`
+	HtmlCode      string             `json:"html_code"`
+	Placement     string             `json:"placement"`
 	ClickUrl      string             `json:"click_url"`
 	Weight        int32              `json:"weight"`
 	StartsAt      pgtype.Timestamptz `json:"starts_at"`
 	EndsAt        pgtype.Timestamptz `json:"ends_at"`
 	Enabled       bool               `json:"enabled"`
+	IsOverride    bool               `json:"is_override"`
 	StateID       *int32             `json:"state_id"`
 	SublocationID *int32             `json:"sublocation_id"`
 	VideoID       *int32             `json:"video_id"`
@@ -301,12 +375,16 @@ func (q *Queries) UpdateAd(ctx context.Context, arg UpdateAdParams) (Ad, error) 
 	row := q.db.QueryRow(ctx, updateAd,
 		arg.AdID,
 		arg.Name,
+		arg.Type,
 		arg.VideoUrl,
+		arg.HtmlCode,
+		arg.Placement,
 		arg.ClickUrl,
 		arg.Weight,
 		arg.StartsAt,
 		arg.EndsAt,
 		arg.Enabled,
+		arg.IsOverride,
 		arg.StateID,
 		arg.SublocationID,
 		arg.VideoID,
@@ -327,6 +405,10 @@ func (q *Queries) UpdateAd(ctx context.Context, arg UpdateAdParams) (Ad, error) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Type,
+		&i.HtmlCode,
+		&i.Placement,
+		&i.IsOverride,
 	)
 	return i, err
 }

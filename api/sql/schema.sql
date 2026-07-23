@@ -176,6 +176,39 @@ CREATE OR REPLACE TRIGGER trg_ads_updated
   BEFORE UPDATE ON ads
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- P3b: one ads table, two creative types. `type` discriminates a video pre-roll
+-- from a banner whose creative is an admin-authored HTML/JS snippet (AdSense-style
+-- paste). Banners share the same scope columns and most-specific-wins ladder as
+-- video. `is_override` is the top rung: an enabled, in-window override beats the
+-- whole ladder for its type (someone renting all inventory).
+--
+-- Idempotent + non-destructive against the live table: type defaults to
+-- 'preroll_video', so every existing (all-video) row is classified correctly with
+-- no backfill. video_url keeps NOT NULL but gains a '' default so banner rows —
+-- which have no video — satisfy it; the ads_type_fields CHECK then guarantees a
+-- pre-roll row actually carries a video_url and a banner row carries html_code and
+-- a real placement slot.
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS type        TEXT NOT NULL DEFAULT 'preroll_video';
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS html_code   TEXT NOT NULL DEFAULT '';
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS placement   TEXT NOT NULL DEFAULT '';
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS is_override BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE ads ALTER COLUMN video_url SET DEFAULT '';
+
+-- Postgres has no ADD CONSTRAINT IF NOT EXISTS, so re-assert with drop-then-add.
+-- ponytail: this re-validates the ads table on every startup; ads is tiny and
+-- write-rare so a full scan is free. If ads ever grows large, gate each ADD behind
+-- a pg_constraint lookup so it runs once.
+ALTER TABLE ads DROP CONSTRAINT IF EXISTS ads_type_check;
+ALTER TABLE ads ADD CONSTRAINT ads_type_check CHECK (type IN ('preroll_video', 'banner_html'));
+ALTER TABLE ads DROP CONSTRAINT IF EXISTS ads_type_fields;
+ALTER TABLE ads ADD CONSTRAINT ads_type_fields CHECK (
+  (type = 'preroll_video' AND video_url <> '')
+  OR (type = 'banner_html' AND html_code <> '' AND placement IN ('left', 'right', 'mobile'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ads_type ON ads(type);
+CREATE INDEX IF NOT EXISTS idx_ads_override ON ads(is_override) WHERE is_override;
+
 -- ────────────────────────────────────────────────
 -- Triggers
 -- ────────────────────────────────────────────────

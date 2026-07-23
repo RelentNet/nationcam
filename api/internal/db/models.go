@@ -25,6 +25,10 @@ type Ad struct {
 	CreatedBy     string             `json:"created_by"`
 	CreatedAt     time.Time          `json:"created_at"`
 	UpdatedAt     time.Time          `json:"updated_at"`
+	Type          string             `json:"type"`
+	HtmlCode      string             `json:"html_code"`
+	Placement     string             `json:"placement"`
+	IsOverride    bool               `json:"is_override"`
 }
 
 type AdImpression struct {
