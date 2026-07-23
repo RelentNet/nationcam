@@ -17,15 +17,6 @@ interface VideoCardProps {
   sublocationSlug?: string
 }
 
-function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
 export default function VideoCard({
   video,
   showLocation = false,
@@ -85,7 +76,6 @@ export default function VideoCard({
               {video.sublocation_name}
             </span>
           )}
-          <span className="tabular-nums">{formatDate(video.created_at)}</span>
         </div>
       </div>
 
