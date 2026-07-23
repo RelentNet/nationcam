@@ -133,11 +133,11 @@ function PageBody({ children }: { children: React.ReactNode }) {
   }
 
   const scope = adScopeFromMatches(matches)
-  const gutter = 'hidden h-fit w-40 shrink-0 pt-2 xl:block'
+  const gutter = 'hidden h-fit w-40 shrink-0 pt-3 xl:block'
 
   return (
     <main className="pt-14">
-      <div className="relative mx-auto flex w-full justify-center gap-6">
+      <div className="relative mx-auto flex w-full justify-center gap-6 xl:px-2.5">
         <div className={gutter}>
           <BannerSlot placement="left" {...scope} />
         </div>
