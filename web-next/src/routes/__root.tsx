@@ -66,8 +66,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <ThemeProvider>
             <GrainOverlay />
             <Navbar />
-            <main className="pt-14">{children}</main>
-            <AdRails />
+            <PageBody>{children}</PageBody>
             <Footer />
           </ThemeProvider>
         </LogtoProvider>
@@ -118,34 +117,41 @@ function adScopeFromMatches(
 }
 
 /**
- * Banner slots shown on every public page: two fixed gutter rails on wide
- * screens plus one in-flow mobile slot. Each `BannerSlot` renders nothing until
- * an ad is sold, so empty gutters stay empty. Skipped on dashboard/admin/auth
- * surfaces, which are not ad-supported.
+ * Page body with banner ad slots in reserved sticky gutter columns on wide
+ * screens (they scroll with the page in their own space rather than hovering
+ * over content) plus one in-flow mobile slot below the content. Gutters are
+ * dimmed until hovered so an ad never dominates the page. Each `BannerSlot`
+ * renders nothing until an ad is sold, so empty gutters just stay empty.
+ * Dashboard/admin/auth surfaces render full-width with no ad slots.
  */
-function AdRails() {
+function PageBody({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const matches = useMatches()
-  if (/^\/(dashboard|admin|callback)(\/|$)/.test(pathname)) return null
+
+  if (/^\/(dashboard|admin|callback)(\/|$)/.test(pathname)) {
+    return <main className="pt-14">{children}</main>
+  }
 
   const scope = adScopeFromMatches(matches)
+  const gutter =
+    'sticky top-20 hidden h-fit w-40 shrink-0 self-start opacity-60 transition-opacity duration-200 hover:opacity-100 xl:block'
+
   return (
-    <>
-      <BannerSlot
-        placement="left"
-        {...scope}
-        className="fixed top-24 left-3 z-30 hidden w-40 xl:block"
-      />
-      <BannerSlot
-        placement="right"
-        {...scope}
-        className="fixed top-24 right-3 z-30 hidden w-40 xl:block"
-      />
+    <main className="pt-14">
+      <div className="relative mx-auto flex w-full justify-center gap-6">
+        <div className={gutter}>
+          <BannerSlot placement="left" {...scope} />
+        </div>
+        <div className="min-w-0 flex-1">{children}</div>
+        <div className={gutter}>
+          <BannerSlot placement="right" {...scope} />
+        </div>
+      </div>
       <BannerSlot
         placement="mobile"
         {...scope}
         className="mx-auto mb-10 flex justify-center px-4 xl:hidden"
       />
-    </>
+    </main>
   )
 }
