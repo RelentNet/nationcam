@@ -20,6 +20,9 @@ type Config struct {
 	RestreamerUser string
 	RestreamerPass string
 	StreamerAPIKey string
+
+	// AzuraCast (optional — empty AzuracastURL disables the audio-channel picker).
+	AzuracastURL string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -49,6 +52,8 @@ func Load() (*Config, error) {
 		RestreamerUser: os.Getenv("RESTREAMER_USER"),
 		RestreamerPass: os.Getenv("RESTREAMER_PASS"),
 		StreamerAPIKey: os.Getenv("STREAMER_API_KEY"),
+
+		AzuracastURL: os.Getenv("AZURACAST_URL"),
 	}, nil
 }
 

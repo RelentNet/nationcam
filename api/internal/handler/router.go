@@ -14,7 +14,7 @@ import (
 // rc may be nil if Restreamer is not configured (stream routes are not mounted).
 // proxyExtraHosts are hosts the stream proxy may fetch from in addition to
 // video sources stored in the database (e.g. the Restreamer host).
-func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string) *chi.Mux {
+func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware.
@@ -51,6 +51,10 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 
 	// Stream proxy — proxies known HLS manifests/segments to bypass CORS.
 	r.Get("/stream-proxy", StreamProxy(pool, proxyExtraHosts))
+
+	// Audio channels — public AzuraCast station list for the player's audio
+	// picker. Returns [] (never an error) when AzuraCast is unset/unreachable.
+	r.Get("/audio/stations", cachedHandler(c, "audio:stations", AudioStations(azuracastURL)))
 
 	// Streams (Restreamer proxy) — only mounted if configured.
 	// Accepts both X-API-Key (external tools) and Logto JWT (dashboard).

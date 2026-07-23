@@ -167,6 +167,7 @@ function FeaturedStream() {
               muted
               live
               fluid
+              audioChannels
             />
           </div>
         </div>

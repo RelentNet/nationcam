@@ -89,7 +89,10 @@ func run() error {
 			proxyExtraHosts = append(proxyExtraHosts, u.Hostname())
 		}
 	}
-	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts)
+	if cfg.AzuracastURL != "" {
+		slog.Info("azuracast configured", "url", cfg.AzuracastURL)
+	}
+	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL)
 
 	// ── HTTP server ────────────────────────────────────────────────
 	srv := &http.Server{

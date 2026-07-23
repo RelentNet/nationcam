@@ -50,6 +50,8 @@ services:
       RESTREAMER_USER: ${RESTREAMER_USER:-}
       RESTREAMER_PASS: ${RESTREAMER_PASS:-}
       STREAMER_API_KEY: ${STREAMER_API_KEY:-}
+      # AzuraCast (optional — audio-channel picker; e.g. https://phoenix3.fnit.us)
+      AZURACAST_URL: ${AZURACAST_URL:-}
 
   # ── Web (nginx + React SPA) — LEGACY, kept for rollback ───
   # Still built and running, but no longer holds the domain after the P1c
