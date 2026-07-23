@@ -92,6 +92,60 @@ export interface UpdateVideoInput {
   status?: string
 }
 
+/* ──── Ads ──── */
+
+export type AdType = 'preroll_video' | 'banner_html'
+export type AdPlacement = 'left' | 'right' | 'mobile'
+
+/**
+ * An ad row as returned by `GET /api/ads`. Scope is whichever of
+ * state_id/sublocation_id/video_id is set (at most one); all null = House.
+ * `*_name`/`video_title` and impression/click counts are join/aggregate
+ * columns the list endpoint adds for display.
+ */
+export interface Ad {
+  ad_id: number
+  name: string
+  type: AdType
+  video_url: string
+  html_code: string
+  click_url: string
+  placement: AdPlacement | ''
+  weight: number
+  starts_at: string | null
+  ends_at: string | null
+  enabled: boolean
+  is_override: boolean
+  state_id: number | null
+  sublocation_id: number | null
+  video_id: number | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  state_name: string
+  sublocation_name: string
+  video_title: string
+  impressions: number
+  clicks: number
+}
+
+export interface AdInput {
+  name: string
+  type: AdType
+  video_url: string
+  html_code: string
+  click_url: string
+  placement: AdPlacement | ''
+  weight: number
+  starts_at: string | null
+  ends_at: string | null
+  enabled: boolean
+  is_override: boolean
+  state_id: number | null
+  sublocation_id: number | null
+  video_id: number | null
+}
+
 export interface PaginatedResponse<T> {
   data: Array<T>
   total: number

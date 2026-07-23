@@ -1,4 +1,6 @@
 import type {
+  Ad,
+  AdInput,
   CameraDetail,
   CreateStateInput,
   CreateStreamInput,
@@ -362,6 +364,31 @@ export async function restartStream(
   token?: string | null,
 ): Promise<StreamResponse> {
   return post<StreamResponse>(`/streams/${id}/restart`, {}, token)
+}
+
+/* ──── Ads ──── */
+
+export async function fetchAds(token?: string | null): Promise<Array<Ad>> {
+  return authedGet<Array<Ad>>('/ads', token)
+}
+
+export async function createAd(
+  input: AdInput,
+  token?: string | null,
+): Promise<Ad> {
+  return post<Ad>('/ads', input, token)
+}
+
+export async function updateAd(
+  id: number,
+  input: AdInput,
+  token?: string | null,
+): Promise<Ad> {
+  return put<Ad>(`/ads/${id}`, input, token)
+}
+
+export async function deleteAd(id: number, token?: string | null): Promise<void> {
+  return del(`/ads/${id}`, token)
 }
 
 /**
