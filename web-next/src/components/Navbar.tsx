@@ -101,14 +101,16 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu — smooth spring slide */}
+      {/* Mobile menu — smooth spring slide. Collapses to zero height when
+          closed (max-height, not clip-path) so the fixed <nav> shrinks back to
+          just the top bar; clip-path only hid the paint, leaving a tall layout
+          box that painted the scrolled glass background over the page. */}
       <div
-        className={`border-t border-overlay0/30 transition-[clip-path,opacity] duration-500 ease-[var(--spring-smooth)] md:hidden ${
-          menuOpen ? 'opacity-100' : 'opacity-0 border-transparent'
+        className={`overflow-hidden border-t transition-[max-height,opacity] duration-500 ease-[var(--spring-smooth)] md:hidden ${
+          menuOpen
+            ? 'max-h-96 border-overlay0/30 opacity-100'
+            : 'max-h-0 border-transparent opacity-0'
         }`}
-        style={{
-          clipPath: menuOpen ? 'inset(0)' : 'inset(0 0 100% 0)',
-        }}
       >
         <div className="glass-dense px-4 pb-4 pt-2">
           <ul className="flex flex-col gap-1">
