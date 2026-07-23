@@ -76,14 +76,14 @@ type ProcessMetaUI struct {
 // UIMetadata is the restreamer-ui metadata blob that makes a process
 // visible and editable in the Restreamer UI.
 type UIMetadata struct {
-	Version  string       `json:"version"`
-	Meta     UIMeta       `json:"meta"`
-	Control  UIControl    `json:"control"`
-	License  string       `json:"license"`
-	Player   UIPlayer     `json:"player"`
-	Profiles []UIProfile  `json:"profiles"`
-	Sources  []UISource   `json:"sources"`
-	Streams  []UIStream   `json:"streams"`
+	Version  string      `json:"version"`
+	Meta     UIMeta      `json:"meta"`
+	Control  UIControl   `json:"control"`
+	License  string      `json:"license"`
+	Player   UIPlayer    `json:"player"`
+	Profiles []UIProfile `json:"profiles"`
+	Sources  []UISource  `json:"sources"`
+	Streams  []UIStream  `json:"streams"`
 }
 
 // UIMeta holds stream name/description/author for the UI.
@@ -200,10 +200,10 @@ type UIProfileCustom struct {
 
 // UISource holds input source configuration for the UI.
 type UISource struct {
-	Type     string         `json:"type"`
+	Type     string          `json:"type"`
 	Inputs   []UISourceInput `json:"inputs"`
-	Settings map[string]any `json:"settings"`
-	Streams  []UIStream     `json:"streams"`
+	Settings map[string]any  `json:"settings"`
+	Streams  []UIStream      `json:"streams"`
 }
 
 // UISourceInput holds a single input address + options for the source.
