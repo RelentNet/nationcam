@@ -52,6 +52,10 @@ services:
       STREAMER_API_KEY: ${STREAMER_API_KEY:-}
       # AzuraCast (optional — audio-channel picker; e.g. https://phoenix3.fnit.us)
       AZURACAST_URL: ${AZURACAST_URL:-}
+      # Local object storage for per-location branding uploads.
+      UPLOADS_DIR: /app/data/uploads
+    volumes:
+      - uploads:/app/data/uploads
 
   # ── Web (nginx + React SPA) — LEGACY, kept for rollback ───
   # Still built and running, but no longer holds the domain after the P1c
@@ -92,3 +96,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  uploads:

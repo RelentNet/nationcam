@@ -34,6 +34,7 @@ import type {
   AdInput,
   AdPlacement,
   AdType,
+  Branding,
   State,
   StreamDetail,
   Sublocation,
@@ -63,6 +64,7 @@ import {
   updateState,
   updateSublocation,
   updateVideo,
+  uploadAsset,
 } from '@/lib/api'
 
 /* ──── Constants ──── */
@@ -838,6 +840,11 @@ function StatesPanel({
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const {
+    branding,
+    update: updateBranding,
+    reset: resetBranding,
+  } = useBranding()
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
 
@@ -928,10 +935,14 @@ function StatesPanel({
     setMsg(null)
     try {
       const token = await getToken()
-      await createState({ name, description: description || undefined }, token)
+      await createState(
+        { name, description: description || undefined, ...branding },
+        token,
+      )
       setMsg({ text: 'State created!', ok: true })
       setName('')
       setDescription('')
+      resetBranding()
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to create state.', ok: false })
@@ -971,6 +982,11 @@ function StatesPanel({
                   placeholder="Brief description (optional)"
                 />
               </div>
+              <BrandingFields
+                branding={branding}
+                update={updateBranding}
+                getToken={getToken}
+              />
               <FormFooter msg={msg} submitting={submitting} label="Add State" />
             </form>
           </CreatePanel>
@@ -1069,6 +1085,11 @@ function SublocationsPanel({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [stateId, setStateId] = useState<number | ''>('')
+  const {
+    branding,
+    update: updateBranding,
+    reset: resetBranding,
+  } = useBranding()
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
 
@@ -1168,6 +1189,7 @@ function SublocationsPanel({
           name,
           description: description || undefined,
           state_id: Number(stateId),
+          ...branding,
         },
         token,
       )
@@ -1175,6 +1197,7 @@ function SublocationsPanel({
       setName('')
       setDescription('')
       setStateId('')
+      resetBranding()
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to create sublocation.', ok: false })
@@ -1223,6 +1246,11 @@ function SublocationsPanel({
                   placeholder="Optional"
                 />
               </div>
+              <BrandingFields
+                branding={branding}
+                update={updateBranding}
+                getToken={getToken}
+              />
               <FormFooter
                 msg={msg}
                 submitting={submitting}
@@ -2401,6 +2429,174 @@ function useAutoHide(msg: FormMsg, setMsg: (m: FormMsg) => void) {
   }, [msg, setMsg])
 }
 
+/* ──── Branding fields (shared by state + sublocation, create + edit) ──── */
+
+const HERO_KIND_OPTIONS = [
+  { value: 'video', label: 'Video URL' },
+  { value: 'image', label: 'Image upload' },
+]
+
+const emptyBranding: Branding = {
+  hero_url: '',
+  hero_kind: 'video',
+  logo_url: '',
+  sponsor_url: '',
+  sponsor_link: '',
+}
+
+// useBranding holds the five branding fields for a form, seeded from an existing
+// row (edit) or blank (create).
+function useBranding(initial?: Partial<Branding>) {
+  const [branding, setBranding] = useState<Branding>(() => ({
+    ...emptyBranding,
+    ...initial,
+  }))
+  const update = (patch: Partial<Branding>) =>
+    setBranding((b) => ({ ...b, ...patch }))
+  const reset = () => setBranding(emptyBranding)
+  return { branding, update, reset }
+}
+
+// UploadField uploads a single image to local object storage and stores the
+// returned URL. Empty means "use the site default".
+function UploadField({
+  label,
+  value,
+  onChange,
+  getToken,
+}: {
+  label: string
+  value: string
+  onChange: (url: string) => void
+  getToken: () => Promise<string | null>
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setErr(null)
+    try {
+      const token = await getToken()
+      const { url } = await uploadAsset(file, token)
+      onChange(url)
+    } catch {
+      setErr('Upload failed — images only, max 10MB.')
+    } finally {
+      setUploading(false)
+      e.target.value = '' // let the same file be re-picked after a failure
+    }
+  }
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-subtext0">
+        {label}
+      </label>
+      <div className="flex items-center gap-3">
+        {value && (
+          <img
+            src={value}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded object-cover ring-1 ring-overlay0"
+          />
+        )}
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          onChange={handleFile}
+          disabled={uploading}
+          className="w-full text-xs text-subtext0 file:mr-3 file:rounded-lg file:border-0 file:bg-surface0 file:px-3 file:py-2 file:text-xs file:font-medium file:text-text hover:file:bg-surface1"
+        />
+        {uploading && (
+          <Loader2 size={15} className="shrink-0 animate-spin text-subtext0" />
+        )}
+        {value && !uploading && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="shrink-0 text-xs text-subtext0 transition-colors hover:text-live"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {err && <p className="mt-1 mb-0 text-xs text-live">{err}</p>}
+    </div>
+  )
+}
+
+// BrandingFields renders the hero/logo/sponsor editor. Hero is either an uploaded
+// image or a pasted video URL; switching modes clears hero_url so an image path
+// is never sent as a video URL (or vice versa).
+function BrandingFields({
+  branding,
+  update,
+  getToken,
+}: {
+  branding: Branding
+  update: (patch: Partial<Branding>) => void
+  getToken: () => Promise<string | null>
+}) {
+  return (
+    <div className="space-y-4 rounded-lg border border-overlay0/60 bg-base/40 p-4">
+      <p className="mb-0 text-xs font-semibold tracking-wide text-subtext0 uppercase">
+        Branding
+      </p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Dropdown
+          label="Hero type"
+          options={HERO_KIND_OPTIONS}
+          selectedValue={branding.hero_kind}
+          onSelect={(v) =>
+            update({ hero_kind: v as Branding['hero_kind'], hero_url: '' })
+          }
+        />
+        {branding.hero_kind === 'video' ? (
+          <FormField
+            label="Hero video URL"
+            value={branding.hero_url}
+            onChange={(v) => update({ hero_url: v })}
+            placeholder="https://cdn.example.com/hero.mp4 (blank = default)"
+          />
+        ) : (
+          <UploadField
+            label="Hero image"
+            value={branding.hero_url}
+            onChange={(v) => update({ hero_url: v })}
+            getToken={getToken}
+          />
+        )}
+      </div>
+
+      <UploadField
+        label="Logo (round)"
+        value={branding.logo_url}
+        onChange={(v) => update({ logo_url: v })}
+        getToken={getToken}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <UploadField
+          label="Sponsor button image"
+          value={branding.sponsor_url}
+          onChange={(v) => update({ sponsor_url: v })}
+          getToken={getToken}
+        />
+        <FormField
+          label="Sponsor link URL"
+          value={branding.sponsor_link}
+          onChange={(v) => update({ sponsor_link: v })}
+          placeholder="https://sponsor.example.com"
+        />
+      </div>
+    </div>
+  )
+}
+
 function FormField({
   label,
   value,
@@ -3081,6 +3277,7 @@ function EditStateModal({
 }) {
   const [name, setName] = useState(state.name)
   const [description, setDescription] = useState(state.description)
+  const { branding, update: updateBranding } = useBranding(state)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
   useAutoHide(msg, setMsg)
@@ -3095,7 +3292,7 @@ function EditStateModal({
     setMsg(null)
     try {
       const token = await getToken()
-      await updateState(state.state_id, { name, description }, token)
+      await updateState(state.state_id, { name, description, ...branding }, token)
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to update state.', ok: false })
@@ -3118,6 +3315,11 @@ function EditStateModal({
           value={description}
           onChange={setDescription}
           placeholder="Optional"
+        />
+        <BrandingFields
+          branding={branding}
+          update={updateBranding}
+          getToken={getToken}
         />
         <FormFooter msg={msg} submitting={submitting} label="Save Changes" />
       </form>
@@ -3143,6 +3345,7 @@ function EditSublocationModal({
   const [name, setName] = useState(sublocation.name)
   const [description, setDescription] = useState(sublocation.description)
   const [stateId, setStateId] = useState<number>(sublocation.state_id)
+  const { branding, update: updateBranding } = useBranding(sublocation)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
   useAutoHide(msg, setMsg)
@@ -3159,7 +3362,7 @@ function EditSublocationModal({
       const token = await getToken()
       await updateSublocation(
         sublocation.sublocation_id,
-        { name, description, state_id: stateId },
+        { name, description, state_id: stateId, ...branding },
         token,
       )
       onSuccess()
@@ -3190,6 +3393,11 @@ function EditSublocationModal({
           value={description}
           onChange={setDescription}
           placeholder="Optional"
+        />
+        <BrandingFields
+          branding={branding}
+          update={updateBranding}
+          getToken={getToken}
         />
         <FormFooter msg={msg} submitting={submitting} label="Save Changes" />
       </form>

@@ -107,6 +107,23 @@ CREATE TABLE IF NOT EXISTS videos (
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS slug TEXT NOT NULL DEFAULT '';
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS view_count BIGINT NOT NULL DEFAULT 0;
 
+-- Per-location branding (hero banner, round logo, sponsor button). Both states
+-- and sublocations carry the same five fields; empty means "use the site default"
+-- (the frontend falls back to /videos/nc_default_hero.webm and
+-- /logos/nc_default_logo.webp). hero_kind is 'image' (uploaded) or 'video' (a
+-- pasted 3rd-party URL). URLs are validated in the API before write.
+ALTER TABLE states ADD COLUMN IF NOT EXISTS hero_url     TEXT NOT NULL DEFAULT '';
+ALTER TABLE states ADD COLUMN IF NOT EXISTS hero_kind    TEXT NOT NULL DEFAULT 'video';
+ALTER TABLE states ADD COLUMN IF NOT EXISTS logo_url     TEXT NOT NULL DEFAULT '';
+ALTER TABLE states ADD COLUMN IF NOT EXISTS sponsor_url  TEXT NOT NULL DEFAULT '';
+ALTER TABLE states ADD COLUMN IF NOT EXISTS sponsor_link TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS hero_url     TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS hero_kind    TEXT NOT NULL DEFAULT 'video';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS logo_url     TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS sponsor_url  TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS sponsor_link TEXT NOT NULL DEFAULT '';
+
 -- ────────────────────────────────────────────────
 -- Indexes
 -- ────────────────────────────────────────────────

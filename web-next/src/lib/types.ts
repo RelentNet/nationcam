@@ -1,4 +1,18 @@
-export interface State {
+/**
+ * Per-location branding, editable in the dashboard and stored on both states and
+ * sublocations. Empty fields fall back to the site defaults in the hero. `hero_url`
+ * is an uploaded image path when `hero_kind` is 'image', or a 3rd-party video URL
+ * when 'video'.
+ */
+export interface Branding {
+  hero_url: string
+  hero_kind: 'image' | 'video'
+  logo_url: string
+  sponsor_url: string
+  sponsor_link: string
+}
+
+export interface State extends Branding {
   state_id: number
   name: string
   description: string
@@ -8,7 +22,7 @@ export interface State {
   video_count: number
 }
 
-export interface Sublocation {
+export interface Sublocation extends Branding {
   sublocation_id: number
   name: string
   description: string
@@ -52,23 +66,23 @@ export interface CameraDetail {
   related: Array<Camera>
 }
 
-export interface CreateStateInput {
+export interface CreateStateInput extends Partial<Branding> {
   name: string
   description?: string
 }
 
-export interface UpdateStateInput {
+export interface UpdateStateInput extends Partial<Branding> {
   name: string
   description?: string
 }
 
-export interface CreateSublocationInput {
+export interface CreateSublocationInput extends Partial<Branding> {
   name: string
   description?: string
   state_id: number
 }
 
-export interface UpdateSublocationInput {
+export interface UpdateSublocationInput extends Partial<Branding> {
   name: string
   description?: string
   state_id: number

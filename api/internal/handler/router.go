@@ -14,7 +14,7 @@ import (
 // rc may be nil if Restreamer is not configured (stream routes are not mounted).
 // proxyExtraHosts are hosts the stream proxy may fetch from in addition to
 // video sources stored in the database (e.g. the Restreamer host).
-func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string) *chi.Mux {
+func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware.
@@ -48,6 +48,11 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.With(mw.RequireAdmin).Put("/videos/{id}", UpdateVideo(pool, c))
 	r.With(mw.RequireAdmin).Delete("/videos/{id}", DeleteVideo(pool, c))
 	r.With(mw.RequireAdmin).Get("/videos/paginated", ListVideosPaginated(pool, c))
+
+	// Uploads — host-local object storage for location branding. Serving is
+	// public and read-only; uploading is admin-only.
+	r.Get("/uploads/*", ServeUploads(uploadsDir).ServeHTTP)
+	r.With(mw.RequireAdmin).Post("/uploads", UploadAsset(uploadsDir))
 
 	// Stream proxy — proxies known HLS manifests/segments to bypass CORS.
 	r.Get("/stream-proxy", StreamProxy(pool, proxyExtraHosts))

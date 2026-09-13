@@ -23,6 +23,9 @@ type Config struct {
 
 	// AzuraCast (optional — empty AzuracastURL disables the audio-channel picker).
 	AzuracastURL string
+
+	// UploadsDir is where uploaded branding assets are written and served from.
+	UploadsDir string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -54,6 +57,8 @@ func Load() (*Config, error) {
 		StreamerAPIKey: os.Getenv("STREAMER_API_KEY"),
 
 		AzuracastURL: os.Getenv("AZURACAST_URL"),
+
+		UploadsDir: envOr("UPLOADS_DIR", "/app/data/uploads"),
 	}, nil
 }
 

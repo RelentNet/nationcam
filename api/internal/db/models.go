@@ -46,6 +46,11 @@ type State struct {
 	Slug        string    `json:"slug"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	HeroUrl     string    `json:"hero_url"`
+	HeroKind    string    `json:"hero_kind"`
+	LogoUrl     string    `json:"logo_url"`
+	SponsorUrl  string    `json:"sponsor_url"`
+	SponsorLink string    `json:"sponsor_link"`
 }
 
 type Sublocation struct {
@@ -56,6 +61,11 @@ type Sublocation struct {
 	Slug          string    `json:"slug"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	HeroUrl       string    `json:"hero_url"`
+	HeroKind      string    `json:"hero_kind"`
+	LogoUrl       string    `json:"logo_url"`
+	SponsorUrl    string    `json:"sponsor_url"`
+	SponsorLink   string    `json:"sponsor_link"`
 }
 
 type Video struct {
