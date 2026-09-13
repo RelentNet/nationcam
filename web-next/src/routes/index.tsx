@@ -8,12 +8,23 @@ import {
   MonitorPlay,
   Radio,
 } from 'lucide-react'
+import type { Video } from '@/lib/types'
+import { fetchVideos } from '@/lib/api'
 import StreamPlayer from '@/components/StreamPlayer'
+import PrerollGate from '@/components/PrerollGate'
+import { pickFeatured } from '@/components/FeaturedHero'
 import ContactCTA from '@/components/ContactCTA'
 import Reveal from '@/components/Reveal'
 import { seo } from '@/lib/seo'
 
 export const Route = createFileRoute('/')({
+  loader: async () => {
+    // Feature a real camera so the "Watch Now" hero can run a targeted pre-roll,
+    // picked server-side so the client hydrates the same one. Tolerant: if the
+    // API is unreachable the homepage still renders (falls back to no pre-roll).
+    const videos = await fetchVideos().catch(() => [])
+    return { featured: pickFeatured(videos) }
+  },
   head: () =>
     seo({
       title: 'NationCam — Live Cameras Across America',
@@ -25,10 +36,11 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
+  const { featured } = Route.useLoaderData()
   return (
     <div>
       <HomeHeroSection />
-      <FeaturedStream />
+      <FeaturedStream featured={featured} />
       <StatsSection />
       <FAQSection />
       <ContactCTA />
@@ -141,7 +153,7 @@ function HomeHeroSection() {
 
 /* ──────────────────── Featured Stream ──────────────────── */
 
-function FeaturedStream() {
+function FeaturedStream({ featured }: { featured: Video | null }) {
   return (
     <section className="py-20">
       <Reveal variant="blur">
@@ -161,14 +173,28 @@ function FeaturedStream() {
           </div>
 
           <div className="glow-accent overflow-hidden rounded-2xl">
-            <StreamPlayer
-              src="https://streamer.nationcam.com/memfs/4cdb363f-2bfa-4a0a-b954-ac9b16200665.m3u8"
-              autoplay
-              muted
-              live
-              fluid
-              audioChannels
-            />
+            {featured ? (
+              <PrerollGate videoId={featured.video_id}>
+                <StreamPlayer
+                  src={featured.src}
+                  type={featured.type}
+                  autoplay
+                  muted
+                  live={featured.status === 'active'}
+                  fluid
+                  audioChannels
+                />
+              </PrerollGate>
+            ) : (
+              <StreamPlayer
+                src="https://streamer.nationcam.com/memfs/4cdb363f-2bfa-4a0a-b954-ac9b16200665.m3u8"
+                autoplay
+                muted
+                live
+                fluid
+                audioChannels
+              />
+            )}
           </div>
         </div>
       </Reveal>
