@@ -1,6 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Github, Home, Mail, MapPin, Menu, Moon, Sun, X } from 'lucide-react'
+import { Home, Mail, MapPin, Menu, Moon, Sun, X } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 import Logo from '@/components/Logo'
 import UserMenu from '@/components/UserMenu'
@@ -68,15 +68,6 @@ export default function Navbar() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1">
-          <a
-            href="https://github.com/brandon-relentnet/nationcam"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg p-2 text-subtext0 transition-[scale,color,background-color] duration-200 ease-[var(--spring-gentle)] hover:scale-110 hover:text-text hover:bg-surface0/50"
-            aria-label="GitHub"
-          >
-            <Github size={18} />
-          </a>
           <button
             onClick={toggleTheme}
             className="rounded-lg p-2 text-subtext0 transition-[scale,color,background-color] duration-200 ease-[var(--spring-gentle)] hover:scale-110 hover:text-accent hover:bg-surface0/50"
