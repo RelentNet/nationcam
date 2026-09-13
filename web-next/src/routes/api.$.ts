@@ -24,6 +24,11 @@ async function proxy({ request }: { request: Request }): Promise<Response> {
     method: request.method,
     headers,
     body: request.body,
+    // Pass 3xx straight back to the browser instead of following it here — the
+    // ad click-through (`/ads/{id}/click` → 302 to the advertiser) must redirect
+    // the user's tab, not have this proxy fetch the advertiser's page and return
+    // its HTML under the /api/... URL.
+    redirect: 'manual',
     // Required by undici to stream a request body.
     duplex: 'half',
   } as RequestInit)
