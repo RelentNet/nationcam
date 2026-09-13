@@ -2,7 +2,7 @@ import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { ChevronRight, Eye } from 'lucide-react'
 import type { Camera } from '@/lib/types'
 import { fetchCamera } from '@/lib/api'
-import { SITE_URL, seo } from '@/lib/seo'
+import { SITE_URL, seo, streamPoster } from '@/lib/seo'
 import CameraPlayer from '@/components/CameraPlayer'
 import VideoCard from '@/components/VideoCard'
 import LiveBadge from '@/components/LiveBadge'
@@ -34,8 +34,9 @@ export const Route = createFileRoute(
     const title = `${camera.title} Live Camera — ${camera.sublocation_name}, ${camera.state_name} | NationCam`
     const description = describe(camera)
     const isLive = camera.status === 'active'
+    const poster = streamPoster(camera.src, isLive)
 
-    const base = seo({ title, description, path })
+    const base = seo({ title, description, path, image: poster })
     return {
       ...base,
       meta: [
@@ -51,7 +52,7 @@ export const Route = createFileRoute(
             description,
             contentUrl: camera.src,
             embedUrl: url,
-            thumbnailUrl: [`${SITE_URL}/logo512.png`],
+            thumbnailUrl: [poster ?? `${SITE_URL}/logo512.png`],
             uploadDate: camera.created_at,
             isLiveBroadcast: isLive,
             publication: {

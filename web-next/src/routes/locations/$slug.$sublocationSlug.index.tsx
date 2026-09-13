@@ -1,7 +1,7 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { Video } from 'lucide-react'
 import { fetchSublocationBySlug, fetchVideosBySublocation } from '@/lib/api'
-import { seo } from '@/lib/seo'
+import { seo, streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import VideoCard from '@/components/VideoCard'
 import FeaturedHero, { pickFeatured } from '@/components/FeaturedHero'
@@ -22,7 +22,7 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
-    const { sublocation, videos } = loaderData
+    const { sublocation, videos, featured } = loaderData
     return seo({
       title: `${sublocation.name} Live Cameras — ${sublocation.state_name} | NationCam`,
       description:
@@ -30,6 +30,9 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
           ? `Watch ${videos.length} live camera${videos.length === 1 ? '' : 's'} streaming from ${sublocation.name} in ${sublocation.state_name}.${sublocation.description ? ` ${sublocation.description}` : ''}`
           : `Live cameras from ${sublocation.name} in ${sublocation.state_name} are coming to NationCam soon.`,
       path: `/locations/${params.slug}/${params.sublocationSlug}`,
+      image: featured
+        ? streamPoster(featured.src, featured.status === 'active')
+        : undefined,
     })
   },
   component: SublocationPage,

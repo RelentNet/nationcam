@@ -6,7 +6,7 @@ import {
   fetchSublocationsByState,
   fetchVideosByState,
 } from '@/lib/api'
-import { seo } from '@/lib/seo'
+import { seo, streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import VideoCard from '@/components/VideoCard'
 import FeaturedHero, { pickFeatured } from '@/components/FeaturedHero'
@@ -30,7 +30,7 @@ export const Route = createFileRoute('/locations/$slug/')({
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
-    const { state, videos } = loaderData
+    const { state, videos, featured } = loaderData
     return seo({
       title: `${state.name} Live Cameras | NationCam`,
       description:
@@ -38,6 +38,9 @@ export const Route = createFileRoute('/locations/$slug/')({
           ? `Watch ${videos.length} live camera${videos.length === 1 ? '' : 's'} streaming from ${state.name} — ${state.description}. Free, real-time views from across the state.`
           : `Live cameras from ${state.name} — ${state.description}. New feeds are being added to NationCam soon.`,
       path: `/locations/${params.slug}`,
+      image: featured
+        ? streamPoster(featured.src, featured.status === 'active')
+        : undefined,
     })
   },
   component: StatePage,
