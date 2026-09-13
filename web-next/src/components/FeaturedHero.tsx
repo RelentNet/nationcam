@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { MapPin, Star } from 'lucide-react'
 import type { Video } from '@/lib/types'
 import StreamPlayer from '@/components/StreamPlayer'
+import PrerollGate from '@/components/PrerollGate'
 import LiveBadge from '@/components/LiveBadge'
 
 /**
@@ -55,20 +56,22 @@ export default function FeaturedHero({
       </div>
 
       <article className="group relative overflow-hidden rounded-2xl border border-overlay0/60 bg-surface0 shadow-lg ring-1 ring-black/[0.03] dark:ring-white/[0.02]">
-        <div className="relative">
-          <StreamPlayer
-            src={video.src}
-            type={video.type}
-            autoplay
-            muted
-            controls
-            fluid
-            live={isActive}
-          />
-          {isActive && (
-            <LiveBadge className="absolute top-3 left-3 z-10 shadow-sm" />
-          )}
-        </div>
+        <PrerollGate videoId={video.video_id}>
+          <div className="relative">
+            <StreamPlayer
+              src={video.src}
+              type={video.type}
+              autoplay
+              muted
+              controls
+              fluid
+              live={isActive}
+            />
+            {isActive && (
+              <LiveBadge className="absolute top-3 left-3 z-10 shadow-sm" />
+            )}
+          </div>
+        </PrerollGate>
 
         <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1.5">
