@@ -100,6 +100,7 @@ func ListStatesPaginated(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 type updateStateRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	brandingInput
 }
 
 // UpdateState handles PUT /states/{id} — updates a state (admin only).
@@ -121,11 +122,20 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
 			return
 		}
+		if msg := req.normalize(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		if err := db.New(pool).UpdateState(r.Context(), db.UpdateStateParams{
 			StateID:     int32(id),
 			Name:        req.Name,
 			Description: req.Description,
+			HeroUrl:     req.HeroURL,
+			HeroKind:    req.HeroKind,
+			LogoUrl:     req.LogoURL,
+			SponsorUrl:  req.SponsorURL,
+			SponsorLink: req.SponsorLink,
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -148,6 +158,7 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 type createStateRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	brandingInput
 }
 
 // CreateState handles POST /states — creates a new state (admin only).
@@ -162,10 +173,19 @@ func CreateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
 			return
 		}
+		if msg := req.normalize(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		created, err := db.New(pool).CreateState(r.Context(), db.CreateStateParams{
 			Name:        req.Name,
 			Description: req.Description,
+			HeroUrl:     req.HeroURL,
+			HeroKind:    req.HeroKind,
+			LogoUrl:     req.LogoURL,
+			SponsorUrl:  req.SponsorURL,
+			SponsorLink: req.SponsorLink,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

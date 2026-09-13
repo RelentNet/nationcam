@@ -112,6 +112,7 @@ type updateSublocationRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	StateID     int32  `json:"state_id"`
+	brandingInput
 }
 
 // UpdateSublocation handles PUT /sublocations/{id} — updates a sublocation (admin only).
@@ -133,12 +134,21 @@ func UpdateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name and state_id are required"})
 			return
 		}
+		if msg := req.normalize(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		if err := db.New(pool).UpdateSublocation(r.Context(), db.UpdateSublocationParams{
 			SublocationID: int32(id),
 			Name:          req.Name,
 			Description:   req.Description,
 			StateID:       req.StateID,
+			HeroUrl:       req.HeroURL,
+			HeroKind:      req.HeroKind,
+			LogoUrl:       req.LogoURL,
+			SponsorUrl:    req.SponsorURL,
+			SponsorLink:   req.SponsorLink,
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -165,6 +175,7 @@ type createSublocationRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	StateID     int32  `json:"state_id"`
+	brandingInput
 }
 
 // CreateSublocation handles POST /sublocations (admin only).
@@ -179,11 +190,20 @@ func CreateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name and state_id are required"})
 			return
 		}
+		if msg := req.normalize(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		created, err := db.New(pool).CreateSublocation(r.Context(), db.CreateSublocationParams{
 			Name:        req.Name,
 			Description: req.Description,
 			StateID:     req.StateID,
+			HeroUrl:     req.HeroURL,
+			HeroKind:    req.HeroKind,
+			LogoUrl:     req.LogoURL,
+			SponsorUrl:  req.SponsorURL,
+			SponsorLink: req.SponsorLink,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

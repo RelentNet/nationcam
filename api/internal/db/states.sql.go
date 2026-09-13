@@ -11,24 +11,58 @@ import (
 )
 
 const createState = `-- name: CreateState :one
-INSERT INTO states (name, description)
-VALUES ($1, $2)
-RETURNING state_id, name, description, slug, created_at, updated_at
+INSERT INTO states (name, description, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING state_id, name, description, slug,
+          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link,
+          created_at, updated_at
 `
 
 type CreateStateParams struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	HeroUrl     string `json:"hero_url"`
+	HeroKind    string `json:"hero_kind"`
+	LogoUrl     string `json:"logo_url"`
+	SponsorUrl  string `json:"sponsor_url"`
+	SponsorLink string `json:"sponsor_link"`
 }
 
-func (q *Queries) CreateState(ctx context.Context, arg CreateStateParams) (State, error) {
-	row := q.db.QueryRow(ctx, createState, arg.Name, arg.Description)
-	var i State
+type CreateStateRow struct {
+	StateID     int32     `json:"state_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Slug        string    `json:"slug"`
+	HeroUrl     string    `json:"hero_url"`
+	HeroKind    string    `json:"hero_kind"`
+	LogoUrl     string    `json:"logo_url"`
+	SponsorUrl  string    `json:"sponsor_url"`
+	SponsorLink string    `json:"sponsor_link"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateState(ctx context.Context, arg CreateStateParams) (CreateStateRow, error) {
+	row := q.db.QueryRow(ctx, createState,
+		arg.Name,
+		arg.Description,
+		arg.HeroUrl,
+		arg.HeroKind,
+		arg.LogoUrl,
+		arg.SponsorUrl,
+		arg.SponsorLink,
+	)
+	var i CreateStateRow
 	err := row.Scan(
 		&i.StateID,
 		&i.Name,
 		&i.Description,
 		&i.Slug,
+		&i.HeroUrl,
+		&i.HeroKind,
+		&i.LogoUrl,
+		&i.SponsorUrl,
+		&i.SponsorLink,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -45,7 +79,9 @@ func (q *Queries) DeleteState(ctx context.Context, slug string) error {
 }
 
 const getStateByID = `-- name: GetStateByID :one
-SELECT s.state_id, s.name, s.description, s.slug, s.created_at, s.updated_at,
+SELECT s.state_id, s.name, s.description, s.slug,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link,
+       s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
 LEFT JOIN videos v ON v.state_id = s.state_id AND v.status = 'active'
@@ -58,6 +94,11 @@ type GetStateByIDRow struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Slug        string    `json:"slug"`
+	HeroUrl     string    `json:"hero_url"`
+	HeroKind    string    `json:"hero_kind"`
+	LogoUrl     string    `json:"logo_url"`
+	SponsorUrl  string    `json:"sponsor_url"`
+	SponsorLink string    `json:"sponsor_link"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	VideoCount  int32     `json:"video_count"`
@@ -71,6 +112,11 @@ func (q *Queries) GetStateByID(ctx context.Context, stateID int32) (GetStateByID
 		&i.Name,
 		&i.Description,
 		&i.Slug,
+		&i.HeroUrl,
+		&i.HeroKind,
+		&i.LogoUrl,
+		&i.SponsorUrl,
+		&i.SponsorLink,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoCount,
@@ -79,7 +125,9 @@ func (q *Queries) GetStateByID(ctx context.Context, stateID int32) (GetStateByID
 }
 
 const getStateBySlug = `-- name: GetStateBySlug :one
-SELECT s.state_id, s.name, s.description, s.slug, s.created_at, s.updated_at,
+SELECT s.state_id, s.name, s.description, s.slug,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link,
+       s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
 LEFT JOIN videos v ON v.state_id = s.state_id AND v.status = 'active'
@@ -92,6 +140,11 @@ type GetStateBySlugRow struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Slug        string    `json:"slug"`
+	HeroUrl     string    `json:"hero_url"`
+	HeroKind    string    `json:"hero_kind"`
+	LogoUrl     string    `json:"logo_url"`
+	SponsorUrl  string    `json:"sponsor_url"`
+	SponsorLink string    `json:"sponsor_link"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	VideoCount  int32     `json:"video_count"`
@@ -105,6 +158,11 @@ func (q *Queries) GetStateBySlug(ctx context.Context, slug string) (GetStateBySl
 		&i.Name,
 		&i.Description,
 		&i.Slug,
+		&i.HeroUrl,
+		&i.HeroKind,
+		&i.LogoUrl,
+		&i.SponsorUrl,
+		&i.SponsorLink,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoCount,
@@ -113,7 +171,9 @@ func (q *Queries) GetStateBySlug(ctx context.Context, slug string) (GetStateBySl
 }
 
 const listStates = `-- name: ListStates :many
-SELECT s.state_id, s.name, s.description, s.slug, s.created_at, s.updated_at,
+SELECT s.state_id, s.name, s.description, s.slug,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link,
+       s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
 LEFT JOIN videos v ON v.state_id = s.state_id AND v.status = 'active'
@@ -126,6 +186,11 @@ type ListStatesRow struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Slug        string    `json:"slug"`
+	HeroUrl     string    `json:"hero_url"`
+	HeroKind    string    `json:"hero_kind"`
+	LogoUrl     string    `json:"logo_url"`
+	SponsorUrl  string    `json:"sponsor_url"`
+	SponsorLink string    `json:"sponsor_link"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	VideoCount  int32     `json:"video_count"`
@@ -145,6 +210,11 @@ func (q *Queries) ListStates(ctx context.Context) ([]ListStatesRow, error) {
 			&i.Name,
 			&i.Description,
 			&i.Slug,
+			&i.HeroUrl,
+			&i.HeroKind,
+			&i.LogoUrl,
+			&i.SponsorUrl,
+			&i.SponsorLink,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VideoCount,
@@ -160,7 +230,9 @@ func (q *Queries) ListStates(ctx context.Context) ([]ListStatesRow, error) {
 }
 
 const listStatesPaginated = `-- name: ListStatesPaginated :many
-SELECT s.state_id, s.name, s.description, s.slug, s.created_at, s.updated_at,
+SELECT s.state_id, s.name, s.description, s.slug,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link,
+       s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count,
        COUNT(*) OVER()::int AS total_count
 FROM states s
@@ -180,6 +252,11 @@ type ListStatesPaginatedRow struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Slug        string    `json:"slug"`
+	HeroUrl     string    `json:"hero_url"`
+	HeroKind    string    `json:"hero_kind"`
+	LogoUrl     string    `json:"logo_url"`
+	SponsorUrl  string    `json:"sponsor_url"`
+	SponsorLink string    `json:"sponsor_link"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	VideoCount  int32     `json:"video_count"`
@@ -200,6 +277,11 @@ func (q *Queries) ListStatesPaginated(ctx context.Context, arg ListStatesPaginat
 			&i.Name,
 			&i.Description,
 			&i.Slug,
+			&i.HeroUrl,
+			&i.HeroKind,
+			&i.LogoUrl,
+			&i.SponsorUrl,
+			&i.SponsorLink,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VideoCount,
@@ -216,16 +298,32 @@ func (q *Queries) ListStatesPaginated(ctx context.Context, arg ListStatesPaginat
 }
 
 const updateState = `-- name: UpdateState :exec
-UPDATE states SET name = $2, description = $3 WHERE state_id = $1
+UPDATE states SET name = $2, description = $3,
+       hero_url = $4, hero_kind = $5, logo_url = $6, sponsor_url = $7, sponsor_link = $8
+WHERE state_id = $1
 `
 
 type UpdateStateParams struct {
 	StateID     int32  `json:"state_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	HeroUrl     string `json:"hero_url"`
+	HeroKind    string `json:"hero_kind"`
+	LogoUrl     string `json:"logo_url"`
+	SponsorUrl  string `json:"sponsor_url"`
+	SponsorLink string `json:"sponsor_link"`
 }
 
 func (q *Queries) UpdateState(ctx context.Context, arg UpdateStateParams) error {
-	_, err := q.db.Exec(ctx, updateState, arg.StateID, arg.Name, arg.Description)
+	_, err := q.db.Exec(ctx, updateState,
+		arg.StateID,
+		arg.Name,
+		arg.Description,
+		arg.HeroUrl,
+		arg.HeroKind,
+		arg.LogoUrl,
+		arg.SponsorUrl,
+		arg.SponsorLink,
+	)
 	return err
 }

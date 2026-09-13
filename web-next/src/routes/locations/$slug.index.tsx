@@ -120,7 +120,7 @@ function StatePage() {
 
   return (
     <div>
-      <LocationsHeroSection title={state.name} slug={slug} />
+      <LocationsHeroSection title={state.name} branding={state} />
 
       <div className="page-container">
         {/* Featured camera hero — picked in the loader (SSR-stable) */}

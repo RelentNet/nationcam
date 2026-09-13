@@ -89,7 +89,7 @@ function SublocationPage() {
 
   return (
     <div>
-      <LocationsHeroSection title={sublocation.name} slug={sublocation.slug} />
+      <LocationsHeroSection title={sublocation.name} branding={sublocation} />
 
       <div className="page-container">
         {/* Featured camera hero — picked in the loader (SSR-stable) */}

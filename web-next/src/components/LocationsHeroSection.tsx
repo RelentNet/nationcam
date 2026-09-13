@@ -1,55 +1,54 @@
-import { useEffect, useState } from 'react'
-import { assetExists } from '@/lib/utils'
-import buttonRedirects from '@/lib/buttonRedirects'
+import type { Branding } from '@/lib/types'
+
+const DEFAULT_HERO = '/videos/nc_default_hero.webm'
+const DEFAULT_LOGO = '/logos/nc_default_logo.webp'
 
 interface LocationsHeroSectionProps {
   title: string
-  slug: string
+  branding: Branding
   alt?: string
+}
+
+// videoType maps a hero video URL to a <source> type. Unknown extensions (e.g. a
+// signed CDN URL with no extension) return undefined so the browser sniffs.
+function videoType(url: string): string | undefined {
+  if (url.endsWith('.webm')) return 'video/webm'
+  if (url.endsWith('.mp4')) return 'video/mp4'
+  if (url.endsWith('.ogg') || url.endsWith('.ogv')) return 'video/ogg'
+  return undefined
 }
 
 export default function LocationsHeroSection({
   title,
-  slug,
+  branding,
   alt,
 }: LocationsHeroSectionProps) {
-  const [videoSrc, setVideoSrc] = useState('/videos/nc_default_hero.webm')
-  const [logoSrc, setLogoSrc] = useState('/logos/nc_default_logo.webp')
-  const [buttonSrc, setButtonSrc] = useState<string | null>(null)
+  const { hero_url, hero_kind, logo_url, sponsor_url, sponsor_link } = branding
 
-  useEffect(() => {
-    async function checkAssets() {
-      const customVideo = `/videos/nc_${slug}_hero.webm`
-      const customLogo = `/logos/nc_${slug}_logo.webp`
-      const customButton = `/buttons/nc_${slug}_button.webp`
-
-      const [hasVideo, hasLogo, hasButton] = await Promise.all([
-        assetExists(customVideo),
-        assetExists(customLogo),
-        assetExists(customButton),
-      ])
-
-      if (hasVideo) setVideoSrc(customVideo)
-      if (hasLogo) setLogoSrc(customLogo)
-      if (hasButton) setButtonSrc(customButton)
-    }
-    void checkAssets()
-  }, [slug])
-
-  const redirectUrl = buttonRedirects[slug]
+  const heroIsImage = hero_kind === 'image' && hero_url !== ''
+  const videoSrc = hero_url || DEFAULT_HERO
+  const logoSrc = logo_url || DEFAULT_LOGO
 
   return (
     <section className="relative overflow-hidden">
-      {/* Background video */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="absolute inset-0 h-full w-full object-cover"
-      >
-        <source src={videoSrc} type="video/webm" />
-      </video>
+      {/* Background hero — an uploaded image, or a looping video (default or URL) */}
+      {heroIsImage ? (
+        <img
+          src={hero_url}
+          alt={alt ?? `${title} hero`}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source src={videoSrc} type={videoType(videoSrc)} />
+        </video>
+      )}
 
       {/* Cinematic gradient overlays */}
       <div className="absolute inset-0 bg-gradient-to-b from-crust/80 via-crust/40 to-crust/90" />
@@ -73,12 +72,12 @@ export default function LocationsHeroSection({
           {title}
         </h1>
 
-        {buttonSrc && redirectUrl && (
+        {sponsor_url && sponsor_link && (
           <a
-            href={redirectUrl}
-            target={redirectUrl.startsWith('http') ? '_blank' : undefined}
+            href={sponsor_link}
+            target={sponsor_link.startsWith('http') ? '_blank' : undefined}
             rel={
-              redirectUrl.startsWith('http') ? 'noopener noreferrer' : undefined
+              sponsor_link.startsWith('http') ? 'noopener noreferrer' : undefined
             }
             style={{
               animation: 'fade-in-up 600ms var(--spring-smooth) 250ms forwards',
@@ -86,7 +85,7 @@ export default function LocationsHeroSection({
             }}
           >
             <img
-              src={buttonSrc}
+              src={sponsor_url}
               alt={`${title} sponsor`}
               className="h-12 rounded-lg transition-transform duration-350 ease-[var(--spring-snappy)] hover:scale-105"
             />

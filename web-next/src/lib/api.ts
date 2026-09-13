@@ -1,6 +1,7 @@
 import type {
   Ad,
   AdInput,
+  Branding,
   CameraDetail,
   CreateStateInput,
   CreateStreamInput,
@@ -141,6 +142,51 @@ async function authedGet<T>(path: string, token?: string | null): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/**
+ * Fills the five branding fields with their defaults so create/update always
+ * send a complete, valid payload (the API validates hero_kind and the URLs).
+ */
+function brandingBody(input: Partial<Branding>): Branding {
+  return {
+    hero_url: input.hero_url ?? '',
+    hero_kind: input.hero_kind ?? 'video',
+    logo_url: input.logo_url ?? '',
+    sponsor_url: input.sponsor_url ?? '',
+    sponsor_link: input.sponsor_link ?? '',
+  }
+}
+
+/* ──── Uploads ──── */
+
+/**
+ * Upload one image to the API's local object storage and return its public URL
+ * (`/api/uploads/<file>`). Browser-only — hits the same-origin `/api` proxy with
+ * the admin bearer token. The browser sets the multipart boundary, so no
+ * Content-Type header is set here.
+ */
+export async function uploadAsset(
+  file: File,
+  token?: string | null,
+): Promise<{ url: string }> {
+  const body = new FormData()
+  body.append('file', file)
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${API_BASE}/uploads`, {
+    method: 'POST',
+    headers,
+    body,
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Upload failed: ${res.status} ${text}`)
+  }
+  return res.json() as Promise<{ url: string }>
+}
+
 /* ──── States ──── */
 
 export async function fetchStates(): Promise<Array<State>> {
@@ -160,6 +206,7 @@ export async function createState(
     {
       name: input.name,
       description: input.description ?? '',
+      ...brandingBody(input),
     },
     token,
   )
@@ -175,6 +222,7 @@ export async function updateState(
     {
       name: input.name,
       description: input.description ?? '',
+      ...brandingBody(input),
     },
     token,
   )
@@ -222,6 +270,7 @@ export async function createSublocation(
       name: input.name,
       description: input.description ?? '',
       state_id: input.state_id,
+      ...brandingBody(input),
     },
     token,
   )
@@ -238,6 +287,7 @@ export async function updateSublocation(
       name: input.name,
       description: input.description ?? '',
       state_id: input.state_id,
+      ...brandingBody(input),
     },
     token,
   )

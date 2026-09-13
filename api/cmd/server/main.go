@@ -92,7 +92,9 @@ func run() error {
 	if cfg.AzuracastURL != "" {
 		slog.Info("azuracast configured", "url", cfg.AzuracastURL)
 	}
-	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL)
+	uploadsDir := handler.ResolveUploadsDir(cfg.UploadsDir)
+	slog.Info("uploads dir ready", "dir", uploadsDir)
+	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir)
 
 	// ── HTTP server ────────────────────────────────────────────────
 	srv := &http.Server{

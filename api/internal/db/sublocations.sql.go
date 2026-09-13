@@ -11,26 +11,62 @@ import (
 )
 
 const createSublocation = `-- name: CreateSublocation :one
-INSERT INTO sublocations (name, description, state_id)
-VALUES ($1, $2, $3)
-RETURNING sublocation_id, name, description, state_id, slug, created_at, updated_at
+INSERT INTO sublocations (name, description, state_id, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING sublocation_id, name, description, state_id, slug,
+          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link,
+          created_at, updated_at
 `
 
 type CreateSublocationParams struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	StateID     int32  `json:"state_id"`
+	HeroUrl     string `json:"hero_url"`
+	HeroKind    string `json:"hero_kind"`
+	LogoUrl     string `json:"logo_url"`
+	SponsorUrl  string `json:"sponsor_url"`
+	SponsorLink string `json:"sponsor_link"`
 }
 
-func (q *Queries) CreateSublocation(ctx context.Context, arg CreateSublocationParams) (Sublocation, error) {
-	row := q.db.QueryRow(ctx, createSublocation, arg.Name, arg.Description, arg.StateID)
-	var i Sublocation
+type CreateSublocationRow struct {
+	SublocationID int32     `json:"sublocation_id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	StateID       int32     `json:"state_id"`
+	Slug          string    `json:"slug"`
+	HeroUrl       string    `json:"hero_url"`
+	HeroKind      string    `json:"hero_kind"`
+	LogoUrl       string    `json:"logo_url"`
+	SponsorUrl    string    `json:"sponsor_url"`
+	SponsorLink   string    `json:"sponsor_link"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateSublocation(ctx context.Context, arg CreateSublocationParams) (CreateSublocationRow, error) {
+	row := q.db.QueryRow(ctx, createSublocation,
+		arg.Name,
+		arg.Description,
+		arg.StateID,
+		arg.HeroUrl,
+		arg.HeroKind,
+		arg.LogoUrl,
+		arg.SponsorUrl,
+		arg.SponsorLink,
+	)
+	var i CreateSublocationRow
 	err := row.Scan(
 		&i.SublocationID,
 		&i.Name,
 		&i.Description,
 		&i.StateID,
 		&i.Slug,
+		&i.HeroUrl,
+		&i.HeroKind,
+		&i.LogoUrl,
+		&i.SponsorUrl,
+		&i.SponsorLink,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -48,6 +84,7 @@ func (q *Queries) DeleteSublocation(ctx context.Context, sublocationID int32) er
 
 const getSublocationByID = `-- name: GetSublocationByID :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count
@@ -64,6 +101,11 @@ type GetSublocationByIDRow struct {
 	Description   string    `json:"description"`
 	StateID       int32     `json:"state_id"`
 	Slug          string    `json:"slug"`
+	HeroUrl       string    `json:"hero_url"`
+	HeroKind      string    `json:"hero_kind"`
+	LogoUrl       string    `json:"logo_url"`
+	SponsorUrl    string    `json:"sponsor_url"`
+	SponsorLink   string    `json:"sponsor_link"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	StateName     string    `json:"state_name"`
@@ -79,6 +121,11 @@ func (q *Queries) GetSublocationByID(ctx context.Context, sublocationID int32) (
 		&i.Description,
 		&i.StateID,
 		&i.Slug,
+		&i.HeroUrl,
+		&i.HeroKind,
+		&i.LogoUrl,
+		&i.SponsorUrl,
+		&i.SponsorLink,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateName,
@@ -89,6 +136,7 @@ func (q *Queries) GetSublocationByID(ctx context.Context, sublocationID int32) (
 
 const getSublocationBySlug = `-- name: GetSublocationBySlug :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count
@@ -105,6 +153,11 @@ type GetSublocationBySlugRow struct {
 	Description   string    `json:"description"`
 	StateID       int32     `json:"state_id"`
 	Slug          string    `json:"slug"`
+	HeroUrl       string    `json:"hero_url"`
+	HeroKind      string    `json:"hero_kind"`
+	LogoUrl       string    `json:"logo_url"`
+	SponsorUrl    string    `json:"sponsor_url"`
+	SponsorLink   string    `json:"sponsor_link"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	StateName     string    `json:"state_name"`
@@ -120,6 +173,11 @@ func (q *Queries) GetSublocationBySlug(ctx context.Context, slug string) (GetSub
 		&i.Description,
 		&i.StateID,
 		&i.Slug,
+		&i.HeroUrl,
+		&i.HeroKind,
+		&i.LogoUrl,
+		&i.SponsorUrl,
+		&i.SponsorLink,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateName,
@@ -130,6 +188,7 @@ func (q *Queries) GetSublocationBySlug(ctx context.Context, slug string) (GetSub
 
 const listSublocationsByState = `-- name: ListSublocationsByState :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count
@@ -147,6 +206,11 @@ type ListSublocationsByStateRow struct {
 	Description   string    `json:"description"`
 	StateID       int32     `json:"state_id"`
 	Slug          string    `json:"slug"`
+	HeroUrl       string    `json:"hero_url"`
+	HeroKind      string    `json:"hero_kind"`
+	LogoUrl       string    `json:"logo_url"`
+	SponsorUrl    string    `json:"sponsor_url"`
+	SponsorLink   string    `json:"sponsor_link"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	StateName     string    `json:"state_name"`
@@ -168,6 +232,11 @@ func (q *Queries) ListSublocationsByState(ctx context.Context, stateID int32) ([
 			&i.Description,
 			&i.StateID,
 			&i.Slug,
+			&i.HeroUrl,
+			&i.HeroKind,
+			&i.LogoUrl,
+			&i.SponsorUrl,
+			&i.SponsorLink,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateName,
@@ -185,6 +254,7 @@ func (q *Queries) ListSublocationsByState(ctx context.Context, stateID int32) ([
 
 const listSublocationsPaginated = `-- name: ListSublocationsPaginated :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count,
@@ -208,6 +278,11 @@ type ListSublocationsPaginatedRow struct {
 	Description   string    `json:"description"`
 	StateID       int32     `json:"state_id"`
 	Slug          string    `json:"slug"`
+	HeroUrl       string    `json:"hero_url"`
+	HeroKind      string    `json:"hero_kind"`
+	LogoUrl       string    `json:"logo_url"`
+	SponsorUrl    string    `json:"sponsor_url"`
+	SponsorLink   string    `json:"sponsor_link"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	StateName     string    `json:"state_name"`
@@ -230,6 +305,11 @@ func (q *Queries) ListSublocationsPaginated(ctx context.Context, arg ListSubloca
 			&i.Description,
 			&i.StateID,
 			&i.Slug,
+			&i.HeroUrl,
+			&i.HeroKind,
+			&i.LogoUrl,
+			&i.SponsorUrl,
+			&i.SponsorLink,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateName,
@@ -247,7 +327,9 @@ func (q *Queries) ListSublocationsPaginated(ctx context.Context, arg ListSubloca
 }
 
 const updateSublocation = `-- name: UpdateSublocation :exec
-UPDATE sublocations SET name = $2, description = $3, state_id = $4 WHERE sublocation_id = $1
+UPDATE sublocations SET name = $2, description = $3, state_id = $4,
+       hero_url = $5, hero_kind = $6, logo_url = $7, sponsor_url = $8, sponsor_link = $9
+WHERE sublocation_id = $1
 `
 
 type UpdateSublocationParams struct {
@@ -255,6 +337,11 @@ type UpdateSublocationParams struct {
 	Name          string `json:"name"`
 	Description   string `json:"description"`
 	StateID       int32  `json:"state_id"`
+	HeroUrl       string `json:"hero_url"`
+	HeroKind      string `json:"hero_kind"`
+	LogoUrl       string `json:"logo_url"`
+	SponsorUrl    string `json:"sponsor_url"`
+	SponsorLink   string `json:"sponsor_link"`
 }
 
 func (q *Queries) UpdateSublocation(ctx context.Context, arg UpdateSublocationParams) error {
@@ -263,6 +350,11 @@ func (q *Queries) UpdateSublocation(ctx context.Context, arg UpdateSublocationPa
 		arg.Name,
 		arg.Description,
 		arg.StateID,
+		arg.HeroUrl,
+		arg.HeroKind,
+		arg.LogoUrl,
+		arg.SponsorUrl,
+		arg.SponsorLink,
 	)
 	return err
 }
