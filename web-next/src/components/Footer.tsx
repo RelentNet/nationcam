@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Camera, Github, Mail } from 'lucide-react'
+import { Camera, Mail } from 'lucide-react'
 
 const footerSections = [
   {
@@ -36,15 +36,6 @@ export default function Footer() {
               landmarks, and communities through real-time video feeds.
             </p>
             <div className="mt-4 flex gap-3">
-              <a
-                href="https://github.com/brandon-relentnet/nationcam"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg p-2 text-subtext0 transition-colors hover:text-accent hover:bg-surface0"
-                aria-label="GitHub"
-              >
-                <Github size={18} />
-              </a>
               <Link
                 to="/contact"
                 className="rounded-lg p-2 text-subtext0 transition-colors hover:text-accent hover:bg-surface0"
