@@ -23,7 +23,7 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
     const { sublocation, videos, featured } = loaderData
-    return seo({
+    const base = seo({
       title: `${sublocation.name} Live Cameras — ${sublocation.state_name} | NationCam`,
       description:
         videos.length > 0
@@ -34,6 +34,14 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
         ? streamPoster(featured.src, featured.status === 'active')
         : undefined,
     })
+    // No cameras yet → placeholder; keep it out of the index (see state page).
+    if (videos.length === 0) {
+      return {
+        ...base,
+        meta: [...base.meta, { name: 'robots', content: 'noindex, follow' }],
+      }
+    }
+    return base
   },
   component: SublocationPage,
   pendingComponent: LoadingSpinner,
@@ -140,10 +148,18 @@ function SublocationPage() {
           <Reveal variant="scale">
             <div className="section-container py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
-              <p className="mb-0">
-                No cameras available for {sublocation.name} yet. Check back
-                soon!
+              <h3>Coming to {sublocation.name}</h3>
+              <p className="mx-auto max-w-lg">
+                We don&rsquo;t have a live camera at {sublocation.name} yet.
+                Know a spot here worth watching? You could host the first one
+                &mdash; it costs nothing.
               </p>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+              >
+                Host a camera here &rarr;
+              </Link>
             </div>
           </Reveal>
         ) : null}
