@@ -52,10 +52,12 @@ function AboutPage() {
         <h2>How the cameras get here</h2>
         <p>
           Every feed is hosted by a real business or property owner who wants
-          to share their view. Hosting is free. A host provides the camera and
-          an internet connection; we handle the streaming, the page, and the
-          audience. In return the host gets a live, public window onto their
-          location that their own customers can check any time.
+          to share their view. Hosting is free. NationCam supplies the camera;
+          the host provides an internet connection to plug it into and a spot
+          to mount it. We handle the streaming, the page, and the audience. In
+          return the host gets a unique public page for their location &mdash; a
+          live window their own customers can check any time, and one they can
+          share and embed wherever they like.
         </p>
         <p>
           If you run a marina, a waterfront restaurant, a hotel with a view, or

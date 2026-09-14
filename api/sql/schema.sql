@@ -132,6 +132,11 @@ ALTER TABLE states ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
 
+-- A state with a camera confirmed but not yet live. Set in the dashboard; it only
+-- promotes the state on /locations (a prominent card instead of a coming-soon
+-- pill) and softens the state page's empty-state copy.
+ALTER TABLE states ADD COLUMN IF NOT EXISTS upcoming BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ────────────────────────────────────────────────
 -- Indexes
 -- ────────────────────────────────────────────────

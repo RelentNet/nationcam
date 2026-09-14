@@ -21,8 +21,13 @@ export const Route = createFileRoute('/locations/')({
 /* ──── State Grid (active-first, coming-soon below) ──── */
 
 function StateGrid({ states }: { states: Array<State> }) {
-  const active = states.filter((s) => s.video_count > 0)
-  const comingSoon = states.filter((s) => !s.video_count || s.video_count === 0)
+  // Cards = states with cameras, then states flagged upcoming (a camera is
+  // confirmed but not live yet) — those earn a card instead of a pill.
+  const active = [
+    ...states.filter((s) => s.video_count > 0),
+    ...states.filter((s) => !s.video_count && s.upcoming),
+  ]
+  const comingSoon = states.filter((s) => !s.video_count && !s.upcoming)
 
   // If every state is empty, just render them all normally
   if (active.length === 0) {
@@ -48,20 +53,44 @@ function StateGrid({ states }: { states: Array<State> }) {
         </div>
       </Reveal>
 
-      {/* Coming soon states */}
+      {/* Coming-soon states — a compact strip, not a wall of empty cards. The
+          states with cameras are the page; the rest is one line of intent, a
+          host-a-camera CTA, and a small pill per state, so the network still
+          reads as national without 49 full-size "Coming soon" tiles dominating
+          the first impression. */}
       {comingSoon.length > 0 && (
         <Reveal variant="blur">
-          <div className="mt-12">
-            <h4 className="mb-4 font-mono text-sm font-medium text-overlay2">
-              Coming Soon
-            </h4>
-            <Reveal stagger>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {comingSoon.map((state) => (
-                  <StateCard key={state.state_id} state={state} muted />
-                ))}
+          <div className="mt-12 rounded-xl border border-overlay0/50 bg-surface0/50 p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="mb-1 font-mono text-sm font-medium text-overlay2">
+                  Coming soon &mdash; {comingSoon.length} more states
+                </h4>
+                <p className="mb-0 max-w-lg text-sm text-subtext0">
+                  We&rsquo;re adding cameras state by state. Know a marina,
+                  waterfront, or landmark worth watching? You could host the
+                  first camera in your state &mdash; it costs nothing.
+                </p>
               </div>
-            </Reveal>
+              <Link
+                to="/contact"
+                className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg bg-accent px-5 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+              >
+                Host a camera &rarr;
+              </Link>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {comingSoon.map((state) => (
+                <Link
+                  key={state.state_id}
+                  to="/locations/$slug"
+                  params={{ slug: state.slug }}
+                  className="rounded-full border border-overlay0/60 px-3 py-1 font-mono text-xs text-subtext0 transition-colors hover:border-accent/40 hover:text-accent"
+                >
+                  {state.name}
+                </Link>
+              ))}
+            </div>
           </div>
         </Reveal>
       )}
@@ -98,7 +127,12 @@ function StateCard({ state, muted }: { state: State; muted?: boolean }) {
               </span>
             </div>
           ) : (
-            <span className="font-mono text-sm text-overlay2">Coming soon</span>
+            <span className="font-mono text-sm text-overlay2">
+              Coming soon
+              {state.upcoming && (
+                <span className="text-accent"> &middot; camera confirmed</span>
+              )}
+            </span>
           )}
         </div>
         <MapPin
