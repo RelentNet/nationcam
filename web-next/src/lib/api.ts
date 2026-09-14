@@ -13,6 +13,8 @@ import type {
   StreamDetail,
   StreamResponse,
   Sublocation,
+  Submission,
+  SubmitContactInput,
   UpdateStateInput,
   UpdateSublocationInput,
   UpdateVideoInput,
@@ -107,6 +109,31 @@ async function put<T>(
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`PUT ${path} failed: ${res.status} ${text}`)
+  }
+  return res.json() as Promise<T>
+}
+
+async function patch<T>(
+  path: string,
+  body: unknown,
+  token?: string | null,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`PATCH ${path} failed: ${res.status} ${text}`)
   }
   return res.json() as Promise<T>
 }
@@ -499,6 +526,35 @@ export function recordAdImpression(adId: number, videoId?: number): void {
 export function adClickUrl(adId: number, videoId?: number): string {
   const q = videoId ? `?video_id=${videoId}` : ''
   return `${API_BASE}/ads/${adId}/click${q}`
+}
+
+/* ──── Submissions (contact / "Add Your Camera" form) ──── */
+
+/**
+ * Submit the public contact form. No auth — hits the same-origin `/api` proxy,
+ * which forwards to the rate-limited public `POST /submissions`. Returns
+ * `{ ok: true }` on success; throws on any non-2xx so the form can show an error.
+ */
+export async function submitContact(
+  input: SubmitContactInput,
+): Promise<{ ok: boolean }> {
+  return post<{ ok: boolean }>('/submissions', input)
+}
+
+/** List the latest submissions, newest first (admin). */
+export async function fetchSubmissions(
+  token?: string | null,
+): Promise<Array<Submission>> {
+  return authedGet<Array<Submission>>('/submissions', token)
+}
+
+/** Mark a submission handled/unhandled (admin). Returns the updated row. */
+export async function markSubmissionHandled(
+  id: number,
+  handled: boolean,
+  token?: string | null,
+): Promise<Submission> {
+  return patch<Submission>(`/submissions/${id}`, { handled }, token)
 }
 
 /**

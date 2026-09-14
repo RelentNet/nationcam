@@ -86,5 +86,16 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.With(mw.RequireAdmin).Put("/ads/{id}", UpdateAd(pool, c))
 	r.With(mw.RequireAdmin).Delete("/ads/{id}", DeleteAd(pool, c))
 
+	// Submissions. POST is the public contact / "Add Your Camera" form — rate
+	// limited and body-capped (it is unauthenticated). Reading and marking
+	// handled are admin-only.
+	// ponytail: NewRateLimiter is a global (not per-IP) window, matching the
+	// streams limiter. Ceiling: one abuser can exhaust the shared budget for
+	// everyone. Add a per-IP limiter if public spam becomes a problem.
+	submitRL := mw.NewRateLimiter(30, time.Minute)
+	r.With(mw.RateLimit(submitRL)).Post("/submissions", CreateSubmission(pool))
+	r.With(mw.RequireAdmin).Get("/submissions", ListSubmissions(pool))
+	r.With(mw.RequireAdmin).Patch("/submissions/{id}", UpdateSubmission(pool))
+
 	return r
 }

@@ -68,6 +68,16 @@ type Sublocation struct {
 	SponsorLink   string    `json:"sponsor_link"`
 }
 
+type Submission struct {
+	SubmissionID int64     `json:"submission_id"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	Message      string    `json:"message"`
+	Kind         string    `json:"kind"`
+	Handled      bool      `json:"handled"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type Video struct {
 	VideoID       int32     `json:"video_id"`
 	Title         string    `json:"title"`

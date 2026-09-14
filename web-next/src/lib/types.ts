@@ -179,6 +179,27 @@ export interface AdInput {
   video_id: number | null
 }
 
+/* ──── Submissions (contact / "Add Your Camera" form) ──── */
+
+/** A contact-form submission as returned by `GET /api/submissions` (admin). */
+export interface Submission {
+  submission_id: number
+  name: string
+  email: string
+  message: string
+  kind: string
+  handled: boolean
+  created_at: string
+}
+
+/** The public payload sent by the contact form to `POST /api/submissions`. */
+export interface SubmitContactInput {
+  name: string
+  email: string
+  message: string
+  kind: string
+}
+
 export interface PaginatedResponse<T> {
   data: Array<T>
   total: number
