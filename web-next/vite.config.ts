@@ -8,16 +8,17 @@ import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 import type { Plugin } from 'vite'
 
-const API_ORIGIN = 'https://nationcam.com'
-
 /**
- * The Go API does not run locally, so dev reads live data from production.
- * Vite's own `server.proxy` never sees these requests — the Nitro dev handler
- * claims them first — so this registers as middleware ahead of Nitro instead.
+ * Dev reads live data from production unless `API_URL` points at a local Go API
+ * (the same variable the SSR loaders use). Vite's own `server.proxy` never sees
+ * these requests — the Nitro dev handler claims them first — so this registers
+ * as middleware ahead of Nitro instead.
  *
  * Production is the real database: anything other than a read is refused here
  * rather than trusted not to happen.
  */
+const DEV_API = process.env.API_URL ?? 'https://nationcam.com/api'
+
 function devApiProxy(): Plugin {
   return {
     name: 'nationcam-dev-api-proxy',
@@ -30,7 +31,7 @@ function devApiProxy(): Plugin {
           res.end('dev api proxy is read-only')
           return
         }
-        fetch(`${API_ORIGIN}/api${req.url ?? ''}`)
+        fetch(`${DEV_API}${req.url ?? ''}`)
           .then(async (upstream) => {
             res.statusCode = upstream.status
             const contentType = upstream.headers.get('content-type')

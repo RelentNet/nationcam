@@ -21,6 +21,20 @@ export interface Editorial {
   about: string
 }
 
+/**
+ * Host / visit details on a sublocation. `lat`/`lng` unlock the "Right now"
+ * weather panel; the host fields feed the hosted-by row and "Plan a visit" card.
+ * `host_since` is a `YYYY-MM-DD` date or null.
+ */
+export interface Host {
+  lat: number | null
+  lng: number | null
+  host_name: string
+  host_url: string
+  host_since: string | null
+  address: string
+}
+
 export interface State extends Branding, Editorial {
   state_id: number
   name: string
@@ -33,7 +47,7 @@ export interface State extends Branding, Editorial {
   upcoming: boolean
 }
 
-export interface Sublocation extends Branding, Editorial {
+export interface Sublocation extends Branding, Editorial, Host {
   sublocation_id: number
   name: string
   description: string
@@ -43,6 +57,29 @@ export interface Sublocation extends Branding, Editorial {
   updated_at: string
   state_name: string
   video_count: number
+  /** `src` of the active camera with the lowest id, or '' — for poster tiles. */
+  first_src: string
+}
+
+/** Current conditions from `GET /sublocations/{slug}/weather` (Open-Meteo). */
+export interface Weather {
+  temp_f: number
+  feels_f: number
+  humidity: number
+  weather_code: number
+  condition: string
+  wind_mph: number
+  wind_dir_deg: number
+  wind_dir: string
+  gust_mph: number
+  high_f: number
+  rain_pct: number
+  sunrise: string
+  sunset: string
+  timezone: string
+  timezone_abbr: string
+  marine: { wave_ft: number; period_s: number; water_f: number } | null
+  fetched_at: string
 }
 
 export interface Video extends Editorial {
@@ -92,14 +129,14 @@ export interface UpdateStateInput
 }
 
 export interface CreateSublocationInput
-  extends Partial<Branding>, Partial<Editorial> {
+  extends Partial<Branding>, Partial<Editorial>, Partial<Host> {
   name: string
   description?: string
   state_id: number
 }
 
 export interface UpdateSublocationInput
-  extends Partial<Branding>, Partial<Editorial> {
+  extends Partial<Branding>, Partial<Editorial>, Partial<Host> {
   name: string
   description?: string
   state_id: number

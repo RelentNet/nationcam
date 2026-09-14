@@ -1,19 +1,30 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
-import { Radio, Video } from 'lucide-react'
+import { ChevronRight, Radio, Video } from 'lucide-react'
 import type { Sublocation } from '@/lib/types'
 import {
   fetchStateBySlug,
   fetchSublocationsByState,
   fetchVideosByState,
+  fetchWeather,
 } from '@/lib/api'
+import { pickFeatured } from '@/lib/featured'
 import { seo, streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
-import VideoCard from '@/components/VideoCard'
-import FeaturedHero, { pickFeatured } from '@/components/FeaturedHero'
 import CameraToolbar from '@/components/CameraToolbar'
+import PosterTile, { usePosterTick } from '@/components/PosterTile'
+import { LocalClock } from '@/components/NowPanel'
+import BannerSlot from '@/components/BannerSlot'
 import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
+import {
+  CTA_CLASS,
+  FeaturedBlock,
+  sublocationMeta,
+} from '@/components/SublocationPage'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
+
+/** The search/sort toolbar only earns its space once the page gets long. */
+const TOOLBAR_MIN = 12
 
 export const Route = createFileRoute('/locations/$slug/')({
   loader: async ({ params }) => {
@@ -26,8 +37,14 @@ export const Route = createFileRoute('/locations/$slug/')({
       fetchVideosByState(state.state_id),
       fetchSublocationsByState(params.slug),
     ])
-    // Pick the featured camera server-side so the client hydrates the same one.
-    return { state, videos, sublocations, featured: pickFeatured(videos) }
+    // Pick the featured camera server-side so the client hydrates the same one;
+    // the "Right now" panel is for wherever that camera is.
+    const featured = pickFeatured(videos)
+    const featuredSub = sublocations.find(
+      (s) => s.sublocation_id === featured?.sublocation_id,
+    )
+    const weather = featuredSub ? await fetchWeather(featuredSub.slug) : null
+    return { state, videos, sublocations, featured, weather }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -83,10 +100,7 @@ function StateNotFound() {
     <div className="page-container page-enter text-center">
       <h2>State not found</h2>
       <p>The location you are looking for does not exist.</p>
-      <Link
-        to="/locations"
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
-      >
+      <Link to="/locations" className={CTA_CLASS}>
         Back to locations
       </Link>
     </div>
@@ -95,156 +109,183 @@ function StateNotFound() {
 
 function StatePage() {
   const { slug } = Route.useParams()
-  const { state, videos, sublocations, featured } = Route.useLoaderData()
+  const { state, videos, sublocations, featured, weather } =
+    Route.useLoaderData()
+  const tick = usePosterTick()
 
-  // The featured camera is shown in the hero, so drop it from the grid below.
-  const gridVideos = featured
-    ? videos.filter((v) => v.video_id !== featured.video_id)
-    : videos
+  // Search + sort across every camera on the page; tiles stay grouped.
+  const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
 
-  // Search + sort across the remaining videos on this state page
-  const { search, setSearch, sort, setSort, filtered } =
-    useCameraFilter(gridVideos)
-
-  // The video payload carries sublocation_id but not its slug, which the
-  // camera-page links need.
-  const subSlugById = new Map(
-    sublocations.map((sub) => [sub.sublocation_id, sub.slug]),
+  const liveCount = videos.filter((v) => v.status === 'active').length
+  const featuredSub = sublocations.find(
+    (s) => s.sublocation_id === featured?.sublocation_id,
   )
-
-  // When searching, show a flat list (search crosses sublocation boundaries)
-  const isSearching = search.trim().length > 0
-
-  // Group filtered videos by sublocation for the default (non-search) view
-  const sublocationSections = isSearching
-    ? []
-    : sublocations
-        .map((sub) => ({
-          sublocation: sub,
-          videos: filtered.filter(
-            (v) => v.sublocation_id === sub.sublocation_id,
-          ),
-        }))
-        .filter(({ videos: subVideos }) => subVideos.length > 0)
-
-  const uncategorizedVideos = isSearching
-    ? []
-    : filtered.filter((v) => !v.sublocation_id)
+  const sections = sublocations
+    .map((sub) => ({
+      sublocation: sub,
+      videos: filtered.filter((v) => v.sublocation_id === sub.sublocation_id),
+    }))
+    .filter(({ videos: subVideos }) => subVideos.length > 0)
+  const uncategorized = filtered.filter((v) => !v.sublocation_id)
 
   return (
     <div>
-      <LocationsHeroSection title={state.name} branding={state} />
+      <LocationsHeroSection
+        title={state.name}
+        branding={state}
+        tagline={state.description || undefined}
+        breadcrumb={
+          <>
+            <Link
+              to="/locations"
+              activeOptions={{ exact: true }}
+              className="transition-colors hover:text-accent"
+            >
+              Locations
+            </Link>
+            <ChevronRight size={12} />
+            <span aria-current="page" className="text-white">
+              {state.name}
+            </span>
+          </>
+        }
+        stats={
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-live shadow-[0_0_0_3px_rgba(220,38,38,0.25)]" />
+              {liveCount} live camera{liveCount === 1 ? '' : 's'}
+            </span>
+            <span>
+              {sublocations.length} location
+              {sublocations.length === 1 ? '' : 's'}
+            </span>
+            {weather && (
+              <LocalClock
+                timeZone={weather.timezone}
+                initial={weather.fetched_at}
+              />
+            )}
+          </>
+        }
+      />
 
       <div className="page-container">
-        {/* Featured camera hero — picked in the loader (SSR-stable) */}
         {featured && (
-          <FeaturedHero
+          <FeaturedBlock
             video={featured}
+            sublocation={featuredSub}
             stateSlug={slug}
-            sublocationSlug={
-              featured.sublocation_id
-                ? subSlugById.get(featured.sublocation_id)
-                : undefined
-            }
-            showLocation
+            weather={weather}
           />
         )}
 
-        {/* Editorial copy — above the grid so readers and crawlers hit it early */}
-        <AboutSection title={`About ${state.name}`} text={state.about} />
+        {/* ── Camera strip, grouped by sublocation ── */}
+        {videos.length > 0 && (
+          <section className="mt-12">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="mb-0 text-xl">Cameras in {state.name}</h2>
+              <span className="font-mono text-xs text-subtext0">
+                {liveCount} live &middot; tap to switch
+              </span>
+            </div>
+            {videos.length > TOOLBAR_MIN && (
+              <CameraToolbar
+                search={search}
+                onSearchChange={setSearch}
+                sort={sort}
+                onSortChange={setSort}
+                resultCount={filtered.length}
+              />
+            )}
 
-        {/* Toolbar — visible when there are grid videos */}
-        {gridVideos.length > 0 && (
-          <CameraToolbar
-            search={search}
-            onSearchChange={setSearch}
-            sort={sort}
-            onSortChange={setSort}
-            resultCount={filtered.length}
-          />
-        )}
-
-        {/* ── Search results (flat list) ── */}
-        {isSearching && (
-          <>
-            {filtered.length > 0 ? (
-              <Reveal stagger>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {filtered.map((video) => (
-                    <VideoCard
-                      key={video.video_id}
-                      video={video}
-                      showLocation
-                      stateSlug={slug}
-                      sublocationSlug={
-                        video.sublocation_id
-                          ? subSlugById.get(video.sublocation_id)
-                          : undefined
-                      }
+            {sections.map(({ sublocation, videos: subVideos }) => (
+              <div key={sublocation.sublocation_id} className="mb-10">
+                <SublocationHeader
+                  sublocation={sublocation}
+                  slug={slug}
+                  videoCount={subVideos.length}
+                />
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                  {subVideos.map((v) => (
+                    <PosterTile
+                      key={v.video_id}
+                      title={v.title}
+                      poster={streamPoster(v.src, v.status === 'active')}
+                      live={v.status === 'active'}
+                      selected={v.video_id === featured?.video_id}
+                      tick={tick}
+                      link={{
+                        to: '/locations/$slug/$sublocationSlug/$cameraSlug',
+                        params: {
+                          slug,
+                          sublocationSlug: sublocation.slug,
+                          cameraSlug: v.slug,
+                        },
+                      }}
                     />
                   ))}
                 </div>
-              </Reveal>
-            ) : (
-              <Reveal variant="scale">
-                <div className="section-container py-12 text-center">
-                  <p className="mb-0 text-subtext0">
-                    No cameras matching &ldquo;{search}&rdquo;
-                  </p>
-                </div>
-              </Reveal>
-            )}
-          </>
-        )}
-
-        {/* ── Default view: grouped by sublocation ── */}
-        {!isSearching && (
-          <>
-            {sublocationSections.map(({ sublocation, videos: subVideos }) => (
-              <Reveal key={sublocation.sublocation_id} variant="float">
-                <section className="mb-14">
-                  <SublocationHeader
-                    sublocation={sublocation}
-                    slug={slug}
-                    videoCount={subVideos.length}
-                  />
-                  <Reveal stagger>
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      {subVideos.map((video) => (
-                        <VideoCard
-                          key={video.video_id}
-                          video={video}
-                          stateSlug={slug}
-                          sublocationSlug={sublocation.slug}
-                        />
-                      ))}
-                    </div>
-                  </Reveal>
-                </section>
-              </Reveal>
+              </div>
             ))}
 
-            {/* Uncategorized videos */}
-            {uncategorizedVideos.length > 0 && (
-              <Reveal variant="float">
-                <section className="mb-14">
-                  <h3>Other Cameras</h3>
-                  <Reveal stagger>
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      {uncategorizedVideos.map((video) => (
-                        <VideoCard
-                          key={video.video_id}
-                          video={video}
-                          showLocation
-                        />
-                      ))}
-                    </div>
-                  </Reveal>
-                </section>
-              </Reveal>
+            {uncategorized.length > 0 && (
+              <div className="mb-10">
+                <h3>Other Cameras</h3>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                  {uncategorized.map((v) => (
+                    <PosterTile
+                      key={v.video_id}
+                      title={v.title}
+                      poster={streamPoster(v.src, v.status === 'active')}
+                      live={v.status === 'active'}
+                      selected={v.video_id === featured?.video_id}
+                      tick={tick}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
-          </>
+
+            {filtered.length === 0 && (
+              <p className="mb-0 text-subtext0">
+                No cameras matching &ldquo;{search}&rdquo;
+              </p>
+            )}
+          </section>
         )}
+
+        {/* ── About + side column ── */}
+        <div className="mt-12 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div>
+            <AboutSection title={`About ${state.name}`} text={state.about} />
+          </div>
+          <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
+            {sublocations.length > 0 && (
+              <div>
+                <p className="mb-3 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
+                  Locations in {state.name}
+                </p>
+                <div className="grid gap-3">
+                  {sublocations.map((s) => (
+                    <PosterTile
+                      key={s.sublocation_id}
+                      title={s.name}
+                      meta={sublocationMeta(s)}
+                      poster={streamPoster(s.first_src, true)}
+                      live={s.video_count > 0}
+                      tick={tick}
+                      link={{
+                        to: '/locations/$slug/$sublocationSlug',
+                        params: { slug, sublocationSlug: s.slug },
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <BannerSlot placement="right" stateId={state.state_id} />
+          </aside>
+        </div>
 
         {/* Empty state — no cameras yet. Framed as an invitation, not a
             placeholder: the page is noindex'd (see head), and for humans it
@@ -272,10 +313,7 @@ function StatePage() {
                   </>
                 )}
               </p>
-              <Link
-                to="/contact"
-                className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
-              >
+              <Link to="/contact" className={CTA_CLASS}>
                 Host a camera in {state.name} &rarr;
               </Link>
             </div>
@@ -298,7 +336,7 @@ function SublocationHeader({
   videoCount: number
 }) {
   return (
-    <div className="mb-5 flex items-baseline gap-3">
+    <div className="mb-4 flex items-baseline gap-3">
       <Link
         to="/locations/$slug/$sublocationSlug"
         params={{ slug, sublocationSlug: sublocation.slug }}

@@ -7,6 +7,7 @@ import type {
   CreateStreamInput,
   CreateSublocationInput,
   CreateVideoInput,
+  Host,
   PaginatedResponse,
   ServedAd,
   State,
@@ -19,6 +20,7 @@ import type {
   UpdateSublocationInput,
   UpdateVideoInput,
   Video,
+  Weather,
 } from '@/lib/types'
 
 /**
@@ -183,6 +185,21 @@ function brandingBody(input: Partial<Branding>): Branding {
   }
 }
 
+/**
+ * Same idea for the host block: every field present, nulls for the optional
+ * coordinates and date, so the API's validator sees one consistent shape.
+ */
+function hostBody(input: Partial<Host>): Host {
+  return {
+    lat: input.lat ?? null,
+    lng: input.lng ?? null,
+    host_name: input.host_name ?? '',
+    host_url: input.host_url ?? '',
+    host_since: input.host_since || null,
+    address: input.address ?? '',
+  }
+}
+
 /* ──── Uploads ──── */
 
 /**
@@ -233,6 +250,8 @@ export async function createState(
     {
       name: input.name,
       description: input.description ?? '',
+      about: input.about ?? '',
+      upcoming: input.upcoming ?? false,
       ...brandingBody(input),
     },
     token,
@@ -249,6 +268,8 @@ export async function updateState(
     {
       name: input.name,
       description: input.description ?? '',
+      about: input.about ?? '',
+      upcoming: input.upcoming ?? false,
       ...brandingBody(input),
     },
     token,
@@ -287,6 +308,14 @@ export async function fetchSublocationBySlug(
   return get<Sublocation>(`/sublocations/${slug}`)
 }
 
+/**
+ * Current conditions for the sublocation's coordinates. Null on 404 (no
+ * lat/lng set) or any failure — the page simply renders no weather panel.
+ */
+export async function fetchWeather(slug: string): Promise<Weather | null> {
+  return get<Weather>(`/sublocations/${slug}/weather`).catch(() => null)
+}
+
 export async function createSublocation(
   input: CreateSublocationInput,
   token?: string | null,
@@ -297,7 +326,9 @@ export async function createSublocation(
       name: input.name,
       description: input.description ?? '',
       state_id: input.state_id,
+      about: input.about ?? '',
       ...brandingBody(input),
+      ...hostBody(input),
     },
     token,
   )
@@ -314,7 +345,9 @@ export async function updateSublocation(
       name: input.name,
       description: input.description ?? '',
       state_id: input.state_id,
+      about: input.about ?? '',
       ...brandingBody(input),
+      ...hostBody(input),
     },
     token,
   )
@@ -376,6 +409,7 @@ export async function createVideo(
       state_id: input.state_id,
       sublocation_id: input.sublocation_id ?? null,
       status: input.status ?? 'active',
+      about: input.about ?? '',
     },
     token,
   )
@@ -395,6 +429,7 @@ export async function updateVideo(
       state_id: input.state_id,
       sublocation_id: input.sublocation_id ?? null,
       status: input.status ?? 'active',
+      about: input.about ?? '',
     },
     token,
   )
@@ -465,7 +500,10 @@ export async function updateAd(
   return put<Ad>(`/ads/${id}`, input, token)
 }
 
-export async function deleteAd(id: number, token?: string | null): Promise<void> {
+export async function deleteAd(
+  id: number,
+  token?: string | null,
+): Promise<void> {
   return del(`/ads/${id}`, token)
 }
 

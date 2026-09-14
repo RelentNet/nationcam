@@ -30,6 +30,7 @@ import type {
   AdPlacement,
   AdType,
   Branding,
+  Host,
   State,
   StreamDetail,
   Sublocation,
@@ -1106,6 +1107,7 @@ function SublocationsPanel({
     update: updateBranding,
     reset: resetBranding,
   } = useBranding()
+  const { host, update: updateHost, reset: resetHost } = useHostForm()
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
 
@@ -1207,6 +1209,7 @@ function SublocationsPanel({
           state_id: Number(stateId),
           about,
           ...branding,
+          ...hostBody(host),
         },
         token,
       )
@@ -1216,6 +1219,7 @@ function SublocationsPanel({
       setStateId('')
       setAbout('')
       resetBranding()
+      resetHost()
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to create sublocation.', ok: false })
@@ -1265,6 +1269,7 @@ function SublocationsPanel({
                 />
               </div>
               <AboutField value={about} onChange={setAbout} />
+              <HostFields host={host} update={updateHost} />
               <BrandingFields
                 branding={branding}
                 update={updateBranding}
@@ -2611,6 +2616,111 @@ function BrandingFields({
   )
 }
 
+/** The host block as form strings; converted by `hostBody` on submit. */
+type HostForm = Record<keyof Host, string>
+
+const emptyHost: HostForm = {
+  lat: '',
+  lng: '',
+  host_name: '',
+  host_url: '',
+  host_since: '',
+  address: '',
+}
+
+// useHostForm holds the six host / visit fields for a sublocation form, seeded
+// from an existing row (edit) or blank (create).
+function useHostForm(initial?: Host) {
+  const [host, setHost] = useState<HostForm>(() =>
+    initial
+      ? {
+          lat: initial.lat?.toString() ?? '',
+          lng: initial.lng?.toString() ?? '',
+          host_name: initial.host_name,
+          host_url: initial.host_url,
+          host_since: initial.host_since ?? '',
+          address: initial.address,
+        }
+      : emptyHost,
+  )
+  const update = (patch: Partial<HostForm>) =>
+    setHost((h) => ({ ...h, ...patch }))
+  const reset = () => setHost(emptyHost)
+  return { host, update, reset }
+}
+
+// hostBody turns the form strings into the API shape: blank coordinates and
+// date become null, so the API's "both or neither" check sees real values.
+function hostBody(h: HostForm): Host {
+  return {
+    lat: h.lat.trim() === '' ? null : Number(h.lat),
+    lng: h.lng.trim() === '' ? null : Number(h.lng),
+    host_name: h.host_name,
+    host_url: h.host_url,
+    host_since: h.host_since || null,
+    address: h.address,
+  }
+}
+
+function HostFields({
+  host,
+  update,
+}: {
+  host: HostForm
+  update: (patch: Partial<HostForm>) => void
+}) {
+  return (
+    <div className="space-y-4 rounded-lg border border-overlay0/60 bg-base/40 p-4">
+      <p className="mb-0 text-xs font-semibold tracking-wide text-subtext0 uppercase">
+        Host &amp; visit
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
+          label="Latitude"
+          type="number"
+          value={host.lat}
+          onChange={(v) => update({ lat: v })}
+          placeholder="29.277 (unlocks the weather panel)"
+        />
+        <FormField
+          label="Longitude"
+          type="number"
+          value={host.lng}
+          onChange={(v) => update({ lng: v })}
+          placeholder="-89.354"
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <FormField
+          label="Host name"
+          value={host.host_name}
+          onChange={(v) => update({ host_name: v })}
+          placeholder="Venice Marina"
+        />
+        <FormField
+          label="Host website"
+          type="url"
+          value={host.host_url}
+          onChange={(v) => update({ host_url: v })}
+          placeholder="https://www.venicemarina.com"
+        />
+        <FormField
+          label="On NationCam since"
+          type="date"
+          value={host.host_since}
+          onChange={(v) => update({ host_since: v })}
+        />
+      </div>
+      <FormField
+        label="Address"
+        value={host.address}
+        onChange={(v) => update({ address: v })}
+        placeholder="237 Sports Marina Rd, Venice, LA 70091"
+      />
+    </div>
+  )
+}
+
 // AboutField is the editorial-copy textarea shared by the state, sublocation and
 // camera forms. The hint spells out the light markdown EditorialText renders —
 // anything else (including pasted HTML) comes out as plain text on the page.
@@ -2646,11 +2756,13 @@ function FormField({
   value,
   onChange,
   placeholder,
+  type = 'text',
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  type?: 'text' | 'number' | 'date' | 'url'
 }) {
   return (
     <div>
@@ -2658,7 +2770,8 @@ function FormField({
         {label}
       </label>
       <input
-        type="text"
+        type={type}
+        step={type === 'number' ? 'any' : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -3200,6 +3313,7 @@ function EditSublocationModal({
   const [stateId, setStateId] = useState<number>(sublocation.state_id)
   const [about, setAbout] = useState(sublocation.about)
   const { branding, update: updateBranding } = useBranding(sublocation)
+  const { host, update: updateHost } = useHostForm(sublocation)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
   useAutoHide(msg, setMsg)
@@ -3216,7 +3330,14 @@ function EditSublocationModal({
       const token = await getToken()
       await updateSublocation(
         sublocation.sublocation_id,
-        { name, description, state_id: stateId, about, ...branding },
+        {
+          name,
+          description,
+          state_id: stateId,
+          about,
+          ...branding,
+          ...hostBody(host),
+        },
         token,
       )
       onSuccess()
@@ -3249,6 +3370,7 @@ function EditSublocationModal({
           placeholder="Optional"
         />
         <AboutField value={about} onChange={setAbout} />
+        <HostFields host={host} update={updateHost} />
         <BrandingFields
           branding={branding}
           update={updateBranding}

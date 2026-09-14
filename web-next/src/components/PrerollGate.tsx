@@ -34,10 +34,9 @@ type Phase = 'checking' | 'ad' | 'live'
  * failure path (no ad, capped, fetch error, broken/slow ad) falls open to live —
  * an ad must never block the camera.
  *
- * Gating lives here, not in `StreamPlayer`, on purpose: grid `VideoCard`
- * previews reuse `StreamPlayer` and must NOT get pre-roll. Surfaces that want
- * pre-roll (the camera page, the featured heroes) opt in by wrapping their live
- * player in this gate.
+ * Gating lives here, not in `StreamPlayer`, on purpose, so a surface opts in
+ * by wrapping its live player in this gate (the location pages' featured
+ * player, the home page hero).
  */
 export default function PrerollGate({
   videoId,
@@ -151,7 +150,10 @@ function PrerollAd({
   }
 
   const onTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const left = Math.max(0, SKIP_AFTER_S - Math.floor(e.currentTarget.currentTime))
+    const left = Math.max(
+      0,
+      SKIP_AFTER_S - Math.floor(e.currentTarget.currentTime),
+    )
     setSecondsLeft(left)
   }
 

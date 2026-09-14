@@ -273,7 +273,7 @@ new-nationcam/                        # Repo root
 5 tables (no users table — Logto handles authentication):
 
 - **states**: `state_id`, `name`, `description`, `slug`, `created_at`, `updated_at`
-- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `created_at`, `updated_at`
+- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `created_at`, `updated_at`
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `created_by`, `created_at`, `updated_at`
 - **ads**: `ad_id`, `name`, `video_url`, `click_url`, `weight`, `starts_at`, `ends_at`, `enabled`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs — at most one set, this is the targeting scope), `created_by`, `created_at`, `updated_at`
 - **ad_impressions**: `impression_id`, `ad_id` (FK), `video_id` (nullable FK), `kind` (`impression` | `click`), `created_at`
@@ -299,6 +299,7 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/states`                        | Create state                   | Admin (Logto) |
 | GET    | `/states/{slug}/sublocations`    | Sublocations for a state       | None          |
 | GET    | `/sublocations/{slug}`           | Single sublocation by slug     | None          |
+| GET    | `/sublocations/{slug}/weather`   | Current conditions (Open-Meteo, 10-min Redis cache); 404 without lat/lng | None |
 | POST   | `/sublocations`                  | Create sublocation             | Admin (Logto) |
 | GET    | `/videos`                        | All active videos              | None          |
 | GET    | `/videos?state_id=N`             | Videos by state                | None          |

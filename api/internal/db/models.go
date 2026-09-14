@@ -56,19 +56,25 @@ type State struct {
 }
 
 type Sublocation struct {
-	SublocationID int32     `json:"sublocation_id"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	StateID       int32     `json:"state_id"`
-	Slug          string    `json:"slug"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	HeroUrl       string    `json:"hero_url"`
-	HeroKind      string    `json:"hero_kind"`
-	LogoUrl       string    `json:"logo_url"`
-	SponsorUrl    string    `json:"sponsor_url"`
-	SponsorLink   string    `json:"sponsor_link"`
-	About         string    `json:"about"`
+	SublocationID int32         `json:"sublocation_id"`
+	Name          string        `json:"name"`
+	Description   string        `json:"description"`
+	StateID       int32         `json:"state_id"`
+	Slug          string        `json:"slug"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
+	HeroUrl       string        `json:"hero_url"`
+	HeroKind      string        `json:"hero_kind"`
+	LogoUrl       string        `json:"logo_url"`
+	SponsorUrl    string        `json:"sponsor_url"`
+	SponsorLink   string        `json:"sponsor_link"`
+	About         string        `json:"about"`
+	Lat           pgtype.Float8 `json:"lat"`
+	Lng           pgtype.Float8 `json:"lng"`
+	HostName      string        `json:"host_name"`
+	HostUrl       string        `json:"host_url"`
+	HostSince     pgtype.Date   `json:"host_since"`
+	Address       string        `json:"address"`
 }
 
 type Submission struct {
