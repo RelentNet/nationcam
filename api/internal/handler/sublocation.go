@@ -114,6 +114,7 @@ type updateSublocationRequest struct {
 	StateID     int32  `json:"state_id"`
 	brandingInput
 	aboutInput
+	hostInput
 }
 
 // UpdateSublocation handles PUT /sublocations/{id} — updates a sublocation (admin only).
@@ -143,6 +144,10 @@ func UpdateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
 		}
+		if msg := req.normalizeHost(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		if err := db.New(pool).UpdateSublocation(r.Context(), db.UpdateSublocationParams{
 			SublocationID: int32(id),
@@ -155,6 +160,12 @@ func UpdateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			SponsorUrl:    req.SponsorURL,
 			SponsorLink:   req.SponsorLink,
 			About:         req.About,
+			Lat:           req.Lat,
+			Lng:           req.Lng,
+			HostName:      req.HostName,
+			HostUrl:       req.HostURL,
+			HostSince:     req.HostSince,
+			Address:       req.Address,
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -183,6 +194,7 @@ type createSublocationRequest struct {
 	StateID     int32  `json:"state_id"`
 	brandingInput
 	aboutInput
+	hostInput
 }
 
 // CreateSublocation handles POST /sublocations (admin only).
@@ -205,6 +217,10 @@ func CreateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
 		}
+		if msg := req.normalizeHost(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		created, err := db.New(pool).CreateSublocation(r.Context(), db.CreateSublocationParams{
 			Name:        req.Name,
@@ -216,6 +232,12 @@ func CreateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
 			About:       req.About,
+			Lat:         req.Lat,
+			Lng:         req.Lng,
+			HostName:    req.HostName,
+			HostUrl:     req.HostURL,
+			HostSince:   req.HostSince,
+			Address:     req.Address,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

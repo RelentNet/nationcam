@@ -19,8 +19,12 @@ interface SeoOptions {
  * Returns undefined for a non-memfs src or an offline camera (whose snapshot may
  * be gone), so the caller falls back to the logo.
  */
-export function streamPoster(src: string, isLive: boolean): string | undefined {
-  if (!isLive) return undefined
+export function streamPoster(
+  src: string | undefined,
+  isLive: boolean,
+): string | undefined {
+  // `src` can be missing on a cached API row from before a field was added.
+  if (!isLive || !src) return undefined
   const m = src.match(/^(https?:\/\/[^?]+\/memfs\/[^/?]+)\.m3u8/)
   return m ? `${m[1]}.jpg` : undefined
 }

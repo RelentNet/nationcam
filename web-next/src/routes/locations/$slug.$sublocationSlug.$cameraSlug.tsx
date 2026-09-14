@@ -1,13 +1,14 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
-import { ChevronRight, Eye } from 'lucide-react'
 import type { Camera } from '@/lib/types'
-import { fetchCamera } from '@/lib/api'
+import {
+  fetchCamera,
+  fetchSublocationBySlug,
+  fetchSublocationsByState,
+  fetchVideosBySublocation,
+  fetchWeather,
+} from '@/lib/api'
 import { SITE_URL, seo, streamPoster } from '@/lib/seo'
-import CameraPlayer from '@/components/CameraPlayer'
-import VideoCard from '@/components/VideoCard'
-import LiveBadge from '@/components/LiveBadge'
-import Reveal from '@/components/Reveal'
-import { AboutSection } from '@/components/EditorialText'
+import SublocationPage from '@/components/SublocationPage'
 
 function describe(camera: Camera): string {
   return `Watch ${camera.title}, a live streaming camera in ${camera.sublocation_name}, ${camera.state_name}. Free real-time video, streaming 24/7 on NationCam.`
@@ -25,7 +26,16 @@ export const Route = createFileRoute(
       params.cameraSlug,
     ).catch(() => null)
     if (!detail) throw notFound()
-    return detail
+
+    // The page is the sublocation hub with this camera selected, so it needs
+    // the sublocation, every camera here, the state's other spots and weather.
+    const [sublocation, videos, siblings, weather] = await Promise.all([
+      fetchSublocationBySlug(params.sublocationSlug),
+      fetchVideosBySublocation(detail.camera.sublocation_id ?? 0),
+      fetchSublocationsByState(params.slug),
+      fetchWeather(params.sublocationSlug),
+    ])
+    return { ...detail, sublocation, videos, siblings, weather }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -142,90 +152,18 @@ function CameraNotFound() {
 }
 
 function CameraPage() {
-  const { slug, sublocationSlug } = Route.useParams()
-  const { camera, related } = Route.useLoaderData()
-  const isLive = camera.status === 'active'
-
+  const { slug } = Route.useParams()
+  const { camera, sublocation, videos, siblings, weather } =
+    Route.useLoaderData()
   return (
-    <div className="page-container page-enter">
-      {/* ── Breadcrumbs ── */}
-      {/* `exact` keeps the router from marking every ancestor link
-          aria-current="page" — only the trailing crumb is the current page. */}
-      <nav
-        aria-label="Breadcrumb"
-        className="mb-5 flex flex-wrap items-center gap-1 font-mono text-xs text-subtext0"
-      >
-        <Link
-          to="/locations"
-          activeOptions={{ exact: true }}
-          className="hover:text-accent"
-        >
-          Locations
-        </Link>
-        <ChevronRight size={12} className="text-overlay1" />
-        <Link
-          to="/locations/$slug"
-          params={{ slug }}
-          activeOptions={{ exact: true }}
-          className="hover:text-accent"
-        >
-          {camera.state_name}
-        </Link>
-        <ChevronRight size={12} className="text-overlay1" />
-        <Link
-          to="/locations/$slug/$sublocationSlug"
-          params={{ slug, sublocationSlug }}
-          activeOptions={{ exact: true }}
-          className="hover:text-accent"
-        >
-          {camera.sublocation_name}
-        </Link>
-        <ChevronRight size={12} className="text-overlay1" />
-        <span aria-current="page" className="text-text">
-          {camera.title}
-        </span>
-      </nav>
-
-      {/* ── Player (optional skippable pre-roll, then the live stream) ── */}
-      <CameraPlayer camera={camera} />
-
-      {/* ── Title + meta ── */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <h1 className="mb-0 text-3xl sm:text-4xl">{camera.title}</h1>
-        {isLive && <LiveBadge />}
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-4 font-mono text-sm text-subtext0">
-        <span className="inline-flex items-center gap-1.5 tabular-nums">
-          <Eye size={14} className="text-overlay2" />
-          {(camera.view_count ?? 0).toLocaleString('en-US')} view
-          {camera.view_count === 1 ? '' : 's'}
-        </span>
-      </div>
-
-      <p className="mt-4 max-w-3xl">{describe(camera)}</p>
-
-      {/* ── Editorial copy ── */}
-      <AboutSection title={`About ${camera.title}`} text={camera.about} />
-
-      {/* ── Related cameras ── */}
-      {related.length > 0 && (
-        <section className="mt-14">
-          <h3>More cameras in {camera.sublocation_name}</h3>
-          <Reveal stagger>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {related.map((video) => (
-                <VideoCard
-                  key={video.video_id}
-                  video={video}
-                  stateSlug={video.state_slug}
-                  sublocationSlug={video.sublocation_slug}
-                />
-              ))}
-            </div>
-          </Reveal>
-        </section>
-      )}
-    </div>
+    <SublocationPage
+      stateSlug={slug}
+      sublocation={sublocation}
+      videos={videos}
+      featured={camera}
+      camera={camera}
+      siblings={siblings}
+      weather={weather}
+    />
   )
 }
