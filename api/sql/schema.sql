@@ -124,6 +124,14 @@ ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS logo_url     TEXT NOT NULL DEF
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS sponsor_url  TEXT NOT NULL DEFAULT '';
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS sponsor_link TEXT NOT NULL DEFAULT '';
 
+-- Editorial "About this location / camera" copy, written in the dashboard and
+-- rendered on the public state, sublocation and camera pages. Light markdown:
+-- '## ' headings, blank-line-separated paragraphs, '- ' bullets. Empty means the
+-- page renders no About section at all. Length-capped in the API before write.
+ALTER TABLE states ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
+
 -- ────────────────────────────────────────────────
 -- Indexes
 -- ────────────────────────────────────────────────

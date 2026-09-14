@@ -541,6 +541,7 @@ function CamerasPanel({
   const [stateId, setStateId] = useState<number | ''>('')
   const [sublocationId, setSublocationId] = useState<number | ''>('')
   const [status, setStatus] = useState('active')
+  const [about, setAbout] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
 
@@ -642,6 +643,7 @@ function CamerasPanel({
           state_id: Number(stateId),
           sublocation_id: sublocationId ? Number(sublocationId) : null,
           status,
+          about,
         },
         token,
       )
@@ -652,6 +654,7 @@ function CamerasPanel({
       setStateId('')
       setSublocationId('')
       setStatus('active')
+      setAbout('')
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to add camera.', ok: false })
@@ -732,6 +735,7 @@ function CamerasPanel({
                   onSelect={(v) => setStatus(String(v))}
                 />
               </div>
+              <AboutField value={about} onChange={setAbout} />
               <FormFooter
                 msg={msg}
                 submitting={submitting}
@@ -834,6 +838,7 @@ function StatesPanel({
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [about, setAbout] = useState('')
   const {
     branding,
     update: updateBranding,
@@ -930,12 +935,13 @@ function StatesPanel({
     try {
       const token = await getToken()
       await createState(
-        { name, description: description || undefined, ...branding },
+        { name, description: description || undefined, about, ...branding },
         token,
       )
       setMsg({ text: 'State created!', ok: true })
       setName('')
       setDescription('')
+      setAbout('')
       resetBranding()
       onSuccess()
     } catch {
@@ -976,6 +982,7 @@ function StatesPanel({
                   placeholder="Brief description (optional)"
                 />
               </div>
+              <AboutField value={about} onChange={setAbout} />
               <BrandingFields
                 branding={branding}
                 update={updateBranding}
@@ -1079,6 +1086,7 @@ function SublocationsPanel({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [stateId, setStateId] = useState<number | ''>('')
+  const [about, setAbout] = useState('')
   const {
     branding,
     update: updateBranding,
@@ -1183,6 +1191,7 @@ function SublocationsPanel({
           name,
           description: description || undefined,
           state_id: Number(stateId),
+          about,
           ...branding,
         },
         token,
@@ -1191,6 +1200,7 @@ function SublocationsPanel({
       setName('')
       setDescription('')
       setStateId('')
+      setAbout('')
       resetBranding()
       onSuccess()
     } catch {
@@ -1240,6 +1250,7 @@ function SublocationsPanel({
                   placeholder="Optional"
                 />
               </div>
+              <AboutField value={about} onChange={setAbout} />
               <BrandingFields
                 branding={branding}
                 update={updateBranding}
@@ -2120,7 +2131,9 @@ function ToggleRow({
   onChange: (v: boolean) => void
   warning?: boolean
 }) {
-  const on = warning ? 'border-live/50 bg-live/10' : 'border-accent/40 bg-accent/8'
+  const on = warning
+    ? 'border-live/50 bg-live/10'
+    : 'border-accent/40 bg-accent/8'
   return (
     <button
       type="button"
@@ -2134,7 +2147,9 @@ function ToggleRow({
           {warning && <ShieldAlert size={14} className="text-live" />}
           {label}
         </span>
-        <span className="mt-0.5 block text-xs text-subtext0">{description}</span>
+        <span className="mt-0.5 block text-xs text-subtext0">
+          {description}
+        </span>
       </div>
       <span
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-150 ${
@@ -2173,7 +2188,8 @@ function adWindowLabel(ad: Ad): string {
       day: 'numeric',
       year: 'numeric',
     })
-  if (ad.starts_at && ad.ends_at) return `${fmt(ad.starts_at)} – ${fmt(ad.ends_at)}`
+  if (ad.starts_at && ad.ends_at)
+    return `${fmt(ad.starts_at)} – ${fmt(ad.ends_at)}`
   if (ad.starts_at) return `from ${fmt(ad.starts_at)}`
   if (ad.ends_at) return `until ${fmt(ad.ends_at)}`
   return 'Always'
@@ -2577,6 +2593,36 @@ function BrandingFields({
           placeholder="https://sponsor.example.com"
         />
       </div>
+    </div>
+  )
+}
+
+// AboutField is the editorial-copy textarea shared by the state, sublocation and
+// camera forms. The hint spells out the light markdown EditorialText renders —
+// anything else (including pasted HTML) comes out as plain text on the page.
+function AboutField({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-subtext0">
+        About (editorial)
+      </label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={10}
+        placeholder="Shown as an “About” section on the public page. Leave blank for no section."
+        className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
+      />
+      <p className="mt-1 mb-0 text-xs text-overlay2">
+        Formatting: <code>## Heading</code>, a blank line between paragraphs,{' '}
+        <code>- </code> for bullets.
+      </p>
     </div>
   )
 }
@@ -3057,6 +3103,7 @@ function EditStateModal({
 }) {
   const [name, setName] = useState(state.name)
   const [description, setDescription] = useState(state.description)
+  const [about, setAbout] = useState(state.about)
   const { branding, update: updateBranding } = useBranding(state)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
@@ -3072,7 +3119,11 @@ function EditStateModal({
     setMsg(null)
     try {
       const token = await getToken()
-      await updateState(state.state_id, { name, description, ...branding }, token)
+      await updateState(
+        state.state_id,
+        { name, description, about, ...branding },
+        token,
+      )
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to update state.', ok: false })
@@ -3096,6 +3147,7 @@ function EditStateModal({
           onChange={setDescription}
           placeholder="Optional"
         />
+        <AboutField value={about} onChange={setAbout} />
         <BrandingFields
           branding={branding}
           update={updateBranding}
@@ -3125,6 +3177,7 @@ function EditSublocationModal({
   const [name, setName] = useState(sublocation.name)
   const [description, setDescription] = useState(sublocation.description)
   const [stateId, setStateId] = useState<number>(sublocation.state_id)
+  const [about, setAbout] = useState(sublocation.about)
   const { branding, update: updateBranding } = useBranding(sublocation)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
@@ -3142,7 +3195,7 @@ function EditSublocationModal({
       const token = await getToken()
       await updateSublocation(
         sublocation.sublocation_id,
-        { name, description, state_id: stateId, ...branding },
+        { name, description, state_id: stateId, about, ...branding },
         token,
       )
       onSuccess()
@@ -3174,6 +3227,7 @@ function EditSublocationModal({
           onChange={setDescription}
           placeholder="Optional"
         />
+        <AboutField value={about} onChange={setAbout} />
         <BrandingFields
           branding={branding}
           update={updateBranding}
@@ -3210,6 +3264,7 @@ function EditVideoModal({
     video.sublocation_id ?? '',
   )
   const [status, setStatus] = useState(video.status)
+  const [about, setAbout] = useState(video.about)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
   useAutoHide(msg, setMsg)
@@ -3235,6 +3290,7 @@ function EditVideoModal({
           state_id: stateId,
           sublocation_id: sublocationId ? Number(sublocationId) : null,
           status,
+          about,
         },
         token,
       )
@@ -3293,6 +3349,7 @@ function EditVideoModal({
           selectedValue={status}
           onSelect={(v) => setStatus(String(v) as Video['status'])}
         />
+        <AboutField value={about} onChange={setAbout} />
         <FormFooter msg={msg} submitting={submitting} label="Save Changes" />
       </form>
     </ModalShell>

@@ -7,6 +7,7 @@ import CameraPlayer from '@/components/CameraPlayer'
 import VideoCard from '@/components/VideoCard'
 import LiveBadge from '@/components/LiveBadge'
 import Reveal from '@/components/Reveal'
+import { AboutSection } from '@/components/EditorialText'
 
 function describe(camera: Camera): string {
   return `Watch ${camera.title}, a live streaming camera in ${camera.sublocation_name}, ${camera.state_name}. Free real-time video, streaming 24/7 on NationCam.`
@@ -203,6 +204,9 @@ function CameraPage() {
       </div>
 
       <p className="mt-4 max-w-3xl">{describe(camera)}</p>
+
+      {/* ── Editorial copy ── */}
+      <AboutSection title={`About ${camera.title}`} text={camera.about} />
 
       {/* ── Related cameras ── */}
       {related.length > 0 && (
