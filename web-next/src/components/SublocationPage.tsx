@@ -95,12 +95,12 @@ export default function SublocationPage({
                   {sublocation.name}
                 </Link>
                 <ChevronRight size={12} />
-                <span aria-current="page" className="text-white">
+                <span aria-current="page" className="text-text">
                   {camera.title}
                 </span>
               </>
             ) : (
-              <span aria-current="page" className="text-white">
+              <span aria-current="page" className="text-text">
                 {sublocation.name}
               </span>
             )}
