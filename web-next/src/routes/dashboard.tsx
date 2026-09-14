@@ -839,6 +839,7 @@ function StatesPanel({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [about, setAbout] = useState('')
+  const [upcoming, setUpcoming] = useState(false)
   const {
     branding,
     update: updateBranding,
@@ -935,13 +936,20 @@ function StatesPanel({
     try {
       const token = await getToken()
       await createState(
-        { name, description: description || undefined, about, ...branding },
+        {
+          name,
+          description: description || undefined,
+          about,
+          upcoming,
+          ...branding,
+        },
         token,
       )
       setMsg({ text: 'State created!', ok: true })
       setName('')
       setDescription('')
       setAbout('')
+      setUpcoming(false)
       resetBranding()
       onSuccess()
     } catch {
@@ -983,6 +991,12 @@ function StatesPanel({
                 />
               </div>
               <AboutField value={about} onChange={setAbout} />
+              <ToggleRow
+                label="Upcoming — a camera is confirmed for this state"
+                description="Shows the state prominently on /locations before its first camera goes live."
+                checked={upcoming}
+                onChange={setUpcoming}
+              />
               <BrandingFields
                 branding={branding}
                 update={updateBranding}
@@ -3104,6 +3118,7 @@ function EditStateModal({
   const [name, setName] = useState(state.name)
   const [description, setDescription] = useState(state.description)
   const [about, setAbout] = useState(state.about)
+  const [upcoming, setUpcoming] = useState(state.upcoming)
   const { branding, update: updateBranding } = useBranding(state)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
@@ -3121,7 +3136,7 @@ function EditStateModal({
       const token = await getToken()
       await updateState(
         state.state_id,
-        { name, description, about, ...branding },
+        { name, description, about, upcoming, ...branding },
         token,
       )
       onSuccess()
@@ -3148,6 +3163,12 @@ function EditStateModal({
           placeholder="Optional"
         />
         <AboutField value={about} onChange={setAbout} />
+        <ToggleRow
+          label="Upcoming — a camera is confirmed for this state"
+          description="Shows the state prominently on /locations before its first camera goes live."
+          checked={upcoming}
+          onChange={setUpcoming}
+        />
         <BrandingFields
           branding={branding}
           update={updateBranding}

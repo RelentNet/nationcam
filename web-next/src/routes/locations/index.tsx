@@ -21,8 +21,13 @@ export const Route = createFileRoute('/locations/')({
 /* ──── State Grid (active-first, coming-soon below) ──── */
 
 function StateGrid({ states }: { states: Array<State> }) {
-  const active = states.filter((s) => s.video_count > 0)
-  const comingSoon = states.filter((s) => !s.video_count || s.video_count === 0)
+  // Cards = states with cameras, then states flagged upcoming (a camera is
+  // confirmed but not live yet) — those earn a card instead of a pill.
+  const active = [
+    ...states.filter((s) => s.video_count > 0),
+    ...states.filter((s) => !s.video_count && s.upcoming),
+  ]
+  const comingSoon = states.filter((s) => !s.video_count && !s.upcoming)
 
   // If every state is empty, just render them all normally
   if (active.length === 0) {
@@ -122,7 +127,12 @@ function StateCard({ state, muted }: { state: State; muted?: boolean }) {
               </span>
             </div>
           ) : (
-            <span className="font-mono text-sm text-overlay2">Coming soon</span>
+            <span className="font-mono text-sm text-overlay2">
+              Coming soon
+              {state.upcoming && (
+                <span className="text-accent"> &middot; camera confirmed</span>
+              )}
+            </span>
           )}
         </div>
         <MapPin

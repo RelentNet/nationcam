@@ -52,6 +52,7 @@ type State struct {
 	SponsorUrl  string    `json:"sponsor_url"`
 	SponsorLink string    `json:"sponsor_link"`
 	About       string    `json:"about"`
+	Upcoming    bool      `json:"upcoming"`
 }
 
 type Sublocation struct {

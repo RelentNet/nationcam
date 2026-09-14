@@ -100,6 +100,8 @@ func ListStatesPaginated(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 type updateStateRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	// Upcoming marks a state whose first camera is confirmed but not yet live.
+	Upcoming bool `json:"upcoming"`
 	brandingInput
 	aboutInput
 }
@@ -142,6 +144,7 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
 			About:       req.About,
+			Upcoming:    req.Upcoming,
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -164,6 +167,7 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 type createStateRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Upcoming    bool   `json:"upcoming"`
 	brandingInput
 	aboutInput
 }
@@ -198,6 +202,7 @@ func CreateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
 			About:       req.About,
+			Upcoming:    req.Upcoming,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

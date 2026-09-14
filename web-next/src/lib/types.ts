@@ -29,6 +29,8 @@ export interface State extends Branding, Editorial {
   created_at: string
   updated_at: string
   video_count: number
+  /** A camera is confirmed here but not live yet — shown prominently on /locations. */
+  upcoming: boolean
 }
 
 export interface Sublocation extends Branding, Editorial {
@@ -79,12 +81,14 @@ export interface CreateStateInput
   extends Partial<Branding>, Partial<Editorial> {
   name: string
   description?: string
+  upcoming?: boolean
 }
 
 export interface UpdateStateInput
   extends Partial<Branding>, Partial<Editorial> {
   name: string
   description?: string
+  upcoming?: boolean
 }
 
 export interface CreateSublocationInput

@@ -253,12 +253,24 @@ function StatePage() {
           <Reveal variant="scale">
             <div className="section-container py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
-              <h3>Coming to {state.name}</h3>
+              <h3>
+                {state.upcoming ? 'Coming soon to' : 'Coming to'} {state.name}
+              </h3>
               <p className="mx-auto max-w-lg">
-                We don&rsquo;t have a live camera in {state.name} yet. If you
-                run a marina, a waterfront restaurant, a hotel with a view, or
-                any place worth watching, you could host the first one &mdash;
-                it costs nothing.
+                {state.upcoming ? (
+                  <>
+                    A camera is confirmed for {state.name} and will be live
+                    soon. Know another spot here worth watching? You could host
+                    it &mdash; it costs nothing.
+                  </>
+                ) : (
+                  <>
+                    We don&rsquo;t have a live camera in {state.name} yet. If
+                    you run a marina, a waterfront restaurant, a hotel with a
+                    view, or any place worth watching, you could host the first
+                    one &mdash; it costs nothing.
+                  </>
+                )}
               </p>
               <Link
                 to="/contact"
