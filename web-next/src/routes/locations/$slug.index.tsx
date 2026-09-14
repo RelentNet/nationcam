@@ -31,7 +31,7 @@ export const Route = createFileRoute('/locations/$slug/')({
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
     const { state, videos, featured } = loaderData
-    return seo({
+    const base = seo({
       title: `${state.name} Live Cameras | NationCam`,
       description:
         videos.length > 0
@@ -42,6 +42,15 @@ export const Route = createFileRoute('/locations/$slug/')({
         ? streamPoster(featured.src, featured.status === 'active')
         : undefined,
     })
+    // A state with no cameras yet is a placeholder — keep it out of the index
+    // so crawlers (and AdSense review) don't read the site as unfinished.
+    if (videos.length === 0) {
+      return {
+        ...base,
+        meta: [...base.meta, { name: 'robots', content: 'noindex, follow' }],
+      }
+    }
+    return base
   },
   component: StatePage,
   pendingComponent: LoadingSpinner,
@@ -233,14 +242,26 @@ function StatePage() {
           </>
         )}
 
-        {/* Empty state — no videos at all */}
+        {/* Empty state — no cameras yet. Framed as an invitation, not a
+            placeholder: the page is noindex'd (see head), and for humans it
+            should read as "we're coming here", not "this is broken". */}
         {videos.length === 0 && (
           <Reveal variant="scale">
             <div className="section-container py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
-              <p className="mb-0">
-                No cameras available for {state.name} yet. Check back soon!
+              <h3>Coming to {state.name}</h3>
+              <p className="mx-auto max-w-lg">
+                We don&rsquo;t have a live camera in {state.name} yet. If you
+                run a marina, a waterfront restaurant, a hotel with a view, or
+                any place worth watching, you could host the first one &mdash;
+                it costs nothing.
               </p>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+              >
+                Host a camera in {state.name} &rarr;
+              </Link>
             </div>
           </Reveal>
         )}

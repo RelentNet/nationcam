@@ -2,16 +2,27 @@ import { createFileRoute } from '@tanstack/react-router'
 import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import { SITE_URL } from '@/lib/seo'
 
-const STATIC_PATHS = ['/', '/locations', '/contact']
+const STATIC_PATHS = [
+  '/',
+  '/locations',
+  '/about',
+  '/contact',
+  '/privacy',
+  '/terms',
+]
 
 export const Route = createFileRoute('/sitemap.xml')({
   server: {
     handlers: {
       GET: async () => {
-        const [states, videos] = await Promise.all([
+        const [allStates, videos] = await Promise.all([
           fetchStates(),
           fetchVideos(),
         ])
+        // Only states and sublocations that actually have cameras are listed:
+        // empty "coming soon" pages are noindex'd and read as an unfinished
+        // site to crawlers (and AdSense review), so keep them out of the map.
+        const states = allStates.filter((state) => state.video_count > 0)
 
         // sublocation_id -> `{stateSlug}/{sublocationSlug}`, so camera rows
         // (which only carry ids) can be turned into URLs.
@@ -19,7 +30,9 @@ export const Route = createFileRoute('/sitemap.xml')({
 
         const locationPaths = await Promise.all(
           states.map(async (state) => {
-            const sublocations = await fetchSublocationsByState(state.slug)
+            const sublocations = (
+              await fetchSublocationsByState(state.slug)
+            ).filter((sub) => sub.video_count > 0)
             return [
               `/locations/${state.slug}`,
               ...sublocations.map((sub) => {

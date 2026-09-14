@@ -12,8 +12,11 @@ const footerSections = [
   {
     title: 'Company',
     links: [
+      { label: 'About', to: '/about' },
       { label: 'Contact', to: '/contact' },
       { label: 'Add Your Camera', to: '/contact' },
+      { label: 'Privacy Policy', to: '/privacy' },
+      { label: 'Terms of Service', to: '/terms' },
     ],
   },
 ]
