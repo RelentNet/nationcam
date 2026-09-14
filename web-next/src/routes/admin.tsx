@@ -3,6 +3,7 @@ import { ExternalLink, LayoutDashboard, LogIn, Shield } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/Button'
 import Reveal from '@/components/Reveal'
+import SubmissionsInbox from '@/components/SubmissionsInbox'
 
 const ADMIN_CONSOLE_URL = 'https://admin.auth.nationcam.com'
 
@@ -14,7 +15,8 @@ export const Route = createFileRoute('/admin')({
 })
 
 function AdminPage() {
-  const { isAuthenticated, isLoading, user, login } = useAuth()
+  const { isAuthenticated, isLoading, isAdmin, isAdminLoading, user, login } =
+    useAuth()
 
   if (isLoading) {
     return (
@@ -128,6 +130,24 @@ function AdminPage() {
           </a>
         </div>
       </Reveal>
+
+      {/* Submissions inbox — admin-only. Submissions carry names, emails and
+          addresses, so this renders only once the admin scope is confirmed.
+          The backend also enforces admin-only access to the submissions API. */}
+      {isAdminLoading ? (
+        <div className="flex justify-center py-8">
+          <div
+            className="h-6 w-6 rounded-full border-2 border-accent border-t-transparent"
+            style={{ animation: 'spin 800ms linear infinite' }}
+          />
+        </div>
+      ) : (
+        isAdmin && (
+          <Reveal variant="float">
+            <SubmissionsInbox />
+          </Reveal>
+        )
+      )}
     </div>
   )
 }

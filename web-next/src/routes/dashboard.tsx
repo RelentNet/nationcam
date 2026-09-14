@@ -4,20 +4,14 @@ import {
   AlertCircle,
   ArrowDownAZ,
   ArrowUpAZ,
-  CalendarArrowDown,
-  CalendarArrowUp,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Code,
   Copy,
   Film,
   Globe,
-  Inbox,
   Landmark,
   Loader2,
   LogIn,
-  Mail,
   MapPin,
   Megaphone,
   Pencil,
@@ -25,7 +19,6 @@ import {
   Radio,
   RefreshCw,
   RotateCcw,
-  Search,
   ShieldAlert,
   Trash2,
   Video as VideoIcon,
@@ -40,12 +33,23 @@ import type {
   State,
   StreamDetail,
   Sublocation,
-  Submission,
   Video,
 } from '@/lib/types'
+import type { FormMsg } from '@/components/dashboardUi'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/Button'
 import Dropdown from '@/components/Dropdown'
+import {
+  DataList,
+  ENTITY_SORT_OPTIONS,
+  ListToolbar,
+  PER_PAGE,
+  PaginationBar,
+  StatusBanner,
+  staggerStyle,
+  timeAgo,
+  useAutoHide,
+} from '@/components/dashboardUi'
 import {
   createAd,
   createState,
@@ -61,9 +65,7 @@ import {
   fetchStates,
   fetchStreams,
   fetchSublocationsByState,
-  fetchSubmissions,
   fetchVideos,
-  markSubmissionHandled,
   restartStream,
   updateAd,
   updateState,
@@ -74,13 +76,7 @@ import {
 
 /* ──── Constants ──── */
 
-type Tab =
-  | 'cameras'
-  | 'states'
-  | 'sublocations'
-  | 'streams'
-  | 'ads'
-  | 'submissions'
+type Tab = 'cameras' | 'states' | 'sublocations' | 'streams' | 'ads'
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof Film }> = [
   { id: 'cameras', label: 'Cameras', icon: Film },
@@ -88,7 +84,6 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Film }> = [
   { id: 'sublocations', label: 'Locations', icon: Landmark },
   { id: 'streams', label: 'Streams', icon: Radio },
   { id: 'ads', label: 'Ads', icon: Megaphone },
-  { id: 'submissions', label: 'Inbox', icon: Inbox },
 ]
 
 // Ad type + scope + placement option lists for the create/edit dropdowns.
@@ -131,19 +126,6 @@ const VIDEO_TYPE_LABELS: Record<string, string> = {
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
-]
-
-const PER_PAGE = 20
-
-const ENTITY_SORT_OPTIONS: Array<{
-  value: string
-  label: string
-  icon: typeof ArrowDownAZ
-}> = [
-  { value: 'a-z', label: 'A\u2192Z', icon: ArrowDownAZ },
-  { value: 'z-a', label: 'Z\u2192A', icon: ArrowUpAZ },
-  { value: 'newest', label: 'Newest', icon: CalendarArrowDown },
-  { value: 'oldest', label: 'Oldest', icon: CalendarArrowUp },
 ]
 
 const STREAM_SORT_OPTIONS: Array<{
@@ -254,7 +236,6 @@ function DashboardContent({ userName }: { userName: string | null }) {
   const [allVideos, setAllVideos] = useState<Array<Video>>([])
   const [allStreams, setAllStreams] = useState<Array<StreamDetail>>([])
   const [allAds, setAllAds] = useState<Array<Ad>>([])
-  const [allSubmissions, setAllSubmissions] = useState<Array<Submission>>([])
   const [dataLoading, setDataLoading] = useState(true)
   const [dataError, setDataError] = useState(false)
 
@@ -292,13 +273,6 @@ function DashboardContent({ userName }: { userName: string | null }) {
       } catch {
         setAllAds([])
       }
-
-      try {
-        const submissionsData = await fetchSubmissions(token)
-        setAllSubmissions(Array.isArray(submissionsData) ? submissionsData : [])
-      } catch {
-        setAllSubmissions([])
-      }
     } catch {
       setDataError(true)
     } finally {
@@ -335,13 +309,6 @@ function DashboardContent({ userName }: { userName: string | null }) {
       } catch {
         setAllAds([])
       }
-
-      try {
-        const submissionsData = await fetchSubmissions(token)
-        setAllSubmissions(Array.isArray(submissionsData) ? submissionsData : [])
-      } catch {
-        setAllSubmissions([])
-      }
     } catch {
       // Silent refresh — don't crash the page on failure
     }
@@ -361,7 +328,6 @@ function DashboardContent({ userName }: { userName: string | null }) {
     sublocations: allSublocations.length,
     streams: allStreams.length,
     ads: allAds.length,
-    submissions: allSubmissions.length,
   }
 
   // Error state — failed initial load
@@ -437,7 +403,7 @@ function DashboardContent({ userName }: { userName: string | null }) {
 
       {/* ── Tab Bar ── */}
       <div
-        className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3"
+        className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3"
         style={{
           opacity: 0,
           animation: 'float-up 500ms var(--spring-bounce) 100ms forwards',
@@ -539,14 +505,6 @@ function DashboardContent({ userName }: { userName: string | null }) {
             states={allStates}
             sublocations={allSublocations}
             videos={allVideos}
-            getToken={getToken}
-            onSuccess={refreshAll}
-            loading={dataLoading}
-          />
-        )}
-        {activeTab === 'submissions' && (
-          <SubmissionsPanel
-            submissions={allSubmissions}
             getToken={getToken}
             onSuccess={refreshAll}
             loading={dataLoading}
@@ -2383,237 +2341,8 @@ function toLocalInput(iso: string | null): string {
 }
 
 /* ════════════════════════════════════════════════
-   Submissions Panel (contact / "Add Your Camera" inbox)
-   ════════════════════════════════════════════════ */
-
-function SubmissionsPanel({
-  submissions: allSubmissions,
-  getToken,
-  onSuccess,
-  loading,
-}: {
-  submissions: Array<Submission>
-  getToken: () => Promise<string | null>
-  onSuccess: () => void
-  loading: boolean
-}) {
-  const [msg, setMsg] = useState<FormMsg>(null)
-  useAutoHide(msg, setMsg)
-  const [toggling, setToggling] = useState<number | null>(null)
-
-  const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState('newest')
-  const [page, setPage] = useState(1)
-
-  const filtered = useMemo(() => {
-    let result = [...allSubmissions]
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
-      result = result.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q) ||
-          s.message.toLowerCase().includes(q),
-      )
-    }
-    switch (sortKey) {
-      case 'a-z':
-        result.sort((a, b) => a.name.localeCompare(b.name))
-        break
-      case 'z-a':
-        result.sort((a, b) => b.name.localeCompare(a.name))
-        break
-      case 'newest':
-        result.sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        )
-        break
-      case 'oldest':
-        result.sort(
-          (a, b) =>
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-        )
-        break
-    }
-    return result
-  }, [allSubmissions, search, sortKey])
-
-  const total = filtered.length
-  const totalPages = Math.ceil(total / PER_PAGE)
-  const safePage = Math.min(page, Math.max(1, totalPages || 1))
-  const submissions = filtered.slice(
-    (safePage - 1) * PER_PAGE,
-    safePage * PER_PAGE,
-  )
-
-  const handleSearch = (v: string) => {
-    setSearch(v)
-    setPage(1)
-  }
-  const handleSort = (v: string) => {
-    setSortKey(v)
-    setPage(1)
-  }
-
-  const handleToggle = async (s: Submission) => {
-    setToggling(s.submission_id)
-    try {
-      const token = await getToken()
-      await markSubmissionHandled(s.submission_id, !s.handled, token)
-      onSuccess()
-    } catch {
-      setMsg({ text: 'Failed to update submission.', ok: false })
-    } finally {
-      setToggling(null)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <PanelHeaderStatic
-        title="Inbox"
-        subtitle="Contact and camera-hosting form submissions"
-      />
-
-      <DataList
-        loading={loading}
-        empty={allSubmissions.length === 0}
-        emptyIcon={Inbox}
-        emptyText="No submissions yet"
-        toolbar={
-          !loading && allSubmissions.length > 0 ? (
-            <ListToolbar
-              search={search}
-              onSearchChange={handleSearch}
-              sortKey={sortKey}
-              onSortChange={handleSort}
-              resultCount={total}
-              label="submissions"
-              sortOptions={ENTITY_SORT_OPTIONS}
-            />
-          ) : undefined
-        }
-      >
-        {total === 0 && search ? (
-          <div className="py-8 text-center">
-            <p className="mb-0 text-sm text-subtext0">
-              No submissions matching &ldquo;{search}&rdquo;
-            </p>
-          </div>
-        ) : (
-          <>
-            {submissions.map((s, i) => (
-              <SubmissionRow
-                key={s.submission_id}
-                submission={s}
-                index={i}
-                toggling={toggling === s.submission_id}
-                onToggle={() => handleToggle(s)}
-              />
-            ))}
-            <PaginationBar
-              page={safePage}
-              perPage={PER_PAGE}
-              total={total}
-              onPageChange={setPage}
-            />
-          </>
-        )}
-      </DataList>
-
-      {msg && <StatusBanner msg={msg} />}
-    </div>
-  )
-}
-
-/* ──── Submission Row ──── */
-
-function SubmissionRow({
-  submission: s,
-  index,
-  toggling,
-  onToggle,
-}: {
-  submission: Submission
-  index: number
-  toggling: boolean
-  onToggle: () => void
-}) {
-  return (
-    <div
-      className="flex flex-col gap-3 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:flex-row sm:items-start sm:gap-4 sm:px-5"
-      style={staggerStyle(index)}
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <Inbox size={18} className="text-accent" />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
-            {s.name}
-          </p>
-          <span className="inline-flex shrink-0 items-center rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext0">
-            {s.kind}
-          </span>
-          <span className="text-xs text-subtext0">{timeAgo(s.created_at)}</span>
-        </div>
-        <a
-          href={`mailto:${s.email}`}
-          className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-subtext0 transition-colors hover:text-accent"
-        >
-          <Mail size={11} />
-          {s.email}
-        </a>
-        {/* Rendered as escaped plain text (React auto-escapes), never as markup. */}
-        <p className="mt-1.5 mb-0 whitespace-pre-wrap text-sm text-subtext0">
-          {s.message}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={toggling}
-        className={`inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 ${
-          s.handled
-            ? 'bg-teal/10 text-teal hover:bg-teal/20'
-            : 'border border-overlay0 bg-base text-subtext0 hover:border-accent hover:text-accent'
-        }`}
-      >
-        {toggling ? (
-          <Loader2 size={13} className="animate-spin" />
-        ) : (
-          s.handled && <Check size={13} />
-        )}
-        {s.handled ? 'Handled' : 'Mark handled'}
-      </button>
-    </div>
-  )
-}
-
-/* ════════════════════════════════════════════════
    Shared — Panel Header
    ════════════════════════════════════════════════ */
-
-// A read-only panel header (title + subtitle) for panels with no create action.
-function PanelHeaderStatic({
-  title,
-  subtitle,
-}: {
-  title: string
-  subtitle: string
-}) {
-  return (
-    <div className="min-w-0">
-      <h3 className="!mb-0 !text-lg font-display font-bold sm:!text-xl">
-        {title}
-      </h3>
-      <p className="mb-0 text-xs text-subtext0 sm:text-sm">{subtitle}</p>
-    </div>
-  )
-}
 
 function PanelHeader({
   title,
@@ -2683,16 +2412,6 @@ function CreatePanel({ children }: { children: React.ReactNode }) {
 /* ════════════════════════════════════════════════
    Shared — Form Components
    ════════════════════════════════════════════════ */
-
-type FormMsg = { text: string; ok: boolean } | null
-
-function useAutoHide(msg: FormMsg, setMsg: (m: FormMsg) => void) {
-  useEffect(() => {
-    if (!msg) return
-    const t = setTimeout(() => setMsg(null), 5000)
-    return () => clearTimeout(t)
-  }, [msg, setMsg])
-}
 
 /* ──── Branding fields (shared by state + sublocation, create + edit) ──── */
 
@@ -2909,210 +2628,6 @@ function FormFooter({
         {submitting && <Loader2 size={15} className="animate-spin" />}
         {submitting ? 'Saving...' : label}
       </button>
-    </div>
-  )
-}
-
-function StatusBanner({ msg }: { msg: FormMsg }) {
-  if (!msg) return null
-  return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-        msg.ok ? 'bg-teal/10 text-teal' : 'bg-live/10 text-live'
-      }`}
-      style={{
-        opacity: 0,
-        animation: 'scale-fade-in 250ms var(--spring-poppy) forwards',
-      }}
-    >
-      {msg.ok ? <Check size={15} /> : <AlertCircle size={15} />}
-      {msg.text}
-    </div>
-  )
-}
-
-/* ════════════════════════════════════════════════
-   Shared — Data List
-   ════════════════════════════════════════════════ */
-
-function DataList({
-  loading,
-  empty,
-  emptyIcon: EmptyIcon,
-  emptyText,
-  toolbar,
-  children,
-}: {
-  loading: boolean
-  empty: boolean
-  emptyIcon: typeof Film
-  emptyText: string
-  toolbar?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-overlay0/60 bg-surface0">
-      {toolbar}
-      {loading ? (
-        <ListSkeleton />
-      ) : empty ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface1">
-            <EmptyIcon size={22} className="text-subtext0" />
-          </div>
-          <p className="mb-0 max-w-[220px] text-sm text-subtext0">
-            {emptyText}
-          </p>
-        </div>
-      ) : (
-        <div className="divide-y divide-overlay0">{children}</div>
-      )}
-    </div>
-  )
-}
-
-/* ════════════════════════════════════════════════
-   Shared — List Toolbar (search + sort)
-   ════════════════════════════════════════════════ */
-
-function ListToolbar({
-  search,
-  onSearchChange,
-  sortKey,
-  onSortChange,
-  resultCount,
-  label,
-  sortOptions,
-}: {
-  search: string
-  onSearchChange: (v: string) => void
-  sortKey: string
-  onSortChange: (v: string) => void
-  resultCount: number
-  label: string
-  sortOptions: Array<{ value: string; label: string; icon: typeof ArrowDownAZ }>
-}) {
-  return (
-    <div className="flex items-center gap-2 border-b border-overlay0/30 px-4 py-2.5 sm:px-5">
-      {/* Search */}
-      <div className="relative min-w-0 flex-1">
-        <Search
-          size={13}
-          className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-overlay2"
-        />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={`Search ${label}...`}
-          className="w-full rounded-lg border border-overlay0/50 bg-base py-1.5 pr-7 pl-8 text-xs text-text placeholder:text-overlay1 transition-colors duration-150 focus:border-accent focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => onSearchChange('')}
-            className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-overlay2 hover:text-text"
-            aria-label="Clear search"
-          >
-            <X size={11} />
-          </button>
-        )}
-      </div>
-
-      {/* Sort */}
-      <div className="flex items-center gap-0.5 rounded-lg border border-overlay0/50 bg-base p-0.5">
-        {sortOptions.map((opt) => {
-          const Icon = opt.icon
-          const isActive = sortKey === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onSortChange(opt.value)}
-              className={`flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[10px] transition-colors duration-150 ${
-                isActive
-                  ? 'bg-accent/12 text-accent'
-                  : 'text-overlay2 hover:text-text'
-              }`}
-              title={`Sort: ${opt.label}`}
-            >
-              <Icon size={11} />
-              <span className="hidden lg:inline">{opt.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Count */}
-      <span className="shrink-0 font-mono text-[10px] tabular-nums text-overlay2">
-        {resultCount}
-      </span>
-    </div>
-  )
-}
-
-function ListSkeleton() {
-  return (
-    <div className="divide-y divide-overlay0/40">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className="flex items-center gap-4 px-4 py-4 sm:px-5">
-          <div className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-surface1" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-36 animate-pulse rounded bg-surface1" />
-            <div className="h-3 w-24 animate-pulse rounded bg-surface1" />
-          </div>
-          <div className="h-6 w-16 animate-pulse rounded-md bg-surface1" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function PaginationBar({
-  page,
-  perPage,
-  total,
-  onPageChange,
-}: {
-  page: number
-  perPage: number
-  total: number
-  onPageChange: (p: number) => void
-}) {
-  const totalPages = Math.ceil(total / perPage)
-  if (totalPages <= 1) return null
-
-  const from = (page - 1) * perPage + 1
-  const to = Math.min(page * perPage, total)
-
-  return (
-    <div className="flex items-center justify-between border-t border-overlay0/30 px-4 py-2.5 sm:px-5">
-      <p className="mb-0 font-mono text-xs text-subtext0">
-        {from}&ndash;{to} of {total}
-      </p>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-subtext0 transition-colors duration-150 hover:bg-surface1 disabled:pointer-events-none disabled:opacity-30"
-          aria-label="Previous page"
-        >
-          <ChevronLeft size={14} />
-        </button>
-        <span className="min-w-[3rem] px-1 text-center font-mono text-xs text-subtext0">
-          {page}/{totalPages}
-        </span>
-        <button
-          type="button"
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-subtext0 transition-colors duration-150 hover:bg-surface1 disabled:pointer-events-none disabled:opacity-30"
-          aria-label="Next page"
-        >
-          <ChevronRight size={14} />
-        </button>
-      </div>
     </div>
   )
 }
@@ -3788,14 +3303,6 @@ function EditVideoModal({
    Utilities
    ════════════════════════════════════════════════ */
 
-function staggerStyle(index: number): React.CSSProperties | undefined {
-  if (index >= 10) return undefined
-  return {
-    opacity: 0,
-    animation: `fade-in-up 350ms var(--spring-smooth) ${index * 40}ms forwards`,
-  }
-}
-
 function formatRuntime(seconds: number): string {
   if (seconds <= 0) return 'not started'
   const h = Math.floor(seconds / 3600)
@@ -3803,22 +3310,4 @@ function formatRuntime(seconds: number): string {
   if (h > 0) return `${h}h ${m}m uptime`
   if (m > 0) return `${m}m uptime`
   return `${seconds}s uptime`
-}
-
-function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr)
-  if (isNaN(date.getTime())) return ''
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
