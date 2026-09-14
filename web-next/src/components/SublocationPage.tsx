@@ -130,54 +130,56 @@ export default function SublocationPage({
             stateSlug={stateSlug}
             camera={camera}
             weather={weather}
-          />
-        )}
-
-        {/* ── Camera strip — posters, not players ── */}
-        {videos.length > 0 && (
-          <section className="mt-12">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="mb-0 text-xl">Cameras at {sublocation.name}</h2>
-              <span className="font-mono text-xs text-subtext0">
-                {liveCount} live &middot; tap to switch
-              </span>
-            </div>
-            {videos.length > TOOLBAR_MIN && (
-              <CameraToolbar
-                search={search}
-                onSearchChange={setSearch}
-                sort={sort}
-                onSortChange={setSort}
-                resultCount={filtered.length}
-              />
-            )}
-            {filtered.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {filtered.map((v) => (
-                  <PosterTile
-                    key={v.video_id}
-                    title={v.title}
-                    poster={streamPoster(v.src, v.status === 'active')}
-                    live={v.status === 'active'}
-                    selected={v.video_id === featured?.video_id}
-                    tick={tick}
-                    link={{
-                      to: '/locations/$slug/$sublocationSlug/$cameraSlug',
-                      params: {
-                        slug: stateSlug,
-                        sublocationSlug: sublocation.slug,
-                        cameraSlug: v.slug,
-                      },
-                    }}
+          >
+            {/* ── Camera strip — posters, not players ── */}
+            {videos.length > 0 && (
+              <section className="mt-8">
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="mb-0 text-xl">
+                    Cameras at {sublocation.name}
+                  </h2>
+                  <span className="font-mono text-xs text-subtext0">
+                    {liveCount} live &middot; tap to switch
+                  </span>
+                </div>
+                {videos.length > TOOLBAR_MIN && (
+                  <CameraToolbar
+                    search={search}
+                    onSearchChange={setSearch}
+                    sort={sort}
+                    onSortChange={setSort}
+                    resultCount={filtered.length}
                   />
-                ))}
-              </div>
-            ) : (
-              <p className="mb-0 text-subtext0">
-                No cameras matching &ldquo;{search}&rdquo;
-              </p>
+                )}
+                {filtered.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {filtered.map((v) => (
+                      <PosterTile
+                        key={v.video_id}
+                        title={v.title}
+                        poster={streamPoster(v.src, v.status === 'active')}
+                        live={v.status === 'active'}
+                        selected={v.video_id === featured.video_id}
+                        tick={tick}
+                        link={{
+                          to: '/locations/$slug/$sublocationSlug/$cameraSlug',
+                          params: {
+                            slug: stateSlug,
+                            sublocationSlug: sublocation.slug,
+                            cameraSlug: v.slug,
+                          },
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mb-0 text-subtext0">
+                    No cameras matching &ldquo;{search}&rdquo;
+                  </p>
+                )}
+              </section>
             )}
-          </section>
+          </FeaturedBlock>
         )}
 
         {/* ── About + side column ── */}
@@ -252,21 +254,25 @@ export default function SublocationPage({
 /**
  * The page's one live player (pre-roll gated) with title and meta beneath, the
  * "Right now" panel beside it when there is weather, and a "Watch full page"
- * link on hub pages. Shared with the state page.
+ * link on hub pages. `children` (the camera strip) render in the player's
+ * column, so they sit under the picture on desktop and above the panel when
+ * the two stack on mobile. Shared with the state page.
  */
 export function FeaturedBlock({
   video,
   sublocation,
   stateSlug,
   camera,
-  weather,
+  weather = null,
+  children,
 }: {
   video: Video
   /** The camera's sublocation — needed for the full-page link and the panel. */
   sublocation?: Sublocation
   stateSlug: string
   camera?: Camera
-  weather: Weather | null
+  weather?: Weather | null
+  children?: React.ReactNode
 }) {
   const panel = weather && sublocation
   return (
@@ -310,6 +316,7 @@ export function FeaturedBlock({
             </Link>
           )}
         </div>
+        {children}
       </div>
       {panel && <NowPanel weather={weather} sublocation={sublocation} />}
     </div>
