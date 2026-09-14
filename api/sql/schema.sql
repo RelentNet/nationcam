@@ -227,6 +227,30 @@ CREATE INDEX IF NOT EXISTS idx_ads_type ON ads(type);
 CREATE INDEX IF NOT EXISTS idx_ads_override ON ads(is_override) WHERE is_override;
 
 -- ────────────────────────────────────────────────
+-- Submissions
+--
+-- Contact / "Add Your Camera" form submissions. Self-contained (table + index)
+-- and CREATE ... IF NOT EXISTS, so a restart against a database that already has
+-- it is a no-op. The public POST /submissions endpoint writes here; the dashboard
+-- reads it. `message` is the free-text body — the camera-application form packs
+-- its structured fields (cameras, internet, address, timeline) into it client-side
+-- so this stays one generic contact table. Stored as data only and rendered as
+-- plain text; nothing here is ever executed.
+-- ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS submissions (
+  submission_id BIGSERIAL PRIMARY KEY,
+  name          TEXT NOT NULL,
+  email         TEXT NOT NULL,
+  message       TEXT NOT NULL,
+  kind          TEXT NOT NULL DEFAULT 'contact',
+  handled       BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at DESC);
+
+-- ────────────────────────────────────────────────
 -- Triggers
 -- ────────────────────────────────────────────────
 

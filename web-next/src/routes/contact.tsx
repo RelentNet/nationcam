@@ -5,6 +5,7 @@ import Dropdown from '@/components/Dropdown'
 import Button from '@/components/Button'
 import Reveal from '@/components/Reveal'
 import { seo } from '@/lib/seo'
+import { submitContact } from '@/lib/api'
 
 export const Route = createFileRoute('/contact')({
   head: () =>
@@ -115,6 +116,7 @@ const timelineOptions = [
 interface FormData {
   firstName: string
   lastName: string
+  email: string
   cameras: string
   internet: string
   street: string
@@ -126,10 +128,39 @@ interface FormData {
   timeline: string
 }
 
+const labelFor = (
+  options: Array<{ value: string; label: string }>,
+  value: string,
+) => options.find((o) => o.value === value)?.label ?? value
+
+// Pack the structured application fields into one readable message body so the
+// backend stays a generic name/email/message contact store. Rendered as plain
+// text in the dashboard.
+function buildMessage(form: FormData): string {
+  const address = [
+    form.street,
+    form.street2,
+    `${form.city}, ${form.state} ${form.postalCode}`,
+    form.country,
+  ]
+    .filter((line) => line.trim())
+    .join('\n')
+
+  return [
+    `Number of cameras: ${form.cameras}`,
+    `Internet access: ${labelFor(internetOptions, form.internet)}`,
+    `Timeline: ${labelFor(timelineOptions, form.timeline)}`,
+    '',
+    'Address:',
+    address,
+  ].join('\n')
+}
+
 function ContactForm() {
   const [form, setForm] = useState<FormData>({
     firstName: '',
     lastName: '',
+    email: '',
     cameras: '',
     internet: '',
     street: '',
@@ -141,18 +172,20 @@ function ContactForm() {
     timeline: '',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const update = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const required: Array<keyof FormData> = [
       'firstName',
       'lastName',
+      'email',
       'cameras',
       'internet',
       'street',
@@ -168,9 +201,21 @@ function ContactForm() {
       return
     }
 
-    // TODO: Submit form data to server
-    setSubmitted(true)
+    setSubmitting(true)
     setError('')
+    try {
+      await submitContact({
+        name: `${form.firstName} ${form.lastName}`.trim(),
+        email: form.email,
+        message: buildMessage(form),
+        kind: 'camera',
+      })
+      setSubmitted(true)
+    } catch {
+      setError('Something went wrong submitting your application. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -207,6 +252,14 @@ function ContactForm() {
           onChange={(v) => update('lastName', v)}
         />
       </div>
+
+      <Input
+        label="Email"
+        required
+        value={form.email}
+        onChange={(v) => update('email', v)}
+        type="email"
+      />
 
       <Input
         label="Number of Cameras"
@@ -273,10 +326,11 @@ function ContactForm() {
       {error && <p className="mb-0 text-sm font-medium text-live">{error}</p>}
 
       <Button
-        text="Submit Application"
+        text={submitting ? 'Submitting...' : 'Submit Application'}
         type="submit"
         className="w-full"
         size="lg"
+        disabled={submitting}
       />
 
       <p className="mb-0 text-center text-xs text-overlay2">
