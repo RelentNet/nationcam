@@ -111,13 +111,30 @@ function PrivacyPage() {
 
         <h2>Live video and third-party services</h2>
         <p>
-          Camera feeds are provided by the businesses and individuals who host
-          each camera and are delivered through our streaming infrastructure.
-          Cameras point at public-facing views such as marinas, waterfronts, and
-          streetscapes; we do not host cameras in private areas. Some pages may
-          include optional audio streams provided by third-party radio
-          services. When you play a stream, the streaming service receives your
-          IP address in order to deliver the video to you.
+          Camera feeds are provided by the businesses and property owners who
+          host each camera. Every host operates their own camera and has given
+          NationCam permission to stream its view. Cameras point only at
+          public-facing areas — marinas, waterfronts, streetscapes, and other
+          public outdoor spaces — and we do not host cameras in private areas
+          or anywhere people have a reasonable expectation of privacy.
+        </p>
+        <p>
+          Because these are live, unedited views of public spaces, people,
+          vehicles, and activity in those spaces may be incidentally visible on
+          a feed. NationCam does not control, review, or monitor what a camera
+          captures in real time, and we do not use feeds to identify or track
+          individuals. What may appear in a feed, including during public
+          events and celebrations, is addressed in our{' '}
+          <Link to="/terms" className="text-accent hover:underline">
+            Terms of Service
+          </Link>
+          .
+        </p>
+        <p>
+          Feeds are delivered through our streaming infrastructure. When you
+          play a stream, the streaming service receives your IP address in order
+          to deliver the video to you. Some pages may include optional audio
+          streams provided by third-party radio services.
         </p>
 
         <h2>How we share information</h2>
