@@ -101,6 +101,7 @@ type updateStateRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	brandingInput
+	aboutInput
 }
 
 // UpdateState handles PUT /states/{id} — updates a state (admin only).
@@ -126,6 +127,10 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
 		}
+		if msg := req.normalizeAbout(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		if err := db.New(pool).UpdateState(r.Context(), db.UpdateStateParams{
 			StateID:     int32(id),
@@ -136,6 +141,7 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			LogoUrl:     req.LogoURL,
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
+			About:       req.About,
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -159,6 +165,7 @@ type createStateRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	brandingInput
+	aboutInput
 }
 
 // CreateState handles POST /states — creates a new state (admin only).
@@ -177,6 +184,10 @@ func CreateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
 		}
+		if msg := req.normalizeAbout(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		created, err := db.New(pool).CreateState(r.Context(), db.CreateStateParams{
 			Name:        req.Name,
@@ -186,6 +197,7 @@ func CreateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			LogoUrl:     req.LogoURL,
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
+			About:       req.About,
 		})
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

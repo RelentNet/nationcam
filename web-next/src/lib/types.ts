@@ -12,7 +12,16 @@ export interface Branding {
   sponsor_link: string
 }
 
-export interface State extends Branding {
+/**
+ * Editorial "About this location / camera" copy, written in the dashboard and
+ * rendered by EditorialText. Light markdown: '## ' headings, blank-line-separated
+ * paragraphs, '- ' bullets. Empty means the page renders no About section.
+ */
+export interface Editorial {
+  about: string
+}
+
+export interface State extends Branding, Editorial {
   state_id: number
   name: string
   description: string
@@ -22,7 +31,7 @@ export interface State extends Branding {
   video_count: number
 }
 
-export interface Sublocation extends Branding {
+export interface Sublocation extends Branding, Editorial {
   sublocation_id: number
   name: string
   description: string
@@ -34,7 +43,7 @@ export interface Sublocation extends Branding {
   video_count: number
 }
 
-export interface Video {
+export interface Video extends Editorial {
   video_id: number
   title: string
   src: string
@@ -66,29 +75,33 @@ export interface CameraDetail {
   related: Array<Camera>
 }
 
-export interface CreateStateInput extends Partial<Branding> {
+export interface CreateStateInput
+  extends Partial<Branding>, Partial<Editorial> {
   name: string
   description?: string
 }
 
-export interface UpdateStateInput extends Partial<Branding> {
+export interface UpdateStateInput
+  extends Partial<Branding>, Partial<Editorial> {
   name: string
   description?: string
 }
 
-export interface CreateSublocationInput extends Partial<Branding> {
-  name: string
-  description?: string
-  state_id: number
-}
-
-export interface UpdateSublocationInput extends Partial<Branding> {
+export interface CreateSublocationInput
+  extends Partial<Branding>, Partial<Editorial> {
   name: string
   description?: string
   state_id: number
 }
 
-export interface CreateVideoInput {
+export interface UpdateSublocationInput
+  extends Partial<Branding>, Partial<Editorial> {
+  name: string
+  description?: string
+  state_id: number
+}
+
+export interface CreateVideoInput extends Partial<Editorial> {
   title: string
   src: string
   type: string
@@ -97,7 +110,7 @@ export interface CreateVideoInput {
   status?: string
 }
 
-export interface UpdateVideoInput {
+export interface UpdateVideoInput extends Partial<Editorial> {
   title: string
   src: string
   type: string

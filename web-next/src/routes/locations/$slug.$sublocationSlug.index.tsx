@@ -7,6 +7,7 @@ import VideoCard from '@/components/VideoCard'
 import FeaturedHero, { pickFeatured } from '@/components/FeaturedHero'
 import CameraToolbar from '@/components/CameraToolbar'
 import Reveal from '@/components/Reveal'
+import { AboutSection } from '@/components/EditorialText'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
 
 export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
@@ -111,6 +112,12 @@ function SublocationPage() {
             sublocationSlug={sublocationSlug}
           />
         )}
+
+        {/* Editorial copy — above the grid so readers and crawlers hit it early */}
+        <AboutSection
+          title={`About ${sublocation.name}`}
+          text={sublocation.about}
+        />
 
         {/* Toolbar */}
         {gridVideos.length > 0 && (

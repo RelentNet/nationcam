@@ -224,6 +224,7 @@ type updateVideoRequest struct {
 	StateID       int32  `json:"state_id"`
 	SublocationID *int32 `json:"sublocation_id"`
 	Status        string `json:"status"`
+	aboutInput
 }
 
 // UpdateVideo handles PUT /videos/{id} — updates a video (admin only).
@@ -251,6 +252,10 @@ func UpdateVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 		if req.Status == "" {
 			req.Status = "active"
 		}
+		if msg := req.normalizeAbout(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		if err := db.New(pool).UpdateVideo(r.Context(), db.UpdateVideoParams{
 			VideoID:       int32(id),
@@ -260,6 +265,7 @@ func UpdateVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			StateID:       req.StateID,
 			SublocationID: req.SublocationID,
 			Status:        req.Status,
+			About:         req.About,
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -289,6 +295,7 @@ type createVideoRequest struct {
 	StateID       int32  `json:"state_id"`
 	SublocationID *int32 `json:"sublocation_id"`
 	Status        string `json:"status"`
+	aboutInput
 }
 
 // CreateVideo handles POST /videos (admin only).
@@ -309,6 +316,10 @@ func CreateVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 		if req.Status == "" {
 			req.Status = "active"
 		}
+		if msg := req.normalizeAbout(); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 
 		created, err := db.New(pool).CreateVideo(r.Context(), db.CreateVideoParams{
 			Title:         req.Title,
@@ -317,6 +328,7 @@ func CreateVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			StateID:       req.StateID,
 			SublocationID: req.SublocationID,
 			Status:        req.Status,
+			About:         req.About,
 			CreatedBy:     middleware.UserID(r.Context()),
 		})
 		if err != nil {

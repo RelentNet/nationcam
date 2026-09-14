@@ -1,6 +1,6 @@
 -- name: ListSublocationsByState :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count
@@ -13,7 +13,7 @@ ORDER BY sub.name;
 
 -- name: GetSublocationBySlug :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count
@@ -25,7 +25,7 @@ GROUP BY sub.sublocation_id, s.name;
 
 -- name: GetSublocationByID :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count
@@ -36,15 +36,16 @@ WHERE sub.sublocation_id = $1
 GROUP BY sub.sublocation_id, s.name;
 
 -- name: CreateSublocation :one
-INSERT INTO sublocations (name, description, state_id, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO sublocations (name, description, state_id, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING sublocation_id, name, description, state_id, slug,
-          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link,
+          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about,
           created_at, updated_at;
 
 -- name: UpdateSublocation :exec
 UPDATE sublocations SET name = $2, description = $3, state_id = $4,
-       hero_url = $5, hero_kind = $6, logo_url = $7, sponsor_url = $8, sponsor_link = $9
+       hero_url = $5, hero_kind = $6, logo_url = $7, sponsor_url = $8, sponsor_link = $9,
+       about = $10
 WHERE sublocation_id = $1;
 
 -- name: DeleteSublocation :exec
@@ -52,7 +53,7 @@ DELETE FROM sublocations WHERE sublocation_id = $1;
 
 -- name: ListSublocationsPaginated :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        COUNT(v.video_id)::int AS video_count,
