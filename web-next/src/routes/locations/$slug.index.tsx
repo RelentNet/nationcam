@@ -5,14 +5,12 @@ import {
   fetchStateBySlug,
   fetchSublocationsByState,
   fetchVideosByState,
-  fetchWeather,
 } from '@/lib/api'
 import { pickFeatured } from '@/lib/featured'
 import { seo, streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import CameraToolbar from '@/components/CameraToolbar'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
-import { LocalClock } from '@/components/NowPanel'
 import BannerSlot from '@/components/BannerSlot'
 import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
@@ -37,14 +35,8 @@ export const Route = createFileRoute('/locations/$slug/')({
       fetchVideosByState(state.state_id),
       fetchSublocationsByState(params.slug),
     ])
-    // Pick the featured camera server-side so the client hydrates the same one;
-    // the "Right now" panel is for wherever that camera is.
-    const featured = pickFeatured(videos)
-    const featuredSub = sublocations.find(
-      (s) => s.sublocation_id === featured?.sublocation_id,
-    )
-    const weather = featuredSub ? await fetchWeather(featuredSub.slug) : null
-    return { state, videos, sublocations, featured, weather }
+    // Pick the featured camera server-side so the client hydrates the same one.
+    return { state, videos, sublocations, featured: pickFeatured(videos) }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -109,8 +101,7 @@ function StateNotFound() {
 
 function StatePage() {
   const { slug } = Route.useParams()
-  const { state, videos, sublocations, featured, weather } =
-    Route.useLoaderData()
+  const { state, videos, sublocations, featured } = Route.useLoaderData()
   const tick = usePosterTick()
 
   // Search + sort across every camera on the page; tiles stay grouped.
@@ -159,12 +150,6 @@ function StatePage() {
               {sublocations.length} location
               {sublocations.length === 1 ? '' : 's'}
             </span>
-            {weather && (
-              <LocalClock
-                timeZone={weather.timezone}
-                initial={weather.fetched_at}
-              />
-            )}
           </>
         }
       />
@@ -175,83 +160,82 @@ function StatePage() {
             video={featured}
             sublocation={featuredSub}
             stateSlug={slug}
-            weather={weather}
-          />
-        )}
-
-        {/* ── Camera strip, grouped by sublocation ── */}
-        {videos.length > 0 && (
-          <section className="mt-12">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="mb-0 text-xl">Cameras in {state.name}</h2>
-              <span className="font-mono text-xs text-subtext0">
-                {liveCount} live &middot; tap to switch
-              </span>
-            </div>
-            {videos.length > TOOLBAR_MIN && (
-              <CameraToolbar
-                search={search}
-                onSearchChange={setSearch}
-                sort={sort}
-                onSortChange={setSort}
-                resultCount={filtered.length}
-              />
-            )}
-
-            {sections.map(({ sublocation, videos: subVideos }) => (
-              <div key={sublocation.sublocation_id} className="mb-10">
-                <SublocationHeader
-                  sublocation={sublocation}
-                  slug={slug}
-                  videoCount={subVideos.length}
-                />
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                  {subVideos.map((v) => (
-                    <PosterTile
-                      key={v.video_id}
-                      title={v.title}
-                      poster={streamPoster(v.src, v.status === 'active')}
-                      live={v.status === 'active'}
-                      selected={v.video_id === featured?.video_id}
-                      tick={tick}
-                      link={{
-                        to: '/locations/$slug/$sublocationSlug/$cameraSlug',
-                        params: {
-                          slug,
-                          sublocationSlug: sublocation.slug,
-                          cameraSlug: v.slug,
-                        },
-                      }}
-                    />
-                  ))}
+          >
+            {/* ── Camera strip, grouped by sublocation ── */}
+            {videos.length > 0 && (
+              <section className="mt-8">
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="mb-0 text-xl">Cameras in {state.name}</h2>
+                  <span className="font-mono text-xs text-subtext0">
+                    {liveCount} live &middot; tap to switch
+                  </span>
                 </div>
-              </div>
-            ))}
+                {videos.length > TOOLBAR_MIN && (
+                  <CameraToolbar
+                    search={search}
+                    onSearchChange={setSearch}
+                    sort={sort}
+                    onSortChange={setSort}
+                    resultCount={filtered.length}
+                  />
+                )}
 
-            {uncategorized.length > 0 && (
-              <div className="mb-10">
-                <h3>Other Cameras</h3>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                  {uncategorized.map((v) => (
-                    <PosterTile
-                      key={v.video_id}
-                      title={v.title}
-                      poster={streamPoster(v.src, v.status === 'active')}
-                      live={v.status === 'active'}
-                      selected={v.video_id === featured?.video_id}
-                      tick={tick}
+                {sections.map(({ sublocation, videos: subVideos }) => (
+                  <div key={sublocation.sublocation_id} className="mb-10">
+                    <SublocationHeader
+                      sublocation={sublocation}
+                      slug={slug}
+                      videoCount={subVideos.length}
                     />
-                  ))}
-                </div>
-              </div>
-            )}
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                      {subVideos.map((v) => (
+                        <PosterTile
+                          key={v.video_id}
+                          title={v.title}
+                          poster={streamPoster(v.src, v.status === 'active')}
+                          live={v.status === 'active'}
+                          selected={v.video_id === featured.video_id}
+                          tick={tick}
+                          link={{
+                            to: '/locations/$slug/$sublocationSlug/$cameraSlug',
+                            params: {
+                              slug,
+                              sublocationSlug: sublocation.slug,
+                              cameraSlug: v.slug,
+                            },
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
 
-            {filtered.length === 0 && (
-              <p className="mb-0 text-subtext0">
-                No cameras matching &ldquo;{search}&rdquo;
-              </p>
+                {uncategorized.length > 0 && (
+                  <div className="mb-10">
+                    <h3>Other Cameras</h3>
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                      {uncategorized.map((v) => (
+                        <PosterTile
+                          key={v.video_id}
+                          title={v.title}
+                          poster={streamPoster(v.src, v.status === 'active')}
+                          live={v.status === 'active'}
+                          selected={v.video_id === featured.video_id}
+                          tick={tick}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {filtered.length === 0 && (
+                  <p className="mb-0 text-subtext0">
+                    No cameras matching &ldquo;{search}&rdquo;
+                  </p>
+                )}
+              </section>
             )}
-          </section>
+          </FeaturedBlock>
         )}
 
         {/* ── About + side column ── */}
