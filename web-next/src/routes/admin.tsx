@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { ExternalLink, LayoutDashboard, LogIn, Shield } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/Button'
@@ -18,7 +19,16 @@ function AdminPage() {
   const { isAuthenticated, isLoading, isAdmin, isAdminLoading, user, login } =
     useAuth()
 
-  if (isLoading) {
+  // Only show the spinner until the initial auth check settles. The Logto SDK
+  // flickers isLoading on every getAccessToken/getIdTokenClaims call; without
+  // this guard each flicker unmounts the page — including the Inbox, which
+  // fetches a token on mount — then remounts it, which fetches again, which
+  // flickers again: an infinite render loop that freezes the browser for
+  // admins. Same guard the dashboard uses (see DashboardPage).
+  const authSettled = useRef(false)
+  if (!isLoading) authSettled.current = true
+
+  if (!authSettled.current) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div
