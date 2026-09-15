@@ -95,12 +95,12 @@ export default function SublocationPage({
                   {sublocation.name}
                 </Link>
                 <ChevronRight size={12} />
-                <span aria-current="page" className="text-white">
+                <span aria-current="page" className="text-text">
                   {camera.title}
                 </span>
               </>
             ) : (
-              <span aria-current="page" className="text-white">
+              <span aria-current="page" className="text-text">
                 {sublocation.name}
               </span>
             )}
@@ -368,9 +368,11 @@ function PlanVisitCard({ sublocation: s }: { sublocation: Sublocation }) {
           </>
         )}
       </dl>
-      {s.lat != null && s.lng != null && (
+      {/* Search by the street address when there is one: it lands on the
+          business pin, where the coordinates only get within a block or so. */}
+      {(s.address || (s.lat != null && s.lng != null)) && (
         <a
-          href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}`}
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address || `${s.lat},${s.lng}`)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 inline-block text-sm font-medium text-accent hover:underline"

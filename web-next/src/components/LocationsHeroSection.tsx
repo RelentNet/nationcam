@@ -67,16 +67,18 @@ export default function LocationsHeroSection({
       <div className="absolute inset-0 bg-gradient-to-b from-crust/60 via-crust/50 to-crust/90" />
       <div className="absolute inset-0 bg-gradient-to-r from-crust/40 to-transparent" />
 
-      {/* Content — bottom-aligned to the page column */}
-      <div className="relative z-10 mx-auto flex min-h-[300px] w-11/12 flex-wrap items-end gap-x-5 gap-y-4 pt-16 pb-8 lg:w-10/12 xl:max-w-7xl">
+      {/* Content — bottom-aligned to the page column. Stacked on phones (the
+          logo, text and sponsor would otherwise share one 375px row); a row
+          from tablet up. */}
+      <div className="relative z-10 mx-auto flex min-h-[300px] w-11/12 flex-col items-start justify-end gap-4 pt-16 pb-6 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-5 sm:pb-8 lg:w-10/12 xl:max-w-7xl">
         <img
           src={logoSrc}
           alt={alt ?? `${title} Logo`}
-          className="h-20 w-20 rounded-full object-cover shadow-xl ring-2 ring-white/10"
+          className="h-16 w-16 rounded-full object-cover shadow-xl ring-2 ring-white/10 sm:h-20 sm:w-20"
           style={{ animation: 'scale-in 500ms var(--spring-smooth) forwards' }}
         />
         <div
-          className="min-w-0 flex-1"
+          className="w-full min-w-0 sm:w-auto sm:flex-1"
           style={{
             animation: 'fade-in-up 600ms var(--spring-smooth) 100ms forwards',
             opacity: 0,
@@ -85,17 +87,17 @@ export default function LocationsHeroSection({
           {breadcrumb && (
             <nav
               aria-label="Breadcrumb"
-              className="mb-2 flex flex-wrap items-center gap-1 font-mono text-xs text-white/70"
+              className="mb-2 flex flex-wrap items-center gap-1 font-mono text-xs text-text/70"
             >
               {breadcrumb}
             </nav>
           )}
-          <h1 className="mb-0 text-white">{title}</h1>
+          <h1 className="mb-0">{title}</h1>
           {tagline && (
-            <p className="mt-1 mb-0 text-lg text-white/85">{tagline}</p>
+            <p className="mt-1 mb-0 text-lg text-text/85">{tagline}</p>
           )}
           {stats && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-white/70">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-text/70">
               {stats}
             </div>
           )}
@@ -110,13 +112,13 @@ export default function LocationsHeroSection({
                 ? 'noopener noreferrer'
                 : undefined
             }
-            className="flex items-center gap-2 self-end font-mono text-xs text-white/70 sm:ml-auto"
+            className="flex items-center gap-2 font-mono text-xs text-text/70 sm:ml-auto sm:self-end"
             style={{
               animation: 'fade-in-up 600ms var(--spring-smooth) 250ms forwards',
               opacity: 0,
             }}
           >
-            <span className="hidden sm:inline">Sponsored by</span>
+            <span>Sponsored by</span>
             <img
               src={sponsor_url}
               alt={`${title} sponsor`}

@@ -135,7 +135,7 @@ function StatePage() {
               Locations
             </Link>
             <ChevronRight size={12} />
-            <span aria-current="page" className="text-white">
+            <span aria-current="page" className="text-text">
               {state.name}
             </span>
           </>
