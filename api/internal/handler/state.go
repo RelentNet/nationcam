@@ -143,6 +143,7 @@ func UpdateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			LogoUrl:     req.LogoURL,
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
+			TitleUrl:    req.TitleURL,
 			About:       req.About,
 			Upcoming:    req.Upcoming,
 		}); err != nil {
@@ -201,6 +202,7 @@ func CreateState(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			LogoUrl:     req.LogoURL,
 			SponsorUrl:  req.SponsorURL,
 			SponsorLink: req.SponsorLink,
+			TitleUrl:    req.TitleURL,
 			About:       req.About,
 			Upcoming:    req.Upcoming,
 		})

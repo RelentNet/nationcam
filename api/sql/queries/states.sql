@@ -1,6 +1,6 @@
 -- name: ListStates :many
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
@@ -10,7 +10,7 @@ ORDER BY s.name;
 
 -- name: GetStateBySlug :one
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
@@ -20,7 +20,7 @@ GROUP BY s.state_id;
 
 -- name: GetStateByID :one
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
@@ -29,16 +29,16 @@ WHERE s.state_id = $1
 GROUP BY s.state_id;
 
 -- name: CreateState :one
-INSERT INTO states (name, description, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about, upcoming)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO states (name, description, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about, upcoming, title_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING state_id, name, description, slug,
-          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about,
+          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, title_url, about,
           upcoming, created_at, updated_at;
 
 -- name: UpdateState :exec
 UPDATE states SET name = $2, description = $3,
        hero_url = $4, hero_kind = $5, logo_url = $6, sponsor_url = $7, sponsor_link = $8,
-       about = $9, upcoming = $10
+       about = $9, upcoming = $10, title_url = $11
 WHERE state_id = $1;
 
 -- name: DeleteState :exec
@@ -46,7 +46,7 @@ DELETE FROM states WHERE slug = $1;
 
 -- name: ListStatesPaginated :many
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count,
        COUNT(*) OVER()::int AS total_count

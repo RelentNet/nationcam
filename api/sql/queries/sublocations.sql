@@ -1,6 +1,6 @@
 -- name: ListSublocationsByState :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
@@ -17,7 +17,7 @@ ORDER BY sub.name;
 
 -- name: GetSublocationBySlug :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
@@ -33,7 +33,7 @@ GROUP BY sub.sublocation_id, s.name;
 
 -- name: GetSublocationByID :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
@@ -49,10 +49,10 @@ GROUP BY sub.sublocation_id, s.name;
 
 -- name: CreateSublocation :one
 INSERT INTO sublocations (name, description, state_id, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about,
-                          lat, lng, host_name, host_url, host_since, address)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                          lat, lng, host_name, host_url, host_since, address, title_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING sublocation_id, name, description, state_id, slug,
-          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about,
+          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, title_url, about,
           lat, lng, host_name, host_url, host_since, address,
           created_at, updated_at;
 
@@ -60,7 +60,8 @@ RETURNING sublocation_id, name, description, state_id, slug,
 UPDATE sublocations SET name = $2, description = $3, state_id = $4,
        hero_url = $5, hero_kind = $6, logo_url = $7, sponsor_url = $8, sponsor_link = $9,
        about = $10,
-       lat = $11, lng = $12, host_name = $13, host_url = $14, host_since = $15, address = $16
+       lat = $11, lng = $12, host_name = $13, host_url = $14, host_since = $15, address = $16,
+       title_url = $17
 WHERE sublocation_id = $1;
 
 -- name: DeleteSublocation :exec
@@ -68,7 +69,7 @@ DELETE FROM sublocations WHERE sublocation_id = $1;
 
 -- name: ListSublocationsPaginated :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.about,
+       sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name,

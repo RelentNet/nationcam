@@ -36,7 +36,14 @@ export default function LocationsHeroSection({
   tagline,
   stats,
 }: LocationsHeroSectionProps) {
-  const { hero_url, hero_kind, logo_url, sponsor_url, sponsor_link } = branding
+  const {
+    hero_url,
+    hero_kind,
+    logo_url,
+    sponsor_url,
+    sponsor_link,
+    title_url,
+  } = branding
 
   const heroIsImage = hero_kind === 'image' && hero_url !== ''
   const videoSrc = hero_url || DEFAULT_HERO
@@ -92,7 +99,19 @@ export default function LocationsHeroSection({
               {breadcrumb}
             </nav>
           )}
-          <h1 className="mb-0">{title}</h1>
+          {/* A wordmark stands in for the text title; the h1 (with alt) stays
+              so the page keeps its heading for crawlers and readers. */}
+          <h1 className="mb-0">
+            {title_url ? (
+              <img
+                src={title_url}
+                alt={title}
+                className="max-h-16 w-auto max-w-full sm:max-h-20"
+              />
+            ) : (
+              title
+            )}
+          </h1>
           {tagline && (
             <p className="mt-1 mb-0 text-lg text-text/85">{tagline}</p>
           )}
@@ -103,9 +122,9 @@ export default function LocationsHeroSection({
           )}
         </div>
 
-        {sponsor_url && sponsor_link && (
+        {sponsor_url && (
           <a
-            href={sponsor_link}
+            href={sponsor_link || undefined}
             target={sponsor_link.startsWith('http') ? '_blank' : undefined}
             rel={
               sponsor_link.startsWith('http')

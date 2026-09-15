@@ -10,6 +10,8 @@ export interface Branding {
   logo_url: string
   sponsor_url: string
   sponsor_link: string
+  /** Wordmark that replaces the hero's text title when set. */
+  title_url: string
 }
 
 /**
