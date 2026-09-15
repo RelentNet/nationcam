@@ -12,6 +12,8 @@ type brandingInput struct {
 	SponsorURL  string `json:"sponsor_url"`
 	SponsorLink string `json:"sponsor_link"`
 	TitleURL    string `json:"title_url"`
+	TourismName string `json:"tourism_name"`
+	TourismURL  string `json:"tourism_url"`
 }
 
 // normalize fills defaults and returns an error message ("" when valid).
@@ -34,6 +36,10 @@ func (b *brandingInput) normalize() string {
 		if !validBrandURL(f.val) {
 			return f.label + " must be empty, an http(s) URL, or a local /api/uploads, /videos, /logos or /buttons path"
 		}
+	}
+	// The tourism link is an outbound site, never a local asset.
+	if b.TourismURL != "" && !isHTTPURL(b.TourismURL) {
+		return "tourism_url must be empty or an http(s) URL"
 	}
 	return ""
 }

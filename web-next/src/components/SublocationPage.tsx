@@ -61,6 +61,14 @@ export default function SublocationPage({
       <LocationsHeroSection
         title={sublocation.name}
         branding={sublocation}
+        fallbackTourism={
+          sublocation.state_tourism_url
+            ? {
+                name: sublocation.state_tourism_name,
+                url: sublocation.state_tourism_url,
+              }
+            : undefined
+        }
         tagline={sublocation.description || undefined}
         breadcrumb={
           <>

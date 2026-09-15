@@ -12,6 +12,9 @@ export interface Branding {
   sponsor_link: string
   /** Wordmark that replaces the hero's text title when set. */
   title_url: string
+  /** Official tourism site, shown as a pill at the top of the hero. */
+  tourism_name: string
+  tourism_url: string
 }
 
 /**
@@ -58,6 +61,10 @@ export interface Sublocation extends Branding, Editorial, Host {
   created_at: string
   updated_at: string
   state_name: string
+  /** The state's tourism link — the hero falls back to it when the
+   *  sublocation's own `tourism_url` is empty. */
+  state_tourism_name: string
+  state_tourism_url: string
   video_count: number
   /** `src` of the active camera with the lowest id, or '' — for poster tiles. */
   first_src: string

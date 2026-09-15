@@ -13,6 +13,9 @@ interface LocationsHeroSectionProps {
   tagline?: string
   /** Stat line under the tagline (live count, local time, …). */
   stats?: React.ReactNode
+  /** Tourism link used when `branding.tourism_url` is empty (a sublocation
+   *  inherits its state's). */
+  fallbackTourism?: { name: string; url: string }
 }
 
 // videoType maps a hero video URL to a <source> type. Unknown extensions (e.g. a
@@ -35,6 +38,7 @@ export default function LocationsHeroSection({
   breadcrumb,
   tagline,
   stats,
+  fallbackTourism,
 }: LocationsHeroSectionProps) {
   const {
     hero_url,
@@ -46,6 +50,14 @@ export default function LocationsHeroSection({
   } = branding
 
   const heroIsImage = hero_kind === 'image' && hero_url !== ''
+  const tourism = branding.tourism_url
+    ? { name: branding.tourism_name, url: branding.tourism_url }
+    : fallbackTourism
+  // Label falls back to the bare host ("explorelouisiana.com") when no name
+  // is set. String ops rather than `new URL()` so a bad value can't throw in SSR.
+  const tourismLabel =
+    tourism?.name ||
+    (tourism?.url ?? '').replace(/^https?:\/\/(www\.)?/, '').split('/')[0]
   const videoSrc = hero_url || DEFAULT_HERO
   const logoSrc = logo_url || DEFAULT_LOGO
 
@@ -73,6 +85,26 @@ export default function LocationsHeroSection({
       {/* Cinematic gradient overlays */}
       <div className="absolute inset-0 bg-gradient-to-b from-crust/60 via-crust/50 to-crust/90" />
       <div className="absolute inset-0 bg-gradient-to-r from-crust/40 to-transparent" />
+
+      {/* Official tourism site — a pill in the hero's otherwise-empty top
+          corner, full width on phones so it clears the breadcrumb. */}
+      {tourism?.url && (
+        <div className="absolute inset-x-0 top-3 z-20 mx-auto flex w-11/12 justify-end lg:w-10/12 xl:max-w-7xl">
+          <a
+            href={tourism.url}
+            target="_blank"
+            rel="noopener"
+            className="flex w-full items-center justify-between gap-3 rounded-full border border-white/10 bg-crust/60 px-3 py-1.5 font-mono text-xs text-text/70 backdrop-blur-md transition-colors hover:border-white/20 sm:w-auto sm:justify-start"
+          >
+            <span className="text-[10px] tracking-widest uppercase">
+              Official tourism
+            </span>
+            <span className="truncate font-medium text-accent">
+              {tourismLabel} ↗
+            </span>
+          </a>
+        </div>
+      )}
 
       {/* Content — bottom-aligned to the page column. Stacked on phones (the
           logo, text and sponsor would otherwise share one 375px row); a row

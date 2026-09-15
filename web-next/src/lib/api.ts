@@ -183,6 +183,8 @@ function brandingBody(input: Partial<Branding>): Branding {
     sponsor_url: input.sponsor_url ?? '',
     sponsor_link: input.sponsor_link ?? '',
     title_url: input.title_url ?? '',
+    tourism_name: input.tourism_name ?? '',
+    tourism_url: input.tourism_url ?? '',
   }
 }
 
