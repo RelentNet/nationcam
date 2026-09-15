@@ -267,7 +267,14 @@ function StatePage() {
                 </div>
               </div>
             )}
-            <BannerSlot placement="right" stateId={state.state_id} />
+            {/* Third distinct creative on desktop: the 320px column takes the
+                mobile unit. Hidden below xl, where the root layout already
+                shows the mobile slot. */}
+            <BannerSlot
+              placement="mobile"
+              stateId={state.state_id}
+              className="hidden xl:block"
+            />
           </aside>
         </div>
 
