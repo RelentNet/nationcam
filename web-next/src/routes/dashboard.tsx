@@ -2469,10 +2469,17 @@ const emptyBranding: Branding = {
 // useBranding holds the five branding fields for a form, seeded from an existing
 // row (edit) or blank (create).
 function useBranding(initial?: Partial<Branding>) {
-  const [branding, setBranding] = useState<Branding>(() => ({
-    ...emptyBranding,
-    ...initial,
-  }))
+  // Pick only the branding keys. Callers pass a whole State/Sublocation row,
+  // and spreading it wholesale would carry name/about/upcoming/... into
+  // `branding`, which the edit forms spread LAST on submit — silently
+  // overwriting the user's edits with the row's old values.
+  const [branding, setBranding] = useState<Branding>(() => {
+    const picked: Record<string, unknown> = {}
+    for (const k of Object.keys(emptyBranding)) {
+      if (initial && k in initial) picked[k] = initial[k as keyof Branding]
+    }
+    return { ...emptyBranding, ...(picked as Partial<Branding>) }
+  })
   const update = (patch: Partial<Branding>) =>
     setBranding((b) => ({ ...b, ...patch }))
   const reset = () => setBranding(emptyBranding)
