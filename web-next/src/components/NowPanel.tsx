@@ -152,6 +152,18 @@ export default function NowPanel({
         </div>
       )}
 
+      {/* Windy's embed takes coordinates, not an address — a regional map,
+          so the stored lat/lng is plenty precise. Lazy so it never delays
+          the live player. */}
+      {sublocation.lat != null && sublocation.lng != null && (
+        <iframe
+          title={`Weather map around ${sublocation.name}`}
+          src={`https://embed.windy.com/embed.html?type=map&location=coordinates&lat=${sublocation.lat}&lon=${sublocation.lng}&zoom=9&overlay=wind&marker=true&metricWind=mph&metricTemp=%C2%B0F&metricRain=in`}
+          loading="lazy"
+          className="block h-60 w-full border-0 border-b border-overlay0"
+        />
+      )}
+
       {host && (
         <div className="flex items-center gap-3 px-5 py-3.5">
           {host.logo && (
