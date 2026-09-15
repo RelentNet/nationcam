@@ -11,10 +11,10 @@ import (
 )
 
 const createState = `-- name: CreateState :one
-INSERT INTO states (name, description, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about, upcoming, title_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO states (name, description, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about, upcoming, title_url, tourism_name, tourism_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING state_id, name, description, slug,
-          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, title_url, about,
+          hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, title_url, tourism_name, tourism_url, about,
           upcoming, created_at, updated_at
 `
 
@@ -29,6 +29,8 @@ type CreateStateParams struct {
 	About       string `json:"about"`
 	Upcoming    bool   `json:"upcoming"`
 	TitleUrl    string `json:"title_url"`
+	TourismName string `json:"tourism_name"`
+	TourismUrl  string `json:"tourism_url"`
 }
 
 type CreateStateRow struct {
@@ -42,6 +44,8 @@ type CreateStateRow struct {
 	SponsorUrl  string    `json:"sponsor_url"`
 	SponsorLink string    `json:"sponsor_link"`
 	TitleUrl    string    `json:"title_url"`
+	TourismName string    `json:"tourism_name"`
+	TourismUrl  string    `json:"tourism_url"`
 	About       string    `json:"about"`
 	Upcoming    bool      `json:"upcoming"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -60,6 +64,8 @@ func (q *Queries) CreateState(ctx context.Context, arg CreateStateParams) (Creat
 		arg.About,
 		arg.Upcoming,
 		arg.TitleUrl,
+		arg.TourismName,
+		arg.TourismUrl,
 	)
 	var i CreateStateRow
 	err := row.Scan(
@@ -73,6 +79,8 @@ func (q *Queries) CreateState(ctx context.Context, arg CreateStateParams) (Creat
 		&i.SponsorUrl,
 		&i.SponsorLink,
 		&i.TitleUrl,
+		&i.TourismName,
+		&i.TourismUrl,
 		&i.About,
 		&i.Upcoming,
 		&i.CreatedAt,
@@ -92,7 +100,7 @@ func (q *Queries) DeleteState(ctx context.Context, slug string) error {
 
 const getStateByID = `-- name: GetStateByID :one
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.tourism_name, s.tourism_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
@@ -112,6 +120,8 @@ type GetStateByIDRow struct {
 	SponsorUrl  string    `json:"sponsor_url"`
 	SponsorLink string    `json:"sponsor_link"`
 	TitleUrl    string    `json:"title_url"`
+	TourismName string    `json:"tourism_name"`
+	TourismUrl  string    `json:"tourism_url"`
 	About       string    `json:"about"`
 	Upcoming    bool      `json:"upcoming"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -133,6 +143,8 @@ func (q *Queries) GetStateByID(ctx context.Context, stateID int32) (GetStateByID
 		&i.SponsorUrl,
 		&i.SponsorLink,
 		&i.TitleUrl,
+		&i.TourismName,
+		&i.TourismUrl,
 		&i.About,
 		&i.Upcoming,
 		&i.CreatedAt,
@@ -144,7 +156,7 @@ func (q *Queries) GetStateByID(ctx context.Context, stateID int32) (GetStateByID
 
 const getStateBySlug = `-- name: GetStateBySlug :one
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.tourism_name, s.tourism_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
@@ -164,6 +176,8 @@ type GetStateBySlugRow struct {
 	SponsorUrl  string    `json:"sponsor_url"`
 	SponsorLink string    `json:"sponsor_link"`
 	TitleUrl    string    `json:"title_url"`
+	TourismName string    `json:"tourism_name"`
+	TourismUrl  string    `json:"tourism_url"`
 	About       string    `json:"about"`
 	Upcoming    bool      `json:"upcoming"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -185,6 +199,8 @@ func (q *Queries) GetStateBySlug(ctx context.Context, slug string) (GetStateBySl
 		&i.SponsorUrl,
 		&i.SponsorLink,
 		&i.TitleUrl,
+		&i.TourismName,
+		&i.TourismUrl,
 		&i.About,
 		&i.Upcoming,
 		&i.CreatedAt,
@@ -196,7 +212,7 @@ func (q *Queries) GetStateBySlug(ctx context.Context, slug string) (GetStateBySl
 
 const listStates = `-- name: ListStates :many
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.tourism_name, s.tourism_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count
 FROM states s
@@ -216,6 +232,8 @@ type ListStatesRow struct {
 	SponsorUrl  string    `json:"sponsor_url"`
 	SponsorLink string    `json:"sponsor_link"`
 	TitleUrl    string    `json:"title_url"`
+	TourismName string    `json:"tourism_name"`
+	TourismUrl  string    `json:"tourism_url"`
 	About       string    `json:"about"`
 	Upcoming    bool      `json:"upcoming"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -243,6 +261,8 @@ func (q *Queries) ListStates(ctx context.Context) ([]ListStatesRow, error) {
 			&i.SponsorUrl,
 			&i.SponsorLink,
 			&i.TitleUrl,
+			&i.TourismName,
+			&i.TourismUrl,
 			&i.About,
 			&i.Upcoming,
 			&i.CreatedAt,
@@ -261,7 +281,7 @@ func (q *Queries) ListStates(ctx context.Context) ([]ListStatesRow, error) {
 
 const listStatesPaginated = `-- name: ListStatesPaginated :many
 SELECT s.state_id, s.name, s.description, s.slug,
-       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.about,
+       s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.tourism_name, s.tourism_url, s.about,
        s.upcoming, s.created_at, s.updated_at,
        COUNT(v.video_id)::int AS video_count,
        COUNT(*) OVER()::int AS total_count
@@ -288,6 +308,8 @@ type ListStatesPaginatedRow struct {
 	SponsorUrl  string    `json:"sponsor_url"`
 	SponsorLink string    `json:"sponsor_link"`
 	TitleUrl    string    `json:"title_url"`
+	TourismName string    `json:"tourism_name"`
+	TourismUrl  string    `json:"tourism_url"`
 	About       string    `json:"about"`
 	Upcoming    bool      `json:"upcoming"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -316,6 +338,8 @@ func (q *Queries) ListStatesPaginated(ctx context.Context, arg ListStatesPaginat
 			&i.SponsorUrl,
 			&i.SponsorLink,
 			&i.TitleUrl,
+			&i.TourismName,
+			&i.TourismUrl,
 			&i.About,
 			&i.Upcoming,
 			&i.CreatedAt,
@@ -336,7 +360,7 @@ func (q *Queries) ListStatesPaginated(ctx context.Context, arg ListStatesPaginat
 const updateState = `-- name: UpdateState :exec
 UPDATE states SET name = $2, description = $3,
        hero_url = $4, hero_kind = $5, logo_url = $6, sponsor_url = $7, sponsor_link = $8,
-       about = $9, upcoming = $10, title_url = $11
+       about = $9, upcoming = $10, title_url = $11, tourism_name = $12, tourism_url = $13
 WHERE state_id = $1
 `
 
@@ -352,6 +376,8 @@ type UpdateStateParams struct {
 	About       string `json:"about"`
 	Upcoming    bool   `json:"upcoming"`
 	TitleUrl    string `json:"title_url"`
+	TourismName string `json:"tourism_name"`
+	TourismUrl  string `json:"tourism_url"`
 }
 
 func (q *Queries) UpdateState(ctx context.Context, arg UpdateStateParams) error {
@@ -367,6 +393,8 @@ func (q *Queries) UpdateState(ctx context.Context, arg UpdateStateParams) error 
 		arg.About,
 		arg.Upcoming,
 		arg.TitleUrl,
+		arg.TourismName,
+		arg.TourismUrl,
 	)
 	return err
 }

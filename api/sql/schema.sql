@@ -142,6 +142,13 @@ ALTER TABLE states ADD COLUMN IF NOT EXISTS upcoming BOOLEAN NOT NULL DEFAULT FA
 ALTER TABLE states ADD COLUMN IF NOT EXISTS title_url TEXT NOT NULL DEFAULT '';
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS title_url TEXT NOT NULL DEFAULT '';
 
+-- Official tourism site for the area, shown as a pill at the top of the hero.
+-- A sublocation with an empty tourism_url inherits its state's.
+ALTER TABLE states       ADD COLUMN IF NOT EXISTS tourism_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE states       ADD COLUMN IF NOT EXISTS tourism_url  TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS tourism_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS tourism_url  TEXT NOT NULL DEFAULT '';
+
 -- Host and visit details for a sublocation. lat/lng drive the "Right now"
 -- weather panel (fetched server-side from Open-Meteo, which also supplies the
 -- timezone, so none is stored). host_* and address feed the "Plan a visit" card

@@ -47,6 +47,15 @@ func TestBrandingNormalize(t *testing.T) {
 		t.Fatal("hero_kind=gif accepted, want rejection")
 	}
 
+	// tourism_url must be an outbound http(s) URL: a local asset path is fine
+	// for images but not for a link people follow.
+	if msg := (&brandingInput{TourismURL: "/logos/x.webp"}).normalize(); msg == "" {
+		t.Fatal("local-path tourism_url accepted, want rejection")
+	}
+	if msg := (&brandingInput{TourismName: "Explore Louisiana", TourismURL: "https://www.explorelouisiana.com"}).normalize(); msg != "" {
+		t.Fatalf("valid tourism link rejected: %q", msg)
+	}
+
 	// An unsafe URL is rejected.
 	if msg := (&brandingInput{HeroURL: "javascript:alert(1)"}).normalize(); msg == "" {
 		t.Fatal("javascript hero_url accepted, want rejection")

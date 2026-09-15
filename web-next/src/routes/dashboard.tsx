@@ -2462,6 +2462,8 @@ const emptyBranding: Branding = {
   sponsor_url: '',
   sponsor_link: '',
   title_url: '',
+  tourism_name: '',
+  tourism_url: '',
 }
 
 // useBranding holds the five branding fields for a form, seeded from an existing
@@ -2619,6 +2621,21 @@ function BrandingFields({
           value={branding.sponsor_link}
           onChange={(v) => update({ sponsor_link: v })}
           placeholder="https://sponsor.example.com"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
+          label="Tourism site name"
+          value={branding.tourism_name}
+          onChange={(v) => update({ tourism_name: v })}
+          placeholder="Explore Louisiana"
+        />
+        <FormField
+          label="Tourism site URL (a location inherits its state's when empty)"
+          value={branding.tourism_url}
+          onChange={(v) => update({ tourism_url: v })}
+          placeholder="https://www.explorelouisiana.com"
         />
       </div>
     </div>

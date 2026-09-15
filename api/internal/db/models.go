@@ -54,6 +54,8 @@ type State struct {
 	About       string    `json:"about"`
 	Upcoming    bool      `json:"upcoming"`
 	TitleUrl    string    `json:"title_url"`
+	TourismName string    `json:"tourism_name"`
+	TourismUrl  string    `json:"tourism_url"`
 }
 
 type Sublocation struct {
@@ -71,6 +73,8 @@ type Sublocation struct {
 	SponsorLink   string        `json:"sponsor_link"`
 	About         string        `json:"about"`
 	TitleUrl      string        `json:"title_url"`
+	TourismName   string        `json:"tourism_name"`
+	TourismUrl    string        `json:"tourism_url"`
 	Lat           pgtype.Float8 `json:"lat"`
 	Lng           pgtype.Float8 `json:"lng"`
 	HostName      string        `json:"host_name"`
