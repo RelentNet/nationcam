@@ -137,6 +137,11 @@ ALTER TABLE videos ADD COLUMN IF NOT EXISTS about TEXT NOT NULL DEFAULT '';
 -- pill) and softens the state page's empty-state copy.
 ALTER TABLE states ADD COLUMN IF NOT EXISTS upcoming BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- A wordmark that replaces the hero's text title when set (the sponsor image
+-- is a separate, optional "Sponsored by" credit).
+ALTER TABLE states ADD COLUMN IF NOT EXISTS title_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS title_url TEXT NOT NULL DEFAULT '';
+
 -- Host and visit details for a sublocation. lat/lng drive the "Right now"
 -- weather panel (fetched server-side from Open-Meteo, which also supplies the
 -- timezone, so none is stored). host_* and address feed the "Plan a visit" card

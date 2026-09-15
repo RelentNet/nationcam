@@ -2461,6 +2461,7 @@ const emptyBranding: Branding = {
   logo_url: '',
   sponsor_url: '',
   sponsor_link: '',
+  title_url: '',
 }
 
 // useBranding holds the five branding fields for a form, seeded from an existing
@@ -2591,12 +2592,20 @@ function BrandingFields({
         )}
       </div>
 
-      <UploadField
-        label="Logo (round)"
-        value={branding.logo_url}
-        onChange={(v) => update({ logo_url: v })}
-        getToken={getToken}
-      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <UploadField
+          label="Logo (round)"
+          value={branding.logo_url}
+          onChange={(v) => update({ logo_url: v })}
+          getToken={getToken}
+        />
+        <UploadField
+          label="Title image (replaces the name in the hero)"
+          value={branding.title_url}
+          onChange={(v) => update({ title_url: v })}
+          getToken={getToken}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <UploadField

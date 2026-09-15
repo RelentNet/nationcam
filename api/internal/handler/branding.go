@@ -11,6 +11,7 @@ type brandingInput struct {
 	LogoURL     string `json:"logo_url"`
 	SponsorURL  string `json:"sponsor_url"`
 	SponsorLink string `json:"sponsor_link"`
+	TitleURL    string `json:"title_url"`
 }
 
 // normalize fills defaults and returns an error message ("" when valid).
@@ -28,6 +29,7 @@ func (b *brandingInput) normalize() string {
 		{"logo_url", b.LogoURL},
 		{"sponsor_url", b.SponsorURL},
 		{"sponsor_link", b.SponsorLink},
+		{"title_url", b.TitleURL},
 	} {
 		if !validBrandURL(f.val) {
 			return f.label + " must be empty, an http(s) URL, or a local /api/uploads, /videos, /logos or /buttons path"
