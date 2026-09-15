@@ -198,10 +198,14 @@ export default function SublocationPage({
           </div>
           <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
             {hasVisit && <PlanVisitCard sublocation={sublocation} />}
+            {/* Third distinct creative on desktop: the 320px column takes the
+                mobile unit, so the right-rail ad is not repeated. Hidden below
+                xl, where the root layout already shows the mobile slot. */}
             <BannerSlot
-              placement="right"
+              placement="mobile"
               videoId={camera?.video_id}
               sublocationId={camera ? undefined : sublocation.sublocation_id}
+              className="hidden xl:block"
             />
           </aside>
         </div>
