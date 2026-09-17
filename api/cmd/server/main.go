@@ -98,10 +98,19 @@ func run() error {
 
 	// ── HTTP server ────────────────────────────────────────────────
 	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:    ":" + cfg.Port,
+		Handler: router,
+		// ReadHeaderTimeout (not ReadTimeout) — Slowloris protection without
+		// capping how long a slow client gets to send a whole request body.
+		// ReadTimeout bounded headers+body together at 10s, which was fine
+		// for tiny image uploads but killed a multi-MB video upload (POST
+		// /uploads, size already bounded per-handler by MaxBytesReader) on
+		// anything but a fast connection.
+		ReadHeaderTimeout: 10 * time.Second,
+		// WriteTimeout also spans body-read time (Go counts it from end of
+		// headers to end of response), so it has to fit a slow connection
+		// reading the full 20MB /uploads cap, not just writing a response.
+		WriteTimeout: 90 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
