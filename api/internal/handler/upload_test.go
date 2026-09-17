@@ -96,6 +96,24 @@ func TestUploadAsset(t *testing.T) {
 	if txtRec.Code != http.StatusBadRequest {
 		t.Fatalf("non-image upload: got %d, want 400", txtRec.Code)
 	}
+
+	// A webm video (for a hero background) succeeds too.
+	webmMagic := []byte{0x1a, 0x45, 0xdf, 0xa3}
+	vid := append(append([]byte{}, webmMagic...), bytes.Repeat([]byte{0}, 64)...)
+	vidBody, vidCT := multipartFile(t, "file", "hero.webm", vid)
+	vidReq := httptest.NewRequest(http.MethodPost, "/uploads", vidBody)
+	vidReq.Header.Set("Content-Type", vidCT)
+	vidRec := httptest.NewRecorder()
+	handler(vidRec, vidReq)
+	if vidRec.Code != http.StatusOK {
+		t.Fatalf("valid webm: got %d, want 200 (body %s)", vidRec.Code, vidRec.Body.String())
+	}
+	if err := json.Unmarshal(vidRec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode webm response: %v", err)
+	}
+	if !strings.HasSuffix(resp.URL, ".webm") {
+		t.Fatalf("unexpected webm url %q", resp.URL)
+	}
 }
 
 // TestUploadRequiresAdmin confirms the route is gated: an unauthenticated request

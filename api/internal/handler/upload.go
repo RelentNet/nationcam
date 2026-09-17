@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 )
 
-// maxUploadBytes caps a single upload at 10MB.
-const maxUploadBytes = 10 << 20
+// maxUploadBytes caps a single upload at 20MB — raised from 10MB to fit a
+// short muted hero-background video (branding.hero_url/hero_kind="video"),
+// alongside the existing logo/sponsor/title images.
+const maxUploadBytes = 20 << 20
 
 // uploadExtByType maps the sniffed content type to the extension we store under.
 // The client's filename and Content-Type are never trusted — only these bytes.
@@ -20,6 +22,7 @@ var uploadExtByType = map[string]string{
 	"image/jpeg": ".jpg",
 	"image/webp": ".webp",
 	"image/gif":  ".gif",
+	"video/webm": ".webm",
 }
 
 // ResolveUploadsDir returns a writable uploads directory, creating it if needed.
@@ -41,11 +44,11 @@ func ResolveUploadsDir(configured string) string {
 	return "uploads"
 }
 
-// UploadAsset handles POST /uploads (admin only) — stores a single image and
-// returns its public URL. Security: the body is capped with MaxBytesReader; the
-// type is sniffed from the bytes (png/jpeg/webp/gif only); the stored name is
-// random (crypto/rand) with an extension derived from the sniffed type, never
-// from the client's filename.
+// UploadAsset handles POST /uploads (admin only) — stores a single image or
+// webm video and returns its public URL. Security: the body is capped with
+// MaxBytesReader; the type is sniffed from the bytes (png/jpeg/webp/gif/webm
+// only); the stored name is random (crypto/rand) with an extension derived
+// from the sniffed type, never from the client's filename.
 func UploadAsset(uploadsDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
@@ -54,7 +57,7 @@ func UploadAsset(uploadsDir string) http.HandlerFunc {
 		if err != nil {
 			var maxErr *http.MaxBytesError
 			if errors.As(err, &maxErr) {
-				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "file exceeds 10MB limit"})
+				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "file exceeds 20MB limit"})
 				return
 			}
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "expected a single file in the 'file' field"})
@@ -71,7 +74,7 @@ func UploadAsset(uploadsDir string) http.HandlerFunc {
 		}
 		ext, ok := uploadExtByType[http.DetectContentType(head[:n])]
 		if !ok {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "only png, jpeg, webp or gif images are allowed"})
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "only png, jpeg, webp, gif images or webm video are allowed"})
 			return
 		}
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -96,7 +99,7 @@ func UploadAsset(uploadsDir string) http.HandlerFunc {
 			_ = os.Remove(out.Name())
 			var maxErr *http.MaxBytesError
 			if errors.As(err, &maxErr) {
-				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "file exceeds 10MB limit"})
+				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "file exceeds 20MB limit"})
 				return
 			}
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "could not save file"})
