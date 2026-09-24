@@ -78,16 +78,22 @@ type cameraPage struct {
 	Related []db.ListRelatedVideosRow `json:"related"`
 }
 
+// cameraParams reads the {stateSlug}/{sublocationSlug}/{slug} camera address
+// shared by the per-camera routes.
+func cameraParams(r *http.Request) db.GetVideoBySlugParams {
+	return db.GetVideoBySlugParams{
+		StateSlug:       chi.URLParam(r, "stateSlug"),
+		SublocationSlug: chi.URLParam(r, "sublocationSlug"),
+		Slug:            chi.URLParam(r, "slug"),
+	}
+}
+
 // GetVideo handles GET /videos/{stateSlug}/{sublocationSlug}/{slug} — the public
 // per-camera page. Cameras with no sublocation are not reachable here; the URL
 // shape requires a sublocation segment.
 func GetVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		params := db.GetVideoBySlugParams{
-			StateSlug:       chi.URLParam(r, "stateSlug"),
-			SublocationSlug: chi.URLParam(r, "sublocationSlug"),
-			Slug:            chi.URLParam(r, "slug"),
-		}
+		params := cameraParams(r)
 
 		key := "videos:camera:" + params.StateSlug + ":" + params.SublocationSlug + ":" + params.Slug
 		handler := cachedHandler(c, key, func(w http.ResponseWriter, r *http.Request) {

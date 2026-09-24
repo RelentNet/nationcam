@@ -41,11 +41,14 @@ type Phase = 'checking' | 'ad' | 'live'
 export default function PrerollGate({
   videoId,
   className = '',
+  poster,
   children,
 }: {
   videoId: number
   /** Applied to the placeholder + ad so they match the wrapped player's frame. */
   className?: string
+  /** Still frame for the placeholder, so first paint shows the camera. */
+  poster?: string
   children: React.ReactNode
 }) {
   // 'checking' on both server and first client render → hydration-safe. The
@@ -108,7 +111,11 @@ export default function PrerollGate({
   // when we swap in the ad or the live stream.
   return (
     <div className={`stream-player aspect-video ${className}`}>
-      <div className="absolute inset-0 bg-crust" />
+      <div className="absolute inset-0 bg-crust">
+        {poster && (
+          <img src={poster} alt="" className="h-full w-full object-cover" />
+        )}
+      </div>
     </div>
   )
 }

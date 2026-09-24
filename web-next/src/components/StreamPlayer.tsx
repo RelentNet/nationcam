@@ -34,6 +34,8 @@ interface StreamPlayerProps {
    * Off by default so grid previews never get it — the camera page enables it.
    */
   audioChannels?: boolean
+  /** Still frame shown while the stream loads (see `streamPoster`). */
+  poster?: string
 }
 
 interface AudioStation {
@@ -73,6 +75,7 @@ export default function StreamPlayer({
   className = '',
   fluid = true,
   audioChannels = false,
+  poster,
 }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -400,14 +403,17 @@ export default function StreamPlayer({
       {/* Hidden radio audio — replaces native audio when a station is picked. */}
       <audio ref={audioRef} className="hidden" />
 
-
-      {/* Loading shimmer */}
+      {/* Loading: the camera's latest still if there is one, else a shimmer */}
       {isLoading && !isError && (
         <div className="absolute inset-0 flex items-center justify-center bg-crust">
-          <div
-            className="h-full w-full bg-gradient-to-r from-crust via-surface0 to-crust bg-[length:200%_100%]"
-            style={{ animation: 'shimmer 1.5s ease-in-out infinite' }}
-          />
+          {poster ? (
+            <img src={poster} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div
+              className="h-full w-full bg-gradient-to-r from-crust via-surface0 to-crust bg-[length:200%_100%]"
+              style={{ animation: 'shimmer 1.5s ease-in-out infinite' }}
+            />
+          )}
         </div>
       )}
 

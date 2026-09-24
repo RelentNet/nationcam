@@ -305,6 +305,8 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos?state_id=N`             | Videos by state                | None          |
 | GET    | `/videos?sublocation_id=N`       | Videos by sublocation          | None          |
 | GET    | `/videos/{state}/{sub}/{slug}`   | Single camera + related cameras | None         |
+| GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky | None |
+| GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 to the camera's current HLS manifest | None |
 | POST   | `/videos`                        | Create video                   | Admin (Logto) |
 | GET    | `/streams`                       | List all active streams        | API Key       |
 | POST   | `/streams`                       | Create RTSP-to-HLS stream      | API Key       |

@@ -45,6 +45,8 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// Videos.
 	r.Get("/videos", ListVideos(pool, c))
 	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}", GetVideo(pool, c))
+	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/snapshot.jpg", CameraSnapshot(pool, c))
+	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/stream.m3u8", CameraStream(pool))
 	r.With(mw.RequireAdmin).Post("/videos", CreateVideo(pool, c))
 	r.With(mw.RequireAdmin).Put("/videos/{id}", UpdateVideo(pool, c))
 	r.With(mw.RequireAdmin).Delete("/videos/{id}", DeleteVideo(pool, c))

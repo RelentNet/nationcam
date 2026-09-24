@@ -74,6 +74,7 @@ import {
   updateVideo,
   uploadAsset,
 } from '@/lib/api'
+import { SITE_URL, streamPoster } from '@/lib/seo'
 
 /* ──── Constants ──── */
 
@@ -3480,6 +3481,11 @@ function EditVideoModal({
 
   return (
     <ModalShell title="Edit Camera" onClose={onClose}>
+      <DirectoryLinks
+        video={video}
+        states={states}
+        sublocations={sublocations}
+      />
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormField
           label="Title"
@@ -3529,6 +3535,84 @@ function EditVideoModal({
         <FormFooter msg={msg} submitting={submitting} label="Save Changes" />
       </form>
     </ModalShell>
+  )
+}
+
+/**
+ * The saved camera's public URLs, as webcam directories (Windy, Ventusky) ask
+ * for them, with a preview of the watermarked still they will poll. Hidden for
+ * cameras those endpoints can't serve: inactive, no sublocation, or not a
+ * Restreamer stream.
+ */
+function DirectoryLinks({
+  video,
+  states,
+  sublocations,
+}: {
+  video: Video
+  states: Array<State>
+  sublocations: Array<Sublocation>
+}) {
+  const [copied, setCopied] = useState<string | null>(null)
+  const stateSlug = states.find((s) => s.state_id === video.state_id)?.slug
+  const subSlug = sublocations.find(
+    (s) => s.sublocation_id === video.sublocation_id,
+  )?.slug
+  if (
+    !stateSlug ||
+    !subSlug ||
+    !streamPoster(video.src, video.status === 'active')
+  )
+    return null
+
+  const path = `${stateSlug}/${subSlug}/${video.slug}`
+  const snapshot = `/api/videos/${path}/snapshot.jpg`
+  const links = [
+    { label: 'Website', url: `${SITE_URL}/locations/${path}` },
+    { label: 'Image', url: `${SITE_URL}${snapshot}` },
+    { label: 'Video', url: `${SITE_URL}/api/videos/${path}/stream.m3u8` },
+  ]
+
+  const copy = (url: string) => {
+    navigator.clipboard.writeText(url)
+    setCopied(url)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  return (
+    <div className="mb-5 rounded-xl border border-overlay0 bg-base p-3.5">
+      <p className="mb-2.5 text-xs font-medium text-subtext0">
+        Webcam directory links (Windy, Ventusky)
+      </p>
+      <img
+        src={snapshot}
+        alt={`${video.title} snapshot`}
+        className="mb-3 aspect-video w-full rounded-lg bg-crust object-cover"
+      />
+      <div className="space-y-1.5">
+        {links.map(({ label, url }) => (
+          <div key={label} className="flex items-center gap-2">
+            <span className="w-14 shrink-0 text-xs text-subtext0">{label}</span>
+            <code className="min-w-0 flex-1 font-mono text-xs break-all text-text">
+              {url}
+            </code>
+            <button
+              type="button"
+              onClick={() => copy(url)}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-subtext0 transition-colors duration-150 hover:bg-accent/10 hover:text-accent"
+              title={copied === url ? 'Copied!' : `Copy ${label} URL`}
+              aria-label={`Copy ${label} URL`}
+            >
+              {copied === url ? (
+                <Check size={14} className="text-teal" />
+              ) : (
+                <Copy size={14} />
+              )}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
