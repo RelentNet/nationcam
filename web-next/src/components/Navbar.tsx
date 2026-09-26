@@ -1,9 +1,18 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Home, Mail, MapPin, Menu, Moon, Sun, X } from 'lucide-react'
+import { Home, Mail, MapPin, Menu, Moon, Search, Sun, X } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
+import CameraSearch from '@/components/CameraSearch'
 import Logo from '@/components/Logo'
 import UserMenu from '@/components/UserMenu'
+
+/** Elements Ctrl-K/Cmd-K should not hijack away from normal typing. */
+function isEditableElement(node: Element | null): boolean {
+  if (!node) return false
+  const tag = node.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+  return node instanceof HTMLElement && node.isContentEditable
+}
 
 const navLinks = [
   { to: '/' as const, label: 'Home', icon: Home },
@@ -14,6 +23,7 @@ const navLinks = [
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   const currentPath = location.pathname
@@ -22,6 +32,18 @@ export default function Navbar() {
     const handleScroll = () => setScrolled(window.scrollY > 16)
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Sitewide Ctrl-K / Cmd-K quick-jump — ignored while typing anywhere else.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key.toLowerCase() !== 'k' || !(e.ctrlKey || e.metaKey)) return
+      if (isEditableElement(document.activeElement)) return
+      e.preventDefault()
+      setSearchOpen(true)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   return (
@@ -68,6 +90,15 @@ export default function Navbar() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-subtext0 transition-[scale,color,background-color] duration-200 ease-[var(--spring-gentle)] hover:scale-105 hover:text-accent hover:bg-surface0/50 md:px-3"
+            aria-label="Search cameras"
+          >
+            <Search size={18} />
+            <span className="hidden md:inline">Search</span>
+          </button>
+
           <button
             onClick={toggleTheme}
             className="rounded-lg p-2 text-subtext0 transition-[scale,color,background-color] duration-200 ease-[var(--spring-gentle)] hover:scale-110 hover:text-accent hover:bg-surface0/50"
@@ -140,6 +171,8 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      <CameraSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </nav>
   )
 }
