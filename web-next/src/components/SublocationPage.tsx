@@ -6,6 +6,7 @@ import {
   MapPin,
   Video as VideoIcon,
 } from 'lucide-react'
+import { useEffect } from 'react'
 import type { Camera, Sublocation, Video, Weather } from '@/lib/types'
 import { streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
@@ -18,6 +19,7 @@ import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
 import { useArrowKeyNav } from '@/hooks/useArrowKeyNav'
+import { recordRecentCamera } from '@/hooks/useRecentCameras'
 
 /** The search/sort toolbar only earns its space once the strip gets long. */
 const TOOLBAR_MIN = 12
@@ -98,6 +100,17 @@ export default function SublocationPage({
     () => goToCamera(prevVideo),
     () => goToCamera(nextVideo),
   )
+
+  // Remember this camera as recently watched, for the home page's row.
+  useEffect(() => {
+    if (!camera) return
+    recordRecentCamera({
+      path: `/locations/${stateSlug}/${sublocation.slug}/${camera.slug}`,
+      title: camera.title,
+      subtitle: `${sublocation.name} · ${sublocation.state_name}`,
+      poster: streamPoster(camera.src, camera.status === 'active'),
+    })
+  }, [camera, stateSlug, sublocation])
 
   return (
     <div>

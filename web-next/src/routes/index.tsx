@@ -4,6 +4,7 @@ import {
   Camera,
   ChevronDown,
   Globe,
+  History,
   Map,
   MonitorPlay,
   Radio,
@@ -13,10 +14,12 @@ import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import StreamPlayer from '@/components/StreamPlayer'
 import PrerollGate from '@/components/PrerollGate'
 import LiveNowSection from '@/components/LiveNowSection'
+import PosterTile from '@/components/PosterTile'
 import { pickFeatured } from '@/lib/featured'
 import ContactCTA from '@/components/ContactCTA'
 import Reveal from '@/components/Reveal'
 import { seo } from '@/lib/seo'
+import { useRecentCameras } from '@/hooks/useRecentCameras'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
@@ -61,6 +64,7 @@ function HomePage() {
     <div>
       <HomeHeroSection />
       <FeaturedStream featured={featured} />
+      <RecentlyWatchedSection />
       <LiveNowSection
         videos={videos}
         states={states}
@@ -220,6 +224,66 @@ function FeaturedStream({ featured }: { featured: Video | null }) {
                 audioChannels
               />
             )}
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  )
+}
+
+/* ──────────────────── Recently watched ──────────────────── */
+
+/**
+ * A recorded path always looks like `/locations/$slug/$sublocationSlug/$cameraSlug`
+ * — that's the only shape `recordRecentCamera` is called with (see
+ * `SublocationPage.tsx`). Parses it back into the typed link `PosterTile` needs.
+ */
+function cameraLink(path: string) {
+  const match = path.match(/^\/locations\/([^/]+)\/([^/]+)\/([^/]+)$/)
+  if (!match) return undefined
+  const [, slug, sublocationSlug, cameraSlug] = match
+  return {
+    to: '/locations/$slug/$sublocationSlug/$cameraSlug' as const,
+    params: { slug, sublocationSlug, cameraSlug },
+  }
+}
+
+/**
+ * "Recently watched" — one click back to the cameras this visitor already
+ * looked at, read from localStorage. Renders nothing on the server and on
+ * first client render (matching `useRecentCameras`'s SSR-safe empty state),
+ * then fills in after mount, and is hidden entirely when there's no history.
+ */
+function RecentlyWatchedSection() {
+  const recent = useRecentCameras()
+  if (recent.length === 0) return null
+
+  return (
+    <section className="py-20">
+      <Reveal variant="blur">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
+              <History size={14} className="text-accent" />
+              <span className="font-mono text-xs font-medium text-accent">
+                Recently watched
+              </span>
+            </div>
+            <h2>Jump Back In</h2>
+            <p className="mx-auto max-w-lg">
+              Pick up right where you left off.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {recent.map((entry) => (
+              <PosterTile
+                key={entry.path}
+                title={entry.title}
+                meta={entry.subtitle}
+                poster={entry.poster}
+                link={cameraLink(entry.path)}
+              />
+            ))}
           </div>
         </div>
       </Reveal>
