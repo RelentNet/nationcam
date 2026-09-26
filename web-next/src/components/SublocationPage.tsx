@@ -1,5 +1,11 @@
-import { Link } from '@tanstack/react-router'
-import { ChevronRight, Eye, MapPin, Video as VideoIcon } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  MapPin,
+  Video as VideoIcon,
+} from 'lucide-react'
 import type { Camera, Sublocation, Video, Weather } from '@/lib/types'
 import { streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
@@ -11,6 +17,7 @@ import BannerSlot from '@/components/BannerSlot'
 import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
+import { useArrowKeyNav } from '@/hooks/useArrowKeyNav'
 
 /** The search/sort toolbar only earns its space once the strip gets long. */
 const TOOLBAR_MIN = 12
@@ -55,6 +62,42 @@ export default function SublocationPage({
     sublocation.address || sublocation.host_name || sublocation.lat != null,
   )
   const crumbLink = 'transition-colors hover:text-accent'
+
+  // Previous/next camera within this sublocation, following the same order
+  // as the poster strip below. Wraps at the ends. Hidden when there's only
+  // one camera here, or when the current one has been filtered out of the
+  // poster strip by the search box.
+  const currentIndex = camera
+    ? filtered.findIndex((v) => v.video_id === camera.video_id)
+    : -1
+  const hasCameraNav =
+    Boolean(camera) &&
+    videos.length >= 2 &&
+    currentIndex !== -1 &&
+    filtered.length >= 2
+  const prevVideo = hasCameraNav
+    ? filtered[(currentIndex - 1 + filtered.length) % filtered.length]
+    : null
+  const nextVideo = hasCameraNav
+    ? filtered[(currentIndex + 1) % filtered.length]
+    : null
+
+  const navigate = useNavigate()
+  const goToCamera = (target: Video | null) => {
+    if (!target) return
+    navigate({
+      to: '/locations/$slug/$sublocationSlug/$cameraSlug',
+      params: {
+        slug: stateSlug,
+        sublocationSlug: sublocation.slug,
+        cameraSlug: target.slug,
+      },
+    })
+  }
+  useArrowKeyNav(
+    () => goToCamera(prevVideo),
+    () => goToCamera(nextVideo),
+  )
 
   return (
     <div>
@@ -138,6 +181,8 @@ export default function SublocationPage({
             stateSlug={stateSlug}
             camera={camera}
             weather={weather}
+            prevVideo={prevVideo}
+            nextVideo={nextVideo}
           >
             {/* ── Camera strip — posters, not players ── */}
             {videos.length > 0 && (
@@ -276,6 +321,8 @@ export function FeaturedBlock({
   stateSlug,
   camera,
   weather = null,
+  prevVideo = null,
+  nextVideo = null,
   children,
 }: {
   video: Video
@@ -284,9 +331,13 @@ export function FeaturedBlock({
   stateSlug: string
   camera?: Camera
   weather?: Weather | null
+  /** The previous/next camera in the sublocation's poster-strip order. */
+  prevVideo?: Video | null
+  nextVideo?: Video | null
   children?: React.ReactNode
 }) {
   const panel = weather && sublocation
+  const showCameraNav = Boolean(camera && sublocation && prevVideo && nextVideo)
   return (
     <div
       className={
@@ -295,6 +346,38 @@ export function FeaturedBlock({
     >
       <div>
         <CameraPlayer camera={video} />
+        {showCameraNav && sublocation && prevVideo && nextVideo && (
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <Link
+              to="/locations/$slug/$sublocationSlug/$cameraSlug"
+              params={{
+                slug: stateSlug,
+                sublocationSlug: sublocation.slug,
+                cameraSlug: prevVideo.slug,
+              }}
+              aria-label={`Previous camera: ${prevVideo.title}`}
+              title={`Previous camera: ${prevVideo.title}`}
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-overlay0 px-3 py-1.5 text-sm text-subtext0 transition-colors hover:text-text"
+            >
+              <ChevronLeft size={16} className="shrink-0" />
+              <span className="truncate">{prevVideo.title}</span>
+            </Link>
+            <Link
+              to="/locations/$slug/$sublocationSlug/$cameraSlug"
+              params={{
+                slug: stateSlug,
+                sublocationSlug: sublocation.slug,
+                cameraSlug: nextVideo.slug,
+              }}
+              aria-label={`Next camera: ${nextVideo.title}`}
+              title={`Next camera: ${nextVideo.title}`}
+              className="inline-flex min-w-0 items-center justify-end gap-1.5 rounded-lg border border-overlay0 px-3 py-1.5 text-sm text-subtext0 transition-colors hover:text-text"
+            >
+              <span className="truncate">{nextVideo.title}</span>
+              <ChevronRight size={16} className="shrink-0" />
+            </Link>
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="mb-0 text-2xl">{video.title}</h2>
