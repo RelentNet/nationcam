@@ -335,6 +335,21 @@ then state, then global — and picks among that scope's ads by weight.
 - **Impressions and clicks** are written straight to Postgres, one row per event.
   They bill advertisers, so they never use the approximate Redis-buffered counter
   that backs `videos.view_count`.
+- **Google AdSense** fills the banner slots behind direct-sold ads. The publisher
+  ID (`ca-pub-…`) lives in three places that must match: `ADSENSE_CLIENT` and the
+  `google-adsense-account` meta tag in `web-next/src/routes/__root.tsx`, and
+  `web-next/public/ads.txt`, served at `/ads.txt`. The meta tag and ads.txt are
+  what Google's site verification checks. The library itself is loaded by the
+  `AdSenseLoader` effect after hydration, on public pages only (not
+  `/dashboard`, `/admin`, `/callback`) — never as a server-rendered
+  `<script async src>`, because the AdSense library inserts its own script
+  before the first `<script>` in the document, and if that happens mid-hydration
+  it breaks React's positional matching of the inline theme/JSON-LD scripts.
+  Ad units are created in the AdSense console
+  and pasted into Dashboard → Ads as `banner_html` House ads with a placement;
+  `injectCreative` drops the loader tag from pasted unit code because the root
+  layout already loads it once. Do not enable AdSense Auto ads: they place anchor
+  and vignette ads over the player and the search dialog.
 
 ### Stream Management
 

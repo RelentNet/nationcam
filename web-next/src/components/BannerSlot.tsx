@@ -25,6 +25,22 @@ interface BannerSlotProps {
 export function injectCreative(host: HTMLElement, html: string): void {
   host.innerHTML = html
   host.querySelectorAll('script').forEach((old) => {
+    // Pasted AdSense unit code ships its own copy of the library loader tag,
+    // but the root layout already loads it once on every public page. Slots
+    // re-inject on every client-side navigation (prev/next, search), so
+    // recreating that tag here would stack a fresh copy each time. Drop it
+    // whenever the library is already present outside this slot.
+    if (
+      /adsbygoogle\.js/i.test(old.src) &&
+      Array.from(
+        document.querySelectorAll<HTMLScriptElement>(
+          'script[src*="adsbygoogle.js"]',
+        ),
+      ).some((s) => !host.contains(s))
+    ) {
+      old.remove()
+      return
+    }
     const script = document.createElement('script')
     for (const attr of Array.from(old.attributes)) {
       script.setAttribute(attr.name, attr.value)

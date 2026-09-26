@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { useEffect } from 'react'
 
 import BannerSlot from '@/components/BannerSlot'
 import Navbar from '@/components/Navbar'
@@ -29,6 +30,9 @@ export const Route = createRootRoute({
         content:
           'Live cameras from across the United States. Explore cities, landmarks, and communities through real-time video feeds.',
       },
+      // AdSense site-ownership verification ("Meta tag" method). Harmless on
+      // app surfaces, and a <meta> is hoisted, so it never disturbs hydration.
+      { name: 'google-adsense-account', content: 'ca-pub-7286243668972753' },
     ],
     links: [
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
@@ -48,6 +52,46 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+/**
+ * Google AdSense publisher ID. Public by design (it is in every page's HTML and
+ * in /ads.txt), so it is committed rather than injected. Change it here and in
+ * `public/ads.txt` together.
+ */
+export const ADSENSE_CLIENT = 'ca-pub-7286243668972753'
+
+/**
+ * Dashboard, admin and the sign-in callback are app surfaces, not content:
+ * they render full-width with no ad slots and no AdSense loader.
+ */
+export function isAppSurface(pathname: string): boolean {
+  return /^\/(dashboard|admin|callback)(\/|$)/.test(pathname)
+}
+
+/**
+ * Loads the AdSense library once, from an effect, on the first public page
+ * the visitor reaches. Deliberately NOT a server-rendered `<script async src>`:
+ * when the library runs it inserts its own script before the first <script>
+ * in the document, and if that happens before React has hydrated <head> it
+ * lands ahead of the inline scripts React matches by position (the theme init
+ * script, JSON-LD) and mispairs every one of them. Loading after hydration
+ * makes that impossible. Site ownership is verified server-side through the
+ * `google-adsense-account` meta tag and /ads.txt, so Google does not need the
+ * literal snippet in the HTML.
+ */
+function AdSenseLoader() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  useEffect(() => {
+    if (isAppSurface(pathname)) return
+    if (document.querySelector('script[src*="adsbygoogle.js"]')) return
+    const s = document.createElement('script')
+    s.async = true
+    s.crossOrigin = 'anonymous'
+    s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`
+    document.head.appendChild(s)
+  }, [pathname])
+  return null
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     // The theme class is rewritten by themeInitScript before first paint, so
@@ -61,6 +105,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <PostHogInit />
+        <AdSenseLoader />
         {/* Logto's browser client is SSR-safe (its storage no-ops without a
             `window`) and starts in the loading state on both sides, so the
             provider can wrap the server-rendered shell without a mismatch. */}
@@ -102,9 +147,7 @@ type AdScope = {
  * `sublocation.sublocation_id`, state pages `state.state_id`, and everything
  * else (home, contact) falls through to house/global. Deepest match wins.
  */
-function adScopeFromMatches(
-  matches: ReturnType<typeof useMatches>,
-): AdScope {
+function adScopeFromMatches(matches: ReturnType<typeof useMatches>): AdScope {
   for (let i = matches.length - 1; i >= 0; i--) {
     const data = matches[i].loaderData as Record<string, unknown> | undefined
     if (!data) continue
@@ -130,7 +173,7 @@ function PageBody({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const matches = useMatches()
 
-  if (/^\/(dashboard|admin|callback)(\/|$)/.test(pathname)) {
+  if (isAppSurface(pathname)) {
     return <main className="pt-14">{children}</main>
   }
 
