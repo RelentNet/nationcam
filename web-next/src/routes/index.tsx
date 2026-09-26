@@ -9,9 +9,10 @@ import {
   Radio,
 } from 'lucide-react'
 import type { Video } from '@/lib/types'
-import { fetchVideos } from '@/lib/api'
+import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import StreamPlayer from '@/components/StreamPlayer'
 import PrerollGate from '@/components/PrerollGate'
+import LiveNowSection from '@/components/LiveNowSection'
 import { pickFeatured } from '@/lib/featured'
 import ContactCTA from '@/components/ContactCTA'
 import Reveal from '@/components/Reveal'
@@ -22,8 +23,27 @@ export const Route = createFileRoute('/')({
     // Feature a real camera so the "Watch Now" hero can run a targeted pre-roll,
     // picked server-side so the client hydrates the same one. Tolerant: if the
     // API is unreachable the homepage still renders (falls back to no pre-roll).
-    const videos = await fetchVideos().catch(() => [])
-    return { featured: pickFeatured(videos) }
+    const [videos, states] = await Promise.all([
+      fetchVideos().catch(() => []),
+      fetchStates().catch(() => []),
+    ])
+    // Sublocation slugs aren't on the video rows themselves, so fetch them for
+    // every state with a live camera — that's what the "Live now" grid needs
+    // to build the same camera links as routes/locations/$slug.index.tsx.
+    const liveStateIds = new Set(
+      videos.filter((v) => v.status === 'active').map((v) => v.state_id),
+    )
+    const statesWithLiveVideos = states.filter((s) =>
+      liveStateIds.has(s.state_id),
+    )
+    const sublocations = (
+      await Promise.all(
+        statesWithLiveVideos.map((s) =>
+          fetchSublocationsByState(s.slug).catch(() => []),
+        ),
+      )
+    ).flat()
+    return { featured: pickFeatured(videos), videos, states, sublocations }
   },
   head: () =>
     seo({
@@ -36,12 +56,17 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
-  const { featured } = Route.useLoaderData()
+  const { featured, videos, states, sublocations } = Route.useLoaderData()
   return (
     <div>
       <HomeHeroSection />
       <FeaturedStream featured={featured} />
-      <StatsSection />
+      <LiveNowSection
+        videos={videos}
+        states={states}
+        sublocations={sublocations}
+      />
+      <StatsSection videos={videos} />
       <FAQSection />
       <ContactCTA />
     </div>
@@ -204,22 +229,30 @@ function FeaturedStream({ featured }: { featured: Video | null }) {
 
 /* ──────────────────── Stats ──────────────────── */
 
-function StatsSection() {
+function StatsSection({ videos }: { videos: Array<Video> }) {
+  const activeVideos = videos.filter((v) => v.status === 'active')
+  const stateCount = new Set(activeVideos.map((v) => v.state_id)).size
+  const locationCount = new Set(
+    activeVideos
+      .filter((v) => v.sublocation_id !== null)
+      .map((v) => v.sublocation_id),
+  ).size
+
   const stats = [
     {
       icon: Camera,
-      value: '1,250',
-      label: 'Cameras Planned',
+      value: String(activeVideos.length),
+      label: `Live Camera${activeVideos.length === 1 ? '' : 's'}`,
     },
     {
       icon: Globe,
-      value: '50',
-      label: 'States',
+      value: String(stateCount),
+      label: `State${stateCount === 1 ? '' : 's'} With Cameras`,
     },
     {
       icon: Map,
-      value: '25',
-      label: 'Starting in Louisiana',
+      value: String(locationCount),
+      label: `Location${locationCount === 1 ? '' : 's'} Hosting Cameras`,
     },
   ]
 
@@ -227,10 +260,10 @@ function StatsSection() {
     <section className="bg-surface0 py-20">
       <Reveal stagger>
         <div className="mx-auto max-w-5xl px-6 text-center">
-          <h2>Our Planned Network</h2>
+          <h2>Our Growing Network</h2>
           <p className="mx-auto max-w-lg">
-            Building a nationwide network of live cameras, starting with
-            Louisiana and expanding across all 50 states.
+            Building a nationwide network of live cameras, one location at a
+            time.
           </p>
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {stats.map((stat) => (
