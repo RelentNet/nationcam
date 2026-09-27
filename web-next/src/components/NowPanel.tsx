@@ -1,12 +1,15 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowRight, Zap } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   HeatStressLevel,
+  Lightning,
+  LightningResult,
   StormPotentialLevel,
   Sublocation,
   Weather,
 } from '@/lib/types'
+import { fetchLightning } from '@/lib/api'
 
 function clockText(date: Date, timeZone: string): string {
   try {
@@ -238,6 +241,192 @@ function statusTiles(
   return tiles
 }
 
+/* ──── Lightning (DAN-34) ──── */
+
+/** How often the card re-asks the API while mounted. */
+const LIGHTNING_POLL_MS = 60_000
+
+const lightningTone: Record<Lightning['status'], Tone> = {
+  clear: 'calm',
+  caution: 'caution',
+  alert: 'alert',
+}
+
+/** "4 min ago" — whole minutes, floored; under a minute is "just now". */
+function minutesAgo(iso: string, now: Date): string {
+  const mins = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000)
+  if (mins < 1) return 'just now'
+  return `${mins} min ago`
+}
+
+/** "3:42 PM" in the viewer's own time zone — only ever called after mount,
+ *  since the server has no idea what zone the viewer is in. */
+function localClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/** "mm:ss" until `iso`, floored at 00:00. */
+function countdown(iso: string, now: Date): string {
+  const left = Math.max(0, new Date(iso).getTime() - now.getTime())
+  const total = Math.floor(left / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+/**
+ * Satellite lightning status for the sublocation from NOAA GOES-19 GLM.
+ * `initial` is what the route loader got (server-rendered); the card then
+ * refetches every minute while mounted. Renders nothing for `null` (the
+ * sublocation has no coordinates — the API 404s) and a muted "unavailable"
+ * card for `'unavailable'` (the feed is stale — the API 503s).
+ *
+ * Hydration: relative times ("4 min ago") are computed against the API's
+ * `updated_at` until the component mounts, so the server and first client
+ * render agree; the viewer-local clock time and the live countdown only
+ * appear once mounted, since neither is knowable on the server.
+ *
+ * The wording is deliberate — this is satellite detection, informational
+ * only. Never call it ground-based, and never call it a safety system.
+ */
+export function LightningCard({
+  slug,
+  initial,
+  detail = false,
+}: {
+  slug: string
+  initial: LightningResult
+  /** Also show the two strike counts (the conditions page). */
+  detail?: boolean
+}) {
+  const [result, setResult] = useState<LightningResult>(initial)
+  const [now, setNow] = useState<Date | null>(null)
+  // A navigation to another sublocation hands the card a fresh `initial`.
+  useEffect(() => setResult(initial), [initial, slug])
+
+  // Poll every minute while mounted; stop once the API says 404.
+  useEffect(() => {
+    if (result === null) return
+    let cancelled = false
+    const timer = setInterval(() => {
+      void fetchLightning(slug).then((next) => {
+        if (!cancelled) setResult(next)
+      })
+    }, LIGHTNING_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [slug, result === null])
+
+  // Clock: every second while an all-clear countdown is running, every 30s
+  // otherwise (the "N min ago" text only changes that often).
+  const alerting =
+    result !== null &&
+    result !== 'unavailable' &&
+    result.status === 'alert' &&
+    result.all_clear_at !== null
+  useEffect(() => {
+    const tick = () => setNow(new Date())
+    tick()
+    const timer = setInterval(tick, alerting ? 1000 : 30_000)
+    return () => clearInterval(timer)
+  }, [alerting])
+
+  // When the countdown hits zero, ask the API once right away rather than
+  // showing 00:00 until the next poll.
+  const refetchedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!alerting || now === null) return
+    // `alerting` is a const alias of the narrowing checks, so TypeScript
+    // knows `result` is a Lightning here; the property needs its own check.
+    const allClear = result.all_clear_at
+    if (allClear === null) return
+    if (now.getTime() < new Date(allClear).getTime()) return
+    if (refetchedFor.current === allClear) return
+    refetchedFor.current = allClear
+    void fetchLightning(slug).then(setResult)
+  }, [alerting, now, result, slug])
+
+  if (result === null) return null
+
+  const footnote = (
+    <p className="mt-1.5 mb-0 font-mono text-[11px] text-subtext0">
+      Satellite-detected (NOAA GOES). Informational only — not a certified
+      safety system.
+    </p>
+  )
+
+  if (result === 'unavailable') {
+    return (
+      <div>
+        <div className="rounded-lg bg-surface1 px-3 py-2.5 text-subtext0">
+          <div className="flex items-center gap-2">
+            <Zap size={14} aria-hidden="true" />
+            <span className="font-mono text-[11px] tracking-[0.08em] uppercase">
+              Lightning
+            </span>
+          </div>
+          <p className="mt-1 mb-0 text-[13px]">Lightning data unavailable</p>
+        </div>
+        {footnote}
+      </div>
+    )
+  }
+
+  const data = result
+  const asOf = now ?? new Date(data.updated_at)
+  const tone = lightningTone[data.status]
+
+  let headline = 'No lightning within 30 mi in the last 30 min'
+  if (data.status !== 'clear' && data.nearest_mi !== null) {
+    const nearest = Math.round(data.nearest_mi)
+    const ago = data.last_strike_at
+      ? `, ${minutesAgo(data.last_strike_at, asOf)}`
+      : ''
+    headline = `Lightning ${nearest} mi away${ago}`
+    if (data.status === 'alert' && data.all_clear_at && now !== null) {
+      headline += ` — all clear at ${localClock(data.all_clear_at)}`
+    }
+  }
+
+  return (
+    <div>
+      <div
+        className={`rounded-lg px-3 py-2.5 ${toneClasses[tone]}`}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex items-center gap-2">
+          <Zap size={14} aria-hidden="true" />
+          <span className="font-mono text-[11px] tracking-[0.08em] uppercase opacity-80">
+            Lightning
+          </span>
+          {alerting && now !== null && data.all_clear_at && (
+            <span
+              className="ml-auto font-mono text-[13px] font-semibold tabular-nums"
+              aria-label="Time until all clear"
+            >
+              {countdown(data.all_clear_at, now)}
+            </span>
+          )}
+        </div>
+        <p className="mt-1 mb-0 text-[13px] font-medium">{headline}</p>
+        {detail && (
+          <p className="mt-1 mb-0 font-mono text-[11px] tabular-nums opacity-80">
+            {data.strikes_10mi_30min} within 10 mi · {data.strikes_30mi_30min}{' '}
+            within 30 mi, last 30 min
+          </p>
+        )}
+      </div>
+      {footnote}
+    </div>
+  )
+}
+
 /**
  * "Right now at {place}": current conditions from Open-Meteo, the local clock,
  * and who hosts the camera. Rendered only when the loader got weather back.
@@ -245,9 +434,12 @@ function statusTiles(
 export default function NowPanel({
   weather: w,
   sublocation,
+  lightning = null,
 }: {
   weather: Weather
   sublocation: Sublocation
+  /** The route loader's lightning fetch; `null`/omitted renders no card. */
+  lightning?: LightningResult
 }) {
   const host = hostRow(sublocation)
   // NowPanel is only ever rendered inside a /locations/$slug/$sublocationSlug
@@ -324,6 +516,12 @@ export default function NowPanel({
           <span>↓ {w.sunset}</span>
         </div>
       </div>
+
+      {lightning !== null && (
+        <div className="border-b border-overlay0 px-5 py-3">
+          <LightningCard slug={sublocation.slug} initial={lightning} />
+        </div>
+      )}
 
       {tiles.length > 0 && (
         <div className="border-b border-overlay0 px-5 py-3">

@@ -1,3 +1,7 @@
+github.com/batchatco/go-native-netcdf v0.0.0-20260314195334-c3bf89299976 h1:DF9e55hXnNjnqOdG+6/agZtprp1Z1yWq5zJ1tmjH4kI=
+github.com/batchatco/go-native-netcdf v0.0.0-20260314195334-c3bf89299976/go.mod h1:9DR4lzem/4OwxigpgjJC4P3KYofnwgppaCdylYB3yqg=
+github.com/batchatco/go-thrower v0.0.0-20200827035905-5cb7337f6be6 h1:gDf4IUqKDnH7F0XdgeYOBx2jlMKF/j9Xm42sISXpwqY=
+github.com/batchatco/go-thrower v0.0.0-20200827035905-5cb7337f6be6/go.mod h1:hJ9Ll7FOzcIr57sd7RHga7StcCVAL0vFBUsNpnGntNg=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=

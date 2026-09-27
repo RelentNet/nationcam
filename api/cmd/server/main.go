@@ -16,6 +16,7 @@ import (
 	"github.com/brandon-relentnet/nationcam/api/internal/config"
 	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/brandon-relentnet/nationcam/api/internal/handler"
+	"github.com/brandon-relentnet/nationcam/api/internal/lightning"
 	"github.com/brandon-relentnet/nationcam/api/internal/logtoadmin"
 	"github.com/brandon-relentnet/nationcam/api/internal/middleware"
 	"github.com/brandon-relentnet/nationcam/api/internal/restreamer"
@@ -111,7 +112,22 @@ func run() error {
 		slog.Info("logto management API not configured (set LOGTO_M2M_APP_ID and LOGTO_M2M_APP_SECRET to enable /admin/* routes)")
 	}
 
-	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir, snapshots, logtoAdminClient, cfg.OpsAPIKey)
+	// ── Lightning store (DAN-34) ───────────────────────────────────
+	// The in-memory buffer of recent GOES GLM flashes near our sublocations.
+	// Loaded from its Redis mirror first so a restart does not blank the
+	// status; the job below keeps it current. nil when disabled — the route
+	// still mounts and answers 503.
+	var lightningStore *lightning.Store
+	if cfg.LightningEnabled {
+		lightningStore = lightning.NewStore()
+		if n, err := lightningStore.Load(ctx, redisCache, time.Now()); err != nil {
+			slog.Warn("lightning: mirror load failed", "error", err)
+		} else {
+			slog.Info("lightning store loaded", "flashes", n, "last_key", lightningStore.LastKey())
+		}
+	}
+
+	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir, snapshots, logtoAdminClient, cfg.OpsAPIKey, lightningStore)
 
 	// ── Snapshot archive job ───────────────────────────────────────
 	// One watermarked still per active camera every 15 minutes, plus hourly
@@ -140,6 +156,32 @@ func run() error {
 		defer close(jobDone)
 		job.Run(ctx)
 	}()
+
+	// ── Lightning job (DAN-34) ─────────────────────────────────────
+	// Every minute: list the current GLM hour prefix on NOAA's public S3
+	// bucket, fetch what is new, keep the flashes near any sublocation with
+	// coordinates, mirror to Redis. Same lifecycle as the snapshot job.
+	lightningDone := make(chan struct{})
+	if lightningStore != nil {
+		s3 := lightning.NewS3Client(cfg.LightningBucket)
+		ljob := &lightning.Job{
+			Store:   lightningStore,
+			Lister:  s3,
+			Fetcher: s3,
+			Mirror:  redisCache,
+			ListSites: func(ctx context.Context) ([]lightning.Site, error) {
+				return listLightningSites(ctx, pool)
+			},
+		}
+		slog.Info("lightning job configured", "bucket", cfg.LightningBucket)
+		go func() {
+			defer close(lightningDone)
+			ljob.Run(ctx)
+		}()
+	} else {
+		close(lightningDone)
+		slog.Info("lightning job disabled")
+	}
 
 	// ── HTTP server ────────────────────────────────────────────────
 	srv := &http.Server{
@@ -193,5 +235,32 @@ func run() error {
 	case <-shutdownCtx.Done():
 		slog.Warn("snapshot archive did not stop in time")
 	}
+	select {
+	case <-lightningDone:
+	case <-shutdownCtx.Done():
+		slog.Warn("lightning job did not stop in time")
+	}
 	return err
+}
+
+// listLightningSites is the lightning job's site list: every sublocation
+// with coordinates, read through the paginated sqlc query in pages of 500.
+func listLightningSites(ctx context.Context, pool *pgxpool.Pool) ([]lightning.Site, error) {
+	const page = 500
+	q := db.New(pool)
+	var sites []lightning.Site
+	for offset := int32(0); ; offset += page {
+		rows, err := q.ListSublocationsPaginated(ctx, db.ListSublocationsPaginatedParams{Limit: page, Offset: offset})
+		if err != nil {
+			return nil, err
+		}
+		for _, s := range rows {
+			if s.Lat.Valid && s.Lng.Valid {
+				sites = append(sites, lightning.Site{Slug: s.Slug, Lat: s.Lat.Float64, Lon: s.Lng.Float64})
+			}
+		}
+		if len(rows) < page {
+			return sites, nil
+		}
+	}
 }

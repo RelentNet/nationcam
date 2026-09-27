@@ -14,6 +14,8 @@ import type {
   EventItem,
   FramesResponse,
   Host,
+  Lightning,
+  LightningResult,
   PaginatedResponse,
   Post,
   PostInput,
@@ -352,6 +354,27 @@ export async function fetchConditions(
   slug: string,
 ): Promise<Conditions | null> {
   return get<Conditions>(`/sublocations/${slug}/conditions`).catch(() => null)
+}
+
+/**
+ * Satellite lightning status for the sublocation's coordinates. Unlike the
+ * other fetchers this keeps the two failure modes apart, because the panel
+ * renders them differently: `null` on 404 (no lat/lng — no card at all),
+ * `'unavailable'` on 503 or any other failure (the feed is stale — a muted
+ * "Lightning data unavailable" card). Used by the route loaders for the
+ * server render and by the card's 60-second client-side poll.
+ */
+export async function fetchLightning(slug: string): Promise<LightningResult> {
+  try {
+    const res = await fetch(`${API_BASE}/sublocations/${slug}/lightning`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (res.status === 404) return null
+    if (!res.ok) return 'unavailable'
+    return (await res.json()) as Lightning
+  } catch {
+    return 'unavailable'
+  }
 }
 
 export async function createSublocation(

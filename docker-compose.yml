@@ -63,6 +63,10 @@ services:
       # {video_id}/{YYYY-MM-DD}/{HHMM}.jpg, pruned to 14 days (+ a daily noon
       # frame for a year).
       SNAPSHOTS_DIR: /app/data/snapshots
+      # Lightning (DAN-34): NOAA GOES-19 GLM satellite strike detection. Public
+      # S3, no credentials. Set LIGHTNING_ENABLED=false to turn the job off.
+      LIGHTNING_ENABLED: ${LIGHTNING_ENABLED:-true}
+      LIGHTNING_BUCKET: ${LIGHTNING_BUCKET:-noaa-goes19}
     volumes:
       - uploads:/app/data/uploads
       - snapshots:/app/data/snapshots

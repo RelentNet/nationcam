@@ -5,6 +5,7 @@ import (
 
 	"github.com/brandon-relentnet/nationcam/api/internal/archive"
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
+	"github.com/brandon-relentnet/nationcam/api/internal/lightning"
 	"github.com/brandon-relentnet/nationcam/api/internal/logtoadmin"
 	mw "github.com/brandon-relentnet/nationcam/api/internal/middleware"
 	"github.com/brandon-relentnet/nationcam/api/internal/restreamer"
@@ -19,7 +20,9 @@ import (
 // la may be nil if the Logto M2M app is not configured (/admin/* routes are
 // not mounted); opsAPIKey is the ops key accepted alongside a Logto sign-in
 // for those routes (empty disables the key, leaving only Logto sign-in).
-func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string, snapshots *archive.Store, la *logtoadmin.Client, opsAPIKey string) *chi.Mux {
+// lightningStore may be nil (LIGHTNING_ENABLED=false) — the route still
+// mounts and answers 503.
+func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string, snapshots *archive.Store, la *logtoadmin.Client, opsAPIKey string, lightningStore *lightning.Store) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware.
@@ -151,6 +154,13 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 			r.Get("/roles", AdminListRoles(la, c))
 		})
 	}
+
+	// ── Lightning (DAN-34) ─────────────────────────────────────────
+	// Satellite lightning status per sublocation from NOAA GOES-19 GLM,
+	// evaluated per request against lightning.Job's in-memory buffer. Not
+	// Redis-cached: the answer changes by the second and the store is
+	// already in memory. 404 without coordinates, 503 when the feed is stale.
+	r.Get("/sublocations/{slug}/lightning", GetLightning(LightningSiteFromDB(pool), lightningStore))
 
 	return r
 }

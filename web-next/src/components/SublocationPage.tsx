@@ -11,6 +11,7 @@ import type {
   Camera,
   EventItem,
   Frame,
+  LightningResult,
   RelatedPost,
   Sublocation,
   Video,
@@ -47,6 +48,9 @@ interface SublocationPageProps {
   /** Every sublocation in the state; this one is filtered out for "More in". */
   siblings: Array<Sublocation>
   weather: Weather | null
+  /** Satellite lightning status from the route loader — the "Right now"
+   *  panel's lightning card. `null`/omitted renders no card. */
+  lightning?: LightningResult
   /** Up to 3 published Field notes for this camera (or, on the hub page, this
    *  sublocation) — fetched by the route loader. Empty renders no block. */
   relatedPosts?: Array<RelatedPost>
@@ -71,6 +75,7 @@ export default function SublocationPage({
   camera,
   siblings,
   weather,
+  lightning = null,
   relatedPosts = [],
   frames = [],
   events = [],
@@ -215,6 +220,7 @@ export default function SublocationPage({
             stateSlug={stateSlug}
             camera={camera}
             weather={weather}
+            lightning={lightning}
             prevVideo={prevVideo}
             nextVideo={nextVideo}
           >
@@ -382,6 +388,7 @@ export function FeaturedBlock({
   stateSlug,
   camera,
   weather = null,
+  lightning = null,
   prevVideo = null,
   nextVideo = null,
   children,
@@ -392,6 +399,7 @@ export function FeaturedBlock({
   stateSlug: string
   camera?: Camera
   weather?: Weather | null
+  lightning?: LightningResult
   /** The previous/next camera in the sublocation's poster-strip order. */
   prevVideo?: Video | null
   nextVideo?: Video | null
@@ -474,7 +482,13 @@ export function FeaturedBlock({
         </div>
         {children}
       </div>
-      {panel && <NowPanel weather={weather} sublocation={sublocation} />}
+      {panel && (
+        <NowPanel
+          weather={weather}
+          sublocation={sublocation}
+          lightning={lightning}
+        />
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type { Camera } from '@/lib/types'
 import {
   fetchCamera,
   fetchFrames,
+  fetchLightning,
   fetchRelatedPosts,
   fetchSublocationBySlug,
   fetchSublocationsByState,
@@ -89,6 +90,7 @@ export const Route = createFileRoute(
       videos,
       siblings,
       weather,
+      lightning,
       relatedPosts,
       todayFrames,
       yesterdayFrames,
@@ -98,6 +100,7 @@ export const Route = createFileRoute(
       fetchVideosBySublocation(detail.camera.sublocation_id ?? 0),
       fetchSublocationsByState(params.slug),
       fetchWeather(params.sublocationSlug),
+      fetchLightning(params.sublocationSlug),
       fetchRelatedPosts({ videoId: detail.camera.video_id }),
       fetchFrames(params.slug, params.sublocationSlug, params.cameraSlug),
       fetchFrames(
@@ -114,6 +117,7 @@ export const Route = createFileRoute(
       videos,
       siblings,
       weather,
+      lightning,
       relatedPosts,
       frames: last24HoursOfFrames(
         todayFrames.frames,
@@ -245,6 +249,7 @@ function CameraPage() {
     videos,
     siblings,
     weather,
+    lightning,
     relatedPosts,
     frames,
     events,
@@ -258,6 +263,7 @@ function CameraPage() {
       camera={camera}
       siblings={siblings}
       weather={weather}
+      lightning={lightning}
       relatedPosts={relatedPosts}
       frames={frames}
       events={events}

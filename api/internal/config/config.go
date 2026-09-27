@@ -39,6 +39,12 @@ type Config struct {
 	// SnapshotsDir is where the snapshot archive (one still per camera every
 	// 15 minutes) is written and served from.
 	SnapshotsDir string
+
+	// LightningEnabled runs the GOES GLM lightning job (default true);
+	// LightningBucket is the NOAA Open Data bucket it reads (default
+	// noaa-goes19 — GOES-East).
+	LightningEnabled bool
+	LightningBucket  string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -77,12 +83,27 @@ func Load() (*Config, error) {
 
 		UploadsDir:   envOr("UPLOADS_DIR", "/app/data/uploads"),
 		SnapshotsDir: envOr("SNAPSHOTS_DIR", "/app/data/snapshots"),
+
+		LightningEnabled: envBool("LIGHTNING_ENABLED", true),
+		LightningBucket:  envOr("LIGHTNING_BUCKET", "noaa-goes19"),
 	}, nil
 }
 
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return fallback
+}
+
+// envBool reads a boolean flag: "false", "0", "no" and "off" (any case) are
+// false, "true", "1", "yes" and "on" are true, anything else is the fallback.
+func envBool(key string, fallback bool) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "false", "0", "no", "off":
+		return false
+	case "true", "1", "yes", "on":
+		return true
 	}
 	return fallback
 }
