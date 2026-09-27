@@ -21,8 +21,17 @@ import (
 // busy camera page from hammering their API.
 const weatherTTL = 10 * time.Minute
 
-// The live view must never wait on a third party: give up on Open-Meteo fast.
-var weatherClient = &http.Client{Timeout: 5 * time.Second}
+// The live view must never wait on a third party for long, but the forecast
+// request grew heavy in DAN-32 (current + hourly + daily + 15-minutely blocks)
+// and Open-Meteo answers it in 1–8 s from the production host. At 5 s the
+// inland locations timed out intermittently and their whole panel vanished
+// (2026-09-27). 12 s plus one retry (fetchJSON) plus the stale fallback in
+// GetWeather keeps the panel populated through a slow upstream.
+var weatherClient = &http.Client{Timeout: 12 * time.Second}
+
+// staleWeatherTTL is how long the last successful reading for a location is
+// kept as a fallback. Six hours of slightly old weather beats an empty panel.
+const staleWeatherTTL = 6 * time.Hour
 
 type marineBlock struct {
 	WaveFt  float64 `json:"wave_ft"`
@@ -405,20 +414,42 @@ func aqiCategory(value int) string {
 	}
 }
 
+// fetchJSON GETs a JSON document with one retry on transport errors, timeouts
+// and 5xx/429 answers (the upstream weather services all hiccup occasionally).
+// 4xx other than 429 and JSON decode errors are not retried: they would fail
+// the same way again.
 func fetchJSON(ctx context.Context, rawURL string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return lastErr
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+		if err != nil {
+			return err
+		}
+		res, err := weatherClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if res.StatusCode != http.StatusOK {
+			res.Body.Close()
+			lastErr = fmt.Errorf("%s: status %d", rawURL, res.StatusCode)
+			if res.StatusCode >= 500 || res.StatusCode == http.StatusTooManyRequests {
+				continue
+			}
+			return lastErr
+		}
+		err = json.NewDecoder(res.Body).Decode(out)
+		res.Body.Close()
 		return err
 	}
-	res, err := weatherClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s: status %d", rawURL, res.StatusCode)
-	}
-	return json.NewDecoder(res.Body).Decode(out)
+	return lastErr
 }
 
 // fetchAirQuality is the one extra upstream call DAN-32 adds: Open-Meteo's
@@ -590,14 +621,24 @@ func GetWeather(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			return
 		}
 
+		staleKey := "stale:" + key
 		wx, err := fetchWeather(r.Context(), sub.Lat.Float64, sub.Lng.Float64)
 		if err != nil {
 			slog.Warn("weather fetch failed", "slug", sub.Slug, "error", err)
+			// Serve the last good reading rather than blanking the panel; its
+			// fetched_at tells the client how old it is.
+			if stale, serr := c.Get(r.Context(), staleKey); serr == nil && stale != "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Cache", "STALE")
+				_, _ = w.Write([]byte(stale))
+				return
+			}
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "weather unavailable"})
 			return
 		}
 		body, _ := json.Marshal(wx)
 		_ = c.Set(r.Context(), key, string(body), weatherTTL)
+		_ = c.Set(r.Context(), staleKey, string(body), staleWeatherTTL)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(body)
 	}
