@@ -394,8 +394,16 @@ export async function fetchSublocationsPaginated(
 
 /* ──── Videos ──── */
 
-export async function fetchVideos(): Promise<Array<Video>> {
-  return get<Array<Video>>('/videos')
+/**
+ * `sort` mirrors the API's `GET /videos?sort=` param: `'views'` backs
+ * /cameras/popular (and the home "Most watched" row), `'newest'` backs
+ * /cameras/new (and the home "Newest" row). Omit for the default title order.
+ */
+export async function fetchVideos(options?: {
+  sort?: 'views' | 'newest'
+}): Promise<Array<Video>> {
+  const query = options?.sort ? `?sort=${options.sort}` : ''
+  return get<Array<Video>>(`/videos${query}`)
 }
 
 export async function fetchVideosByState(

@@ -75,6 +75,32 @@ WHERE v.status = 'active'
 ORDER BY (v.sublocation_id IS NOT DISTINCT FROM $2) DESC, v.title
 LIMIT 6;
 
+-- ListVideosByViews backs GET /videos?sort=views — the "Most watched" ranking,
+-- ties broken by title so the order is stable.
+-- name: ListVideosByViews :many
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
+       v.status, v.view_count, v.about, v.created_by, v.created_at, v.updated_at,
+       s.name AS state_name,
+       COALESCE(sub.name, '') AS sublocation_name
+FROM videos v
+JOIN states s ON s.state_id = v.state_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+ORDER BY v.view_count DESC, v.title;
+
+-- ListVideosByCreated backs GET /videos?sort=newest — the "Newest" ranking,
+-- ties broken by title so the order is stable.
+-- name: ListVideosByCreated :many
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
+       v.status, v.view_count, v.about, v.created_by, v.created_at, v.updated_at,
+       s.name AS state_name,
+       COALESCE(sub.name, '') AS sublocation_name
+FROM videos v
+JOIN states s ON s.state_id = v.state_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+ORDER BY v.created_at DESC, v.title;
+
 -- name: ListVideoSources :many
 SELECT DISTINCT src FROM videos;
 

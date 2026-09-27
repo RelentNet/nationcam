@@ -140,6 +140,8 @@ export interface Video extends Editorial {
   updated_at: string
   state_name: string
   sublocation_name: string
+  /** Only present on `GET /videos?sort=views|newest` rows (and `Camera`). */
+  view_count?: number
 }
 
 /**

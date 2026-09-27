@@ -381,6 +381,74 @@ func (q *Queries) ListVideos(ctx context.Context) ([]ListVideosRow, error) {
 	return items, nil
 }
 
+const listVideosByCreated = `-- name: ListVideosByCreated :many
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
+       v.status, v.view_count, v.about, v.created_by, v.created_at, v.updated_at,
+       s.name AS state_name,
+       COALESCE(sub.name, '') AS sublocation_name
+FROM videos v
+JOIN states s ON s.state_id = v.state_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+ORDER BY v.created_at DESC, v.title
+`
+
+type ListVideosByCreatedRow struct {
+	VideoID         int32     `json:"video_id"`
+	Title           string    `json:"title"`
+	Src             string    `json:"src"`
+	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
+	StateID         int32     `json:"state_id"`
+	SublocationID   *int32    `json:"sublocation_id"`
+	Status          string    `json:"status"`
+	ViewCount       int64     `json:"view_count"`
+	About           string    `json:"about"`
+	CreatedBy       string    `json:"created_by"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	StateName       string    `json:"state_name"`
+	SublocationName string    `json:"sublocation_name"`
+}
+
+// ListVideosByCreated backs GET /videos?sort=newest — the "Newest" ranking,
+// ties broken by title so the order is stable.
+func (q *Queries) ListVideosByCreated(ctx context.Context) ([]ListVideosByCreatedRow, error) {
+	rows, err := q.db.Query(ctx, listVideosByCreated)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVideosByCreatedRow{}
+	for rows.Next() {
+		var i ListVideosByCreatedRow
+		if err := rows.Scan(
+			&i.VideoID,
+			&i.Title,
+			&i.Src,
+			&i.Type,
+			&i.Slug,
+			&i.StateID,
+			&i.SublocationID,
+			&i.Status,
+			&i.ViewCount,
+			&i.About,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StateName,
+			&i.SublocationName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVideosByState = `-- name: ListVideosByState :many
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.about, v.created_by, v.created_at, v.updated_at,
@@ -492,6 +560,74 @@ func (q *Queries) ListVideosBySublocation(ctx context.Context, sublocationID *in
 			&i.StateID,
 			&i.SublocationID,
 			&i.Status,
+			&i.About,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StateName,
+			&i.SublocationName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVideosByViews = `-- name: ListVideosByViews :many
+SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
+       v.status, v.view_count, v.about, v.created_by, v.created_at, v.updated_at,
+       s.name AS state_name,
+       COALESCE(sub.name, '') AS sublocation_name
+FROM videos v
+JOIN states s ON s.state_id = v.state_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+ORDER BY v.view_count DESC, v.title
+`
+
+type ListVideosByViewsRow struct {
+	VideoID         int32     `json:"video_id"`
+	Title           string    `json:"title"`
+	Src             string    `json:"src"`
+	Type            string    `json:"type"`
+	Slug            string    `json:"slug"`
+	StateID         int32     `json:"state_id"`
+	SublocationID   *int32    `json:"sublocation_id"`
+	Status          string    `json:"status"`
+	ViewCount       int64     `json:"view_count"`
+	About           string    `json:"about"`
+	CreatedBy       string    `json:"created_by"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	StateName       string    `json:"state_name"`
+	SublocationName string    `json:"sublocation_name"`
+}
+
+// ListVideosByViews backs GET /videos?sort=views — the "Most watched" ranking,
+// ties broken by title so the order is stable.
+func (q *Queries) ListVideosByViews(ctx context.Context) ([]ListVideosByViewsRow, error) {
+	rows, err := q.db.Query(ctx, listVideosByViews)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVideosByViewsRow{}
+	for rows.Next() {
+		var i ListVideosByViewsRow
+		if err := rows.Scan(
+			&i.VideoID,
+			&i.Title,
+			&i.Src,
+			&i.Type,
+			&i.Slug,
+			&i.StateID,
+			&i.SublocationID,
+			&i.Status,
+			&i.ViewCount,
 			&i.About,
 			&i.CreatedBy,
 			&i.CreatedAt,
