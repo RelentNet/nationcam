@@ -7,6 +7,8 @@ import {
   RefreshCw,
   Volume2,
   VolumeX,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type HlsType from 'hls.js'
@@ -49,6 +51,16 @@ const LOAD_TIMEOUT_MS = 15_000
 /** How many fatal HLS errors we tolerate before giving up. */
 const MAX_RETRIES = 3
 
+/** Digital zoom limits and step sizes (locked decisions, DAN-46). */
+const MIN_ZOOM = 1
+const MAX_ZOOM = 4
+const WHEEL_ZOOM_STEP = 0.1
+const BUTTON_ZOOM_STEP = 0.5
+
+function clampNum(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 function detectType(src: string): string {
   if (src.includes('.m3u8')) return 'application/x-mpegURL'
   if (src.includes('.mpd')) return 'application/dash+xml'
@@ -90,6 +102,18 @@ export default function StreamPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isError, setIsError] = useState(false)
+
+  // Digital zoom: CSS transform (translate then scale, transform-origin
+  // center) on the <video> element. panX/panY are raw CSS px offsets.
+  const [xform, setXform] = useState({ zoom: 1, panX: 0, panY: 0 })
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>())
+  const pinchRef = useRef<{ lastDist: number } | null>(null)
+  const dragRef = useRef<{
+    x: number
+    y: number
+    panX: number
+    panY: number
+  } | null>(null)
 
   // Audio channels: 'live' = the camera's native audio, otherwise a station
   // shortcode. Radio replaces native audio (video muted, hidden <audio> plays).
@@ -313,10 +337,140 @@ export default function StreamPlayer({
   }, [])
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    const handler = () => {
+      const fs = !!document.fullscreenElement
+      setIsFullscreen(fs)
+      // Exiting fullscreen resets zoom (acceptance: zoom resets on fs exit).
+      if (!fs) setXform({ zoom: 1, panX: 0, panY: 0 })
+    }
     document.addEventListener('fullscreenchange', handler)
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
+
+  // A new camera (src change) resets zoom/pan back to 1x.
+  useEffect(() => {
+    setXform({ zoom: 1, panX: 0, panY: 0 })
+  }, [src])
+
+  /** Clamp pan so the scaled video never reveals empty space in the container. */
+  const clampPan = useCallback((panX: number, panY: number, zoom: number) => {
+    const el = containerRef.current
+    const maxX = el ? (el.clientWidth * (zoom - 1)) / 2 : 0
+    const maxY = el ? (el.clientHeight * (zoom - 1)) / 2 : 0
+    return {
+      panX: clampNum(panX, -maxX, maxX),
+      panY: clampNum(panY, -maxY, maxY),
+    }
+  }, [])
+
+  const zoomIn = useCallback(() => {
+    setXform((prev) => {
+      const zoom = clampNum(prev.zoom + BUTTON_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)
+      return { zoom, ...clampPan(prev.panX, prev.panY, zoom) }
+    })
+  }, [clampPan])
+
+  const zoomOut = useCallback(() => {
+    setXform((prev) => {
+      const zoom = clampNum(prev.zoom - BUTTON_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)
+      return { zoom, ...clampPan(prev.panX, prev.panY, zoom) }
+    })
+  }, [clampPan])
+
+  const resetZoom = useCallback(() => {
+    setXform({ zoom: 1, panX: 0, panY: 0 })
+  }, [])
+
+  // Wheel-to-zoom around the cursor. Must be a non-passive native listener —
+  // React's synthetic onWheel is passive, so preventDefault() there would not
+  // stop the page from scrolling while zooming over the video.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const offsetX = e.clientX - (rect.left + rect.width / 2)
+      const offsetY = e.clientY - (rect.top + rect.height / 2)
+      const factor =
+        e.deltaY < 0 ? 1 + WHEEL_ZOOM_STEP : 1 / (1 + WHEEL_ZOOM_STEP)
+      setXform((prev) => {
+        const zoom = clampNum(prev.zoom * factor, MIN_ZOOM, MAX_ZOOM)
+        const panX = offsetX - (zoom / prev.zoom) * (offsetX - prev.panX)
+        const panY = offsetY - (zoom / prev.zoom) * (offsetY - prev.panY)
+        return { zoom, ...clampPan(panX, panY, zoom) }
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [clampPan])
+
+  // Pointer-based pan (single pointer, zoom > 1) and pinch-zoom (two
+  // pointers) on the video itself, so the controls bar keeps its own clicks.
+  const onVideoPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLVideoElement>) => {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const pts = [...pointersRef.current.values()]
+      if (pts.length === 2) {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        const [a, b] = pts
+        pinchRef.current = { lastDist: Math.hypot(a.x - b.x, a.y - b.y) }
+        dragRef.current = null
+      } else if (pts.length === 1 && xform.zoom > 1) {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        dragRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+          panX: xform.panX,
+          panY: xform.panY,
+        }
+      }
+    },
+    [xform],
+  )
+
+  const onVideoPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLVideoElement>) => {
+      if (!pointersRef.current.has(e.pointerId)) return
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const pts = [...pointersRef.current.values()]
+      const el = containerRef.current
+      if (pts.length === 2 && pinchRef.current && el) {
+        e.preventDefault()
+        const [a, b] = pts
+        const dist = Math.hypot(a.x - b.x, a.y - b.y)
+        const factor = dist / pinchRef.current.lastDist
+        pinchRef.current.lastDist = dist
+        const rect = el.getBoundingClientRect()
+        const offsetX = (a.x + b.x) / 2 - (rect.left + rect.width / 2)
+        const offsetY = (a.y + b.y) / 2 - (rect.top + rect.height / 2)
+        setXform((prev) => {
+          const zoom = clampNum(prev.zoom * factor, MIN_ZOOM, MAX_ZOOM)
+          const panX = offsetX - (zoom / prev.zoom) * (offsetX - prev.panX)
+          const panY = offsetY - (zoom / prev.zoom) * (offsetY - prev.panY)
+          return { zoom, ...clampPan(panX, panY, zoom) }
+        })
+      } else if (pts.length === 1 && dragRef.current) {
+        const start = dragRef.current
+        const dx = e.clientX - start.x
+        const dy = e.clientY - start.y
+        setXform((prev) => ({
+          ...prev,
+          ...clampPan(start.panX + dx, start.panY + dy, prev.zoom),
+        }))
+      }
+    },
+    [clampPan],
+  )
+
+  const onVideoPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLVideoElement>) => {
+      pointersRef.current.delete(e.pointerId)
+      if (pointersRef.current.size < 2) pinchRef.current = null
+      if (pointersRef.current.size === 0) dragRef.current = null
+    },
+    [],
+  )
 
   // ── Audio channels: fetch station list (client-only) ──
   // Empty list (unset/unreachable AzuraCast) → no picker renders.
@@ -391,13 +545,21 @@ export default function StreamPlayer({
   return (
     <div
       ref={containerRef}
-      className={`stream-player group ${fluid ? 'aspect-video' : ''} ${className}`}
+      className={`stream-player group ${fluid ? 'aspect-video' : ''} ${xform.zoom > 1 ? 'is-zoomed' : ''} ${className}`}
     >
       <video
         ref={videoRef}
         muted={muted}
         playsInline
-        className="h-full w-full object-cover"
+        onPointerDown={onVideoPointerDown}
+        onPointerMove={onVideoPointerMove}
+        onPointerUp={onVideoPointerUp}
+        onPointerCancel={onVideoPointerUp}
+        className={`h-full w-full object-cover ${xform.zoom > 1 ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
+        style={{
+          transform: `translate(${xform.panX}px, ${xform.panY}px) scale(${xform.zoom})`,
+          transformOrigin: 'center center',
+        }}
       />
 
       {/* Hidden radio audio — replaces native audio when a station is picked. */}
@@ -509,6 +671,24 @@ export default function StreamPlayer({
               )}
             </div>
           )}
+
+          <div className="zoom-controls flex items-center">
+            <button onClick={zoomOut} aria-label="Zoom out">
+              <ZoomOut size={16} />
+            </button>
+            {xform.zoom !== 1 && (
+              <button
+                onClick={resetZoom}
+                aria-label="Reset zoom"
+                className="zoom-readout"
+              >
+                {xform.zoom.toFixed(1)}x
+              </button>
+            )}
+            <button onClick={zoomIn} aria-label="Zoom in">
+              <ZoomIn size={16} />
+            </button>
+          </div>
 
           <button
             onClick={toggleFullscreen}
