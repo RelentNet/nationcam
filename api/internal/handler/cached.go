@@ -3,14 +3,21 @@ package handler
 import (
 	"bytes"
 	"net/http"
+	"time"
 
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
 )
 
 // cachedHandler wraps a handler so its JSON response is cached in Redis.
 // On cache hit the stored JSON is returned directly; on miss the handler runs
-// and its output is stored.
+// and its output is stored for cache.DefaultTTL.
 func cachedHandler(c *cache.Cache, key string, handler http.HandlerFunc) http.HandlerFunc {
+	return cachedHandlerTTL(c, key, cache.DefaultTTL, handler)
+}
+
+// cachedHandlerTTL is cachedHandler with an explicit cache life, for responses
+// that go stale faster than the default (e.g. today's snapshot frames).
+func cachedHandlerTTL(c *cache.Cache, key string, ttl time.Duration, handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -29,7 +36,7 @@ func cachedHandler(c *cache.Cache, key string, handler http.HandlerFunc) http.Ha
 
 		// Only cache successful responses.
 		if rec.status == http.StatusOK || rec.status == 0 {
-			_ = c.Set(ctx, key, rec.body.String(), cache.DefaultTTL)
+			_ = c.Set(ctx, key, rec.body.String(), ttl)
 		}
 	}
 }

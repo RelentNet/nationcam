@@ -3,6 +3,7 @@ package handler
 import (
 	"time"
 
+	"github.com/brandon-relentnet/nationcam/api/internal/archive"
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
 	mw "github.com/brandon-relentnet/nationcam/api/internal/middleware"
 	"github.com/brandon-relentnet/nationcam/api/internal/restreamer"
@@ -14,7 +15,7 @@ import (
 // rc may be nil if Restreamer is not configured (stream routes are not mounted).
 // proxyExtraHosts are hosts the stream proxy may fetch from in addition to
 // video sources stored in the database (e.g. the Restreamer host).
-func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string) *chi.Mux {
+func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string, snapshots *archive.Store) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware.
@@ -99,6 +100,14 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.With(mw.RateLimit(submitRL)).Post("/submissions", CreateSubmission(pool))
 	r.With(mw.RequireAdmin).Get("/submissions", ListSubmissions(pool))
 	r.With(mw.RequireAdmin).Patch("/submissions/{id}", UpdateSubmission(pool))
+
+	// ── Snapshot archive (DAN-22) ─────────────────────────────────
+	// Per-camera stills captured every 15 minutes by archive.Job. The two JSON
+	// listings are public and cached like other GETs; the files themselves are
+	// served read-only from the snapshots volume with an immutable cache header.
+	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/frames", ListFrames(pool, c, snapshots))
+	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/frames/days", ListFrameDays(pool, c, snapshots))
+	r.Get("/snapshots/*", ServeSnapshots(snapshots).ServeHTTP)
 
 	return r
 }
