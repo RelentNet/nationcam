@@ -2,6 +2,7 @@ import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import type { Camera } from '@/lib/types'
 import {
   fetchCamera,
+  fetchFrames,
   fetchRelatedPosts,
   fetchSublocationBySlug,
   fetchSublocationsByState,
@@ -30,15 +31,24 @@ export const Route = createFileRoute(
 
     // The page is the sublocation hub with this camera selected, so it needs
     // the sublocation, every camera here, the state's other spots and weather.
-    const [sublocation, videos, siblings, weather, relatedPosts] =
+    const [sublocation, videos, siblings, weather, relatedPosts, todayFrames] =
       await Promise.all([
         fetchSublocationBySlug(params.sublocationSlug),
         fetchVideosBySublocation(detail.camera.sublocation_id ?? 0),
         fetchSublocationsByState(params.slug),
         fetchWeather(params.sublocationSlug),
         fetchRelatedPosts({ videoId: detail.camera.video_id }),
+        fetchFrames(params.slug, params.sublocationSlug, params.cameraSlug),
       ])
-    return { ...detail, sublocation, videos, siblings, weather, relatedPosts }
+    return {
+      ...detail,
+      sublocation,
+      videos,
+      siblings,
+      weather,
+      relatedPosts,
+      frames: todayFrames.frames,
+    }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -156,8 +166,15 @@ function CameraNotFound() {
 
 function CameraPage() {
   const { slug } = Route.useParams()
-  const { camera, sublocation, videos, siblings, weather, relatedPosts } =
-    Route.useLoaderData()
+  const {
+    camera,
+    sublocation,
+    videos,
+    siblings,
+    weather,
+    relatedPosts,
+    frames,
+  } = Route.useLoaderData()
   return (
     <SublocationPage
       stateSlug={slug}
@@ -168,6 +185,7 @@ function CameraPage() {
       siblings={siblings}
       weather={weather}
       relatedPosts={relatedPosts}
+      frames={frames}
     />
   )
 }

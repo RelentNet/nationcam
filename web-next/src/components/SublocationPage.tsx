@@ -9,6 +9,7 @@ import {
 import { useEffect } from 'react'
 import type {
   Camera,
+  Frame,
   RelatedPost,
   Sublocation,
   Video,
@@ -20,6 +21,7 @@ import CameraPlayer from '@/components/CameraPlayer'
 import CameraToolbar from '@/components/CameraToolbar'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
 import NowPanel, { LocalClock, sinceLabel } from '@/components/NowPanel'
+import SnapshotStrip from '@/components/SnapshotStrip'
 import BannerSlot from '@/components/BannerSlot'
 import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
@@ -47,6 +49,9 @@ interface SublocationPageProps {
   /** Up to 3 published Field notes for this camera (or, on the hub page, this
    *  sublocation) — fetched by the route loader. Empty renders no block. */
   relatedPosts?: Array<RelatedPost>
+  /** Today's archived stills for `camera` — fetched by the camera route's
+   *  loader. Empty (or no camera) renders no "Today at" section. */
+  frames?: Array<Frame>
 }
 
 /**
@@ -63,6 +68,7 @@ export default function SublocationPage({
   siblings,
   weather,
   relatedPosts = [],
+  frames = [],
 }: SublocationPageProps) {
   const tick = usePosterTick()
   const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
@@ -256,6 +262,21 @@ export default function SublocationPage({
               </section>
             )}
           </FeaturedBlock>
+        )}
+
+        {/* ── Today at <sublocation> — camera page only ── */}
+        {camera && frames.length > 0 && (
+          <div className="mt-8">
+            <SnapshotStrip
+              sublocationName={sublocation.name}
+              stateSlug={stateSlug}
+              sublocationSlug={sublocation.slug}
+              cameraSlug={camera.slug}
+              frames={frames}
+              sunrise={weather?.sunrise}
+              sunset={weather?.sunset}
+            />
+          </div>
         )}
 
         {/* ── About + side column ── */}

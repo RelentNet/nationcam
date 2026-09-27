@@ -86,11 +86,22 @@ export const Route = createFileRoute('/sitemap.xml')({
             : []
         })
 
+        // Snapshot archive — only active cameras actually accumulate stills,
+        // so an inactive camera's archive page is left out.
+        const archivePaths = videos.flatMap((video) => {
+          const subPath =
+            video.sublocation_id && subPathById.get(video.sublocation_id)
+          return subPath && video.slug && video.status === 'active'
+            ? [`/locations/${subPath}/${video.slug}/archive`]
+            : []
+        })
+
         const urls = [
           ...STATIC_PATHS,
           ...locationIndexPaths,
           ...locationPaths.flat(),
           ...cameraPaths,
+          ...archivePaths,
           ...notePaths,
         ]
           .map((path) => `  <url><loc>${SITE_URL}${path}</loc></url>`)

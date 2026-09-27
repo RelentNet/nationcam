@@ -9,6 +9,7 @@ import type {
   CreateStreamInput,
   CreateSublocationInput,
   CreateVideoInput,
+  FramesResponse,
   Host,
   PaginatedResponse,
   Post,
@@ -695,4 +696,36 @@ export async function fetchCamera(
   return get<CameraDetail>(
     `/videos/${stateSlug}/${sublocationSlug}/${cameraSlug}`,
   )
+}
+
+/* ──── Snapshot archive ──── */
+
+/**
+ * One local day's archived stills for a camera — today's by default. Failures
+ * (feature not yet available, camera with no archive) resolve to an empty
+ * list rather than throwing, so callers can render nothing instead of erroring.
+ */
+export async function fetchFrames(
+  stateSlug: string,
+  sublocationSlug: string,
+  cameraSlug: string,
+  day?: string,
+): Promise<FramesResponse> {
+  const q = day ? `?day=${day}` : ''
+  return get<FramesResponse>(
+    `/videos/${stateSlug}/${sublocationSlug}/${cameraSlug}/frames${q}`,
+  ).catch(() => ({ day: day ?? '', frames: [] }))
+}
+
+/** Local days with at least one archived still, newest first. */
+export async function fetchFrameDays(
+  stateSlug: string,
+  sublocationSlug: string,
+  cameraSlug: string,
+): Promise<Array<string>> {
+  return get<{ days: Array<string> }>(
+    `/videos/${stateSlug}/${sublocationSlug}/${cameraSlug}/frames/days`,
+  )
+    .then((r) => r.days)
+    .catch(() => [])
 }
