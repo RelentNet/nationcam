@@ -24,6 +24,15 @@ type Config struct {
 	// AzuraCast (optional — empty AzuracastURL disables the audio-channel picker).
 	AzuracastURL string
 
+	// Logto machine-to-machine app (optional — empty LogtoM2MAppID or
+	// LogtoM2MAppSecret disables the /admin/* Logto management endpoints).
+	LogtoM2MAppID     string
+	LogtoM2MAppSecret string
+
+	// OpsAPIKey (optional) enables X-API-Key access to the /admin/* routes,
+	// for Home to read Logto user/role data without a Logto sign-in.
+	OpsAPIKey string
+
 	// UploadsDir is where uploaded branding assets are written and served from.
 	UploadsDir string
 
@@ -61,6 +70,10 @@ func Load() (*Config, error) {
 		StreamerAPIKey: os.Getenv("STREAMER_API_KEY"),
 
 		AzuracastURL: os.Getenv("AZURACAST_URL"),
+
+		LogtoM2MAppID:     os.Getenv("LOGTO_M2M_APP_ID"),
+		LogtoM2MAppSecret: os.Getenv("LOGTO_M2M_APP_SECRET"),
+		OpsAPIKey:         os.Getenv("OPS_API_KEY"),
 
 		UploadsDir:   envOr("UPLOADS_DIR", "/app/data/uploads"),
 		SnapshotsDir: envOr("SNAPSHOTS_DIR", "/app/data/snapshots"),

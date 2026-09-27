@@ -5,6 +5,7 @@ import (
 
 	"github.com/brandon-relentnet/nationcam/api/internal/archive"
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
+	"github.com/brandon-relentnet/nationcam/api/internal/logtoadmin"
 	mw "github.com/brandon-relentnet/nationcam/api/internal/middleware"
 	"github.com/brandon-relentnet/nationcam/api/internal/restreamer"
 	"github.com/go-chi/chi/v5"
@@ -15,7 +16,10 @@ import (
 // rc may be nil if Restreamer is not configured (stream routes are not mounted).
 // proxyExtraHosts are hosts the stream proxy may fetch from in addition to
 // video sources stored in the database (e.g. the Restreamer host).
-func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string, snapshots *archive.Store) *chi.Mux {
+// la may be nil if the Logto M2M app is not configured (/admin/* routes are
+// not mounted); opsAPIKey is the ops key accepted alongside a Logto sign-in
+// for those routes (empty disables the key, leaving only Logto sign-in).
+func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []string, rc *restreamer.Client, streamerAPIKey string, proxyExtraHosts []string, azuracastURL string, uploadsDir string, snapshots *archive.Store, la *logtoadmin.Client, opsAPIKey string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware.
@@ -132,6 +136,21 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.With(mw.RequireAdmin).Post("/events", CreateEvent(pool, c))
 	r.With(mw.RequireAdmin).Put("/events/{id}", UpdateEvent(pool, c))
 	r.With(mw.RequireAdmin).Delete("/events/{id}", DeleteEvent(pool, c))
+
+	// ── Logto management connection (DAN-37) ───────────────────────
+	// Read-only view into Logto's users/roles via a machine-to-machine app,
+	// for the admin console's Users panel and for Home. Mounted only when
+	// the M2M app is configured; guarded the same way as /streams —
+	// RequireAPIKeyOrAdmin accepts either the ops API key or a signed-in
+	// Logto user.
+	if la != nil && la.Configured() {
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(mw.RequireAPIKeyOrAdmin(opsAPIKey))
+			r.Get("/users", AdminListUsers(la, c))
+			r.Get("/users/stats", AdminUserStats(la, c))
+			r.Get("/roles", AdminListRoles(la, c))
+		})
+	}
 
 	return r
 }

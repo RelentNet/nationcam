@@ -52,6 +52,11 @@ services:
       STREAMER_API_KEY: ${STREAMER_API_KEY:-}
       # AzuraCast (optional — audio-channel picker; e.g. https://phoenix3.fnit.us)
       AZURACAST_URL: ${AZURACAST_URL:-}
+      # Logto management connection (optional — leave both empty to disable
+      # the /admin/* endpoints; see AGENTS.md "Logto management connection")
+      LOGTO_M2M_APP_ID: ${LOGTO_M2M_APP_ID:-}
+      LOGTO_M2M_APP_SECRET: ${LOGTO_M2M_APP_SECRET:-}
+      OPS_API_KEY: ${OPS_API_KEY:-}
       # Local object storage for per-location branding uploads.
       UPLOADS_DIR: /app/data/uploads
       # Snapshot archive: one watermarked still per camera every 15 minutes,
