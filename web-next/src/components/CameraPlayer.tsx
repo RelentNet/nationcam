@@ -34,6 +34,7 @@ export default function CameraPlayer({ camera }: { camera: Video }) {
         fluid
         live={camera.status === 'active'}
         audioChannels
+        videoId={camera.video_id}
         poster={poster}
         className="shadow-xl"
       />

@@ -36,6 +36,8 @@ interface StreamPlayerProps {
    * Off by default so grid previews never get it — the camera page enables it.
    */
   audioChannels?: boolean
+  /** Camera id; scopes the station list to this camera's state/sublocation. */
+  videoId?: number
   /** Still frame shown while the stream loads (see `streamPoster`). */
   poster?: string
 }
@@ -87,6 +89,7 @@ export default function StreamPlayer({
   className = '',
   fluid = true,
   audioChannels = false,
+  videoId,
   poster,
 }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -106,6 +109,9 @@ export default function StreamPlayer({
   // Digital zoom: CSS transform (translate then scale, transform-origin
   // center) on the <video> element. panX/panY are raw CSS px offsets.
   const [xform, setXform] = useState({ zoom: 1, panX: 0, panY: 0 })
+  // Mirror for the native wheel listener, which is registered once.
+  const xformRef = useRef(xform)
+  xformRef.current = xform
   const pointersRef = useRef(new Map<number, { x: number; y: number }>())
   const pinchRef = useRef<{ lastDist: number } | null>(null)
   const dragRef = useRef<{
@@ -120,6 +126,7 @@ export default function StreamPlayer({
   const [stations, setStations] = useState<Array<AudioStation>>([])
   const [channel, setChannel] = useState('live')
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const radioActive = channel !== 'live'
   // Tracks whether radio was playing, so switching back to "Live audio"
   // restores native audio without unmuting on the initial (default) live state.
@@ -327,12 +334,12 @@ export default function StreamPlayer({
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current
     if (!container) return
+    // State follows the fullscreenchange event below, not the request — a
+    // rejected request must not leave the button reading "Exit fullscreen".
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {})
-      setIsFullscreen(false)
     } else {
       container.requestFullscreen().catch(() => {})
-      setIsFullscreen(true)
     }
   }, [])
 
@@ -388,12 +395,15 @@ export default function StreamPlayer({
     const el = containerRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
+      const factor =
+        e.deltaY < 0 ? 1 + WHEEL_ZOOM_STEP : 1 / (1 + WHEEL_ZOOM_STEP)
+      // At the limit (scrolling down at 1x, up at 4x) let the page scroll.
+      const cur = xformRef.current.zoom
+      if (clampNum(cur * factor, MIN_ZOOM, MAX_ZOOM) === cur) return
       e.preventDefault()
       const rect = el.getBoundingClientRect()
       const offsetX = e.clientX - (rect.left + rect.width / 2)
       const offsetY = e.clientY - (rect.top + rect.height / 2)
-      const factor =
-        e.deltaY < 0 ? 1 + WHEEL_ZOOM_STEP : 1 / (1 + WHEEL_ZOOM_STEP)
       setXform((prev) => {
         const zoom = clampNum(prev.zoom * factor, MIN_ZOOM, MAX_ZOOM)
         const panX = offsetX - (zoom / prev.zoom) * (offsetX - prev.panX)
@@ -417,6 +427,7 @@ export default function StreamPlayer({
         pinchRef.current = { lastDist: Math.hypot(a.x - b.x, a.y - b.y) }
         dragRef.current = null
       } else if (pts.length === 1 && xform.zoom > 1) {
+        e.preventDefault() // no text selection while panning
         e.currentTarget.setPointerCapture(e.pointerId)
         dragRef.current = {
           x: e.clientX,
@@ -477,7 +488,7 @@ export default function StreamPlayer({
   useEffect(() => {
     if (!audioChannels) return
     let cancelled = false
-    fetch('/api/audio/stations')
+    fetch(`/api/audio/stations${videoId ? `?video_id=${videoId}` : ''}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         if (!cancelled && Array.isArray(data)) setStations(data)
@@ -488,7 +499,17 @@ export default function StreamPlayer({
     return () => {
       cancelled = true
     }
-  }, [audioChannels])
+  }, [audioChannels, videoId])
+
+  // Close the audio menu on a click anywhere outside it.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [menuOpen])
 
   // A new camera resets the picker back to live audio (fresh camera starts
   // muted like any other, so clear the "was radio" restore flag too).
@@ -511,10 +532,13 @@ export default function StreamPlayer({
       audio.pause()
       audio.removeAttribute('src')
       if (wasRadioRef.current) {
+        // Carry the radio's mute/volume over so the icon keeps matching
+        // what is audible (a muted radio stays muted as live audio).
         wasRadioRef.current = false
-        video.muted = false
-        setIsMuted(false)
-        setVolume(0.8)
+        video.muted = audio.muted
+        video.volume = audio.volume
+        setIsMuted(audio.muted)
+        setVolume(audio.volume)
       }
       return
     }
@@ -555,7 +579,9 @@ export default function StreamPlayer({
         onPointerMove={onVideoPointerMove}
         onPointerUp={onVideoPointerUp}
         onPointerCancel={onVideoPointerUp}
-        className={`h-full w-full object-cover ${xform.zoom > 1 ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
+        // touch-pan-y at 1x: one finger still scrolls the page, but a pinch
+        // reaches the player instead of zooming the whole page.
+        className={`h-full w-full object-cover ${xform.zoom > 1 ? 'touch-none cursor-grab active:cursor-grabbing' : 'touch-pan-y'}`}
         style={{
           transform: `translate(${xform.panX}px, ${xform.panY}px) scale(${xform.zoom})`,
           transformOrigin: 'center center',
@@ -630,7 +656,7 @@ export default function StreamPlayer({
           <div className="flex-1" />
 
           {audioChannels && stations.length > 0 && (
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 aria-label="Audio channel"
