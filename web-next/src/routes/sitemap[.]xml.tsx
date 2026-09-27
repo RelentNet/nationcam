@@ -1,23 +1,47 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
+import {
+  fetchPosts,
+  fetchStates,
+  fetchSublocationsByState,
+  fetchVideos,
+} from '@/lib/api'
 import { SITE_URL } from '@/lib/seo'
 
 const STATIC_PATHS = [
   '/',
   '/locations',
+  '/notes',
   '/about',
   '/contact',
   '/privacy',
   '/terms',
 ]
 
+// The public listing is paginated (max 100/page), so every published slug is
+// collected with a bounded page loop rather than one huge request. The loop
+// cap is generous headroom over any realistic post count so a pagination bug
+// cannot hang the sitemap request.
+async function fetchAllPublishedPostSlugs(): Promise<Array<string>> {
+  const limit = 100
+  const slugs: Array<string> = []
+  for (let offset = 0, page = 0; page < 50; page++, offset += limit) {
+    const { data, has_more } = await fetchPosts({ limit, offset })
+    slugs.push(...data.map((p) => p.slug))
+    if (!has_more) break
+  }
+  return slugs
+}
+
 export const Route = createFileRoute('/sitemap.xml')({
   server: {
     handlers: {
       GET: async () => {
-        const [allStates, videos] = await Promise.all([
+        const [allStates, videos, notePaths] = await Promise.all([
           fetchStates(),
           fetchVideos(),
+          fetchAllPublishedPostSlugs().then((slugs) =>
+            slugs.map((slug) => `/notes/${slug}`),
+          ),
         ])
         // Only states and sublocations that actually have cameras are listed:
         // empty "coming soon" pages are noindex'd and read as an unfinished
@@ -67,6 +91,7 @@ export const Route = createFileRoute('/sitemap.xml')({
           ...locationIndexPaths,
           ...locationPaths.flat(),
           ...cameraPaths,
+          ...notePaths,
         ]
           .map((path) => `  <url><loc>${SITE_URL}${path}</loc></url>`)
           .join('\n')

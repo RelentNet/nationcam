@@ -20,6 +20,8 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as LocationsIndexRouteImport } from './routes/locations/index'
+import { Route as NotesIndexRouteImport } from './routes/notes.index'
+import { Route as NotesSlugRouteImport } from './routes/notes.$slug'
 import { Route as LocationsSlugIndexRouteImport } from './routes/locations/$slug.index'
 import { Route as LocationsSlugSublocationSlugIndexRouteImport } from './routes/locations/$slug.$sublocationSlug.index'
 import { Route as LocationsSlugSublocationSlugCameraSlugRouteImport } from './routes/locations/$slug.$sublocationSlug.$cameraSlug'
@@ -80,6 +82,16 @@ const LocationsIndexRoute = LocationsIndexRouteImport.update({
   path: '/locations/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotesIndexRoute = NotesIndexRouteImport.update({
+  id: '/notes/',
+  path: '/notes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotesSlugRoute = NotesSlugRouteImport.update({
+  id: '/notes/$slug',
+  path: '/notes/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LocationsSlugIndexRoute = LocationsSlugIndexRouteImport.update({
   id: '/locations/$slug/',
   path: '/locations/$slug/',
@@ -115,7 +127,9 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/$': typeof ApiSplatRoute
+  '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
+  '/notes/': typeof NotesIndexRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
@@ -132,7 +146,9 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/$': typeof ApiSplatRoute
+  '/notes/$slug': typeof NotesSlugRoute
   '/locations': typeof LocationsIndexRoute
+  '/notes': typeof NotesIndexRoute
   '/locations/$slug': typeof LocationsSlugIndexRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
@@ -150,7 +166,9 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/$': typeof ApiSplatRoute
+  '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
+  '/notes/': typeof NotesIndexRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
@@ -169,7 +187,9 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/api/$'
+    | '/notes/$slug'
     | '/locations/'
+    | '/notes/'
     | '/locations/$slug/'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
@@ -186,7 +206,9 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/api/$'
+    | '/notes/$slug'
     | '/locations'
+    | '/notes'
     | '/locations/$slug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
@@ -203,7 +225,9 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/api/$'
+    | '/notes/$slug'
     | '/locations/'
+    | '/notes/'
     | '/locations/$slug/'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
@@ -221,7 +245,9 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  NotesSlugRoute: typeof NotesSlugRoute
   LocationsIndexRoute: typeof LocationsIndexRoute
+  NotesIndexRoute: typeof NotesIndexRoute
   LocationsSlugIndexRoute: typeof LocationsSlugIndexRoute
   LocationsSlugSublocationSlugCameraSlugRoute: typeof LocationsSlugSublocationSlugCameraSlugRoute
   LocationsSlugSublocationSlugConditionsRoute: typeof LocationsSlugSublocationSlugConditionsRoute
@@ -307,6 +333,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LocationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notes/': {
+      id: '/notes/'
+      path: '/notes'
+      fullPath: '/notes/'
+      preLoaderRoute: typeof NotesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notes/$slug': {
+      id: '/notes/$slug'
+      path: '/notes/$slug'
+      fullPath: '/notes/$slug'
+      preLoaderRoute: typeof NotesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/locations/$slug/': {
       id: '/locations/$slug/'
       path: '/locations/$slug'
@@ -349,7 +389,9 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   ApiSplatRoute: ApiSplatRoute,
+  NotesSlugRoute: NotesSlugRoute,
   LocationsIndexRoute: LocationsIndexRoute,
+  NotesIndexRoute: NotesIndexRoute,
   LocationsSlugIndexRoute: LocationsSlugIndexRoute,
   LocationsSlugSublocationSlugCameraSlugRoute:
     LocationsSlugSublocationSlugCameraSlugRoute,

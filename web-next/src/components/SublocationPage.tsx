@@ -7,7 +7,13 @@ import {
   Video as VideoIcon,
 } from 'lucide-react'
 import { useEffect } from 'react'
-import type { Camera, Sublocation, Video, Weather } from '@/lib/types'
+import type {
+  Camera,
+  RelatedPost,
+  Sublocation,
+  Video,
+  Weather,
+} from '@/lib/types'
 import { streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import CameraPlayer from '@/components/CameraPlayer'
@@ -38,6 +44,9 @@ interface SublocationPageProps {
   /** Every sublocation in the state; this one is filtered out for "More in". */
   siblings: Array<Sublocation>
   weather: Weather | null
+  /** Up to 3 published Field notes for this camera (or, on the hub page, this
+   *  sublocation) — fetched by the route loader. Empty renders no block. */
+  relatedPosts?: Array<RelatedPost>
 }
 
 /**
@@ -53,6 +62,7 @@ export default function SublocationPage({
   camera,
   siblings,
   weather,
+  relatedPosts = [],
 }: SublocationPageProps) {
   const tick = usePosterTick()
   const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
@@ -276,6 +286,9 @@ export default function SublocationPage({
           </aside>
         </div>
 
+        {/* ── Field notes ── */}
+        {relatedPosts.length > 0 && <FieldNotesSection posts={relatedPosts} />}
+
         {/* ── More in this state ── */}
         {others.length > 0 && (
           <section className="mt-4">
@@ -428,6 +441,48 @@ export function FeaturedBlock({
       </div>
       {panel && <NowPanel weather={weather} sublocation={sublocation} />}
     </div>
+  )
+}
+
+/**
+ * Up to 3 related published Field notes, shown on a camera or sublocation
+ * page. Renders nothing when there are none — the caller already guards this,
+ * but the guard lives here too since the component is exported nowhere else.
+ */
+function FieldNotesSection({ posts }: { posts: Array<RelatedPost> }) {
+  if (posts.length === 0) return null
+  return (
+    <section className="mt-12">
+      <h2 className="mb-4 text-xl">Field notes</h2>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {posts.map((p) => (
+          <Link
+            key={p.post_id}
+            to="/notes/$slug"
+            params={{ slug: p.slug }}
+            className="block rounded-xl border border-overlay0/60 bg-surface0 p-4 transition-colors duration-150 hover:border-accent"
+          >
+            {p.published_at && (
+              <p className="mb-1 font-mono text-[11px] text-subtext0">
+                {new Date(p.published_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </p>
+            )}
+            <h4 className="mb-1 line-clamp-2 text-sm font-semibold text-text">
+              {p.title}
+            </h4>
+            {p.excerpt && (
+              <p className="mb-0 line-clamp-2 text-xs text-subtext1">
+                {p.excerpt}
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
   )
 }
 

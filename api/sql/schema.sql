@@ -287,6 +287,81 @@ CREATE TABLE IF NOT EXISTS submissions (
 CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at DESC);
 
 -- ────────────────────────────────────────────────
+-- Field notes (posts) — DAN-25
+--
+-- A lightweight blog written in the dashboard, published at /notes. Each post
+-- is optionally attached to one state, sublocation, or camera (the same
+-- "at most one of three" scope CHECK as ads) so a related-notes block can show
+-- it on that page; all three NULL is an unscoped post, visible only at /notes.
+-- Self-contained (function + table + index + trigger) so it drops in without
+-- interleaving with the sections above; everything here is
+-- CREATE ... IF NOT EXISTS / OR REPLACE, so a restart against a database that
+-- already has it is a no-op.
+-- ────────────────────────────────────────────────
+
+-- Posts use `title` rather than `name`, and the slug is unique across the
+-- whole table (there is no per-scope partitioning the way videos have). Same
+-- dedup-by-suffix approach and the same concurrency caveat as set_video_slug:
+-- writes are admin-only and rare.
+CREATE OR REPLACE FUNCTION set_post_slug() RETURNS TRIGGER AS $$
+DECLARE
+  base TEXT;
+  n    INT := 1;
+BEGIN
+  IF NEW.slug IS NULL OR NEW.slug = '' THEN
+    base := generate_slug(NEW.title);
+    IF base = '' THEN
+      base := 'post';
+    END IF;
+    NEW.slug := base;
+    WHILE EXISTS (
+      SELECT 1 FROM posts
+      WHERE slug = NEW.slug
+        AND post_id IS DISTINCT FROM NEW.post_id
+    ) LOOP
+      n := n + 1;
+      NEW.slug := base || '-' || n;
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE IF NOT EXISTS posts (
+  post_id        SERIAL PRIMARY KEY,
+  title          TEXT NOT NULL,
+  slug           TEXT NOT NULL DEFAULT '',
+  body_md        TEXT NOT NULL DEFAULT '',
+  excerpt        TEXT NOT NULL DEFAULT '',
+  cover_url      TEXT NOT NULL DEFAULT '',
+  state_id       INTEGER REFERENCES states(state_id) ON DELETE SET NULL,
+  sublocation_id INTEGER REFERENCES sublocations(sublocation_id) ON DELETE SET NULL,
+  video_id       INTEGER REFERENCES videos(video_id) ON DELETE SET NULL,
+  status         TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  published_at   TIMESTAMPTZ,
+  created_by     TEXT NOT NULL DEFAULT '',
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT posts_single_scope CHECK (num_nonnulls(state_id, sublocation_id, video_id) <= 1)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug);
+CREATE INDEX IF NOT EXISTS idx_posts_state_id ON posts(state_id);
+CREATE INDEX IF NOT EXISTS idx_posts_sublocation_id ON posts(sublocation_id);
+CREATE INDEX IF NOT EXISTS idx_posts_video_id ON posts(video_id);
+-- Backs both "published, newest first" (the public list) and "is this post
+-- live" checks in one shape.
+CREATE INDEX IF NOT EXISTS idx_posts_status_published ON posts(status, published_at DESC);
+
+CREATE OR REPLACE TRIGGER trg_posts_slug
+  BEFORE INSERT OR UPDATE ON posts
+  FOR EACH ROW EXECUTE FUNCTION set_post_slug();
+
+CREATE OR REPLACE TRIGGER trg_posts_updated
+  BEFORE UPDATE ON posts
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────
 -- Triggers
 -- ────────────────────────────────────────────────
 

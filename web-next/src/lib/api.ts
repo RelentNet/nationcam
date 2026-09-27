@@ -1,6 +1,7 @@
 import type {
   Ad,
   AdInput,
+  AdminPost,
   Branding,
   CameraDetail,
   Conditions,
@@ -10,6 +11,10 @@ import type {
   CreateVideoInput,
   Host,
   PaginatedResponse,
+  Post,
+  PostInput,
+  PostsListResponse,
+  RelatedPost,
   ServedAd,
   State,
   StreamDetail,
@@ -608,6 +613,74 @@ export async function markSubmissionHandled(
   token?: string | null,
 ): Promise<Submission> {
   return patch<Submission>(`/submissions/${id}`, { handled }, token)
+}
+
+/* ──── Field notes (posts) ──── */
+
+/** Paginated published posts, newest first (default limit 20). */
+export async function fetchPosts(
+  params: { limit?: number; offset?: number } = {},
+): Promise<PostsListResponse> {
+  const q = new URLSearchParams()
+  if (params.limit) q.set('limit', String(params.limit))
+  if (params.offset) q.set('offset', String(params.offset))
+  const qs = q.toString()
+  return get<PostsListResponse>(`/posts${qs ? `?${qs}` : ''}`)
+}
+
+/** A single published post by slug. Throws on 404 — callers that render a
+ *  page from this (the /notes/$slug route) catch and 404 the route. */
+export async function fetchPostBySlug(slug: string): Promise<Post> {
+  return get<Post>(`/posts/${slug}`)
+}
+
+/**
+ * Up to 3 published posts for a camera, sublocation or state — backs the
+ * "Field notes" block. Pass exactly one of the three; any failure (or no
+ * scope given) resolves to `[]` so the block simply doesn't render rather
+ * than breaking the page it sits on.
+ */
+export async function fetchRelatedPosts(scope: {
+  videoId?: number
+  sublocationId?: number
+  stateId?: number
+}): Promise<Array<RelatedPost>> {
+  const q = new URLSearchParams()
+  if (scope.videoId) q.set('video_id', String(scope.videoId))
+  else if (scope.sublocationId)
+    q.set('sublocation_id', String(scope.sublocationId))
+  else if (scope.stateId) q.set('state_id', String(scope.stateId))
+  else return []
+  return get<Array<RelatedPost>>(`/posts?${q.toString()}`).catch(() => [])
+}
+
+/** Every post, any status, newest first (admin). */
+export async function fetchAllPosts(
+  token?: string | null,
+): Promise<Array<AdminPost>> {
+  return authedGet<Array<AdminPost>>('/posts/all', token)
+}
+
+export async function createPost(
+  input: PostInput,
+  token?: string | null,
+): Promise<AdminPost> {
+  return post<AdminPost>('/posts', input, token)
+}
+
+export async function updatePost(
+  id: number,
+  input: PostInput,
+  token?: string | null,
+): Promise<AdminPost> {
+  return put<AdminPost>(`/posts/${id}`, input, token)
+}
+
+export async function deletePost(
+  id: number,
+  token?: string | null,
+): Promise<void> {
+  return del(`/posts/${id}`, token)
 }
 
 /**
