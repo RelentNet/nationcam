@@ -1,8 +1,13 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
-import { ChevronRight, Clock, CloudSun, Gauge, Waves } from 'lucide-react'
+import { ChevronRight, Clock, CloudSun, Gauge, Waves, Zap } from 'lucide-react'
 import type { Conditions, HourlyPoint, TidePrediction } from '@/lib/types'
-import { fetchConditions, fetchSublocationBySlug } from '@/lib/api'
+import {
+  fetchConditions,
+  fetchLightning,
+  fetchSublocationBySlug,
+} from '@/lib/api'
 import { SITE_URL, seo } from '@/lib/seo'
+import { LightningCard } from '@/components/NowPanel'
 
 export const Route = createFileRoute(
   '/locations/$slug/$sublocationSlug/conditions',
@@ -15,8 +20,11 @@ export const Route = createFileRoute(
     // Same coordinate gate as the API: no lat/lng, no page.
     if (sublocation.lat == null || sublocation.lng == null) throw notFound()
 
-    const conditions = await fetchConditions(params.sublocationSlug)
-    return { sublocation, conditions }
+    const [conditions, lightning] = await Promise.all([
+      fetchConditions(params.sublocationSlug),
+      fetchLightning(params.sublocationSlug),
+    ])
+    return { sublocation, conditions, lightning }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -209,7 +217,7 @@ function ForecastCard({
 
 function ConditionsRoute() {
   const { slug } = Route.useParams()
-  const { sublocation, conditions } = Route.useLoaderData()
+  const { sublocation, conditions, lightning } = Route.useLoaderData()
   const crumbLink = 'transition-colors hover:text-accent'
 
   return (
@@ -252,6 +260,18 @@ function ConditionsRoute() {
         Forecast, tides and river stage from public data — is it worth going
         today?
       </p>
+
+      {lightning !== null && (
+        <section className="mb-10">
+          <h2 className="mb-3 flex items-center gap-2 text-lg">
+            <Zap size={18} className="text-accent" />
+            Lightning
+          </h2>
+          <div className="rounded-2xl border border-overlay0 bg-surface0 px-5 py-4">
+            <LightningCard slug={sublocation.slug} initial={lightning} detail />
+          </div>
+        </section>
+      )}
 
       {conditions && conditions.hourly.length > 0 && (
         <section className="mb-10">

@@ -187,6 +187,36 @@ export interface Conditions {
   } | null
 }
 
+/** `status` on `Lightning` — the API's 10 mi / 30 mi / 30 min policy. */
+export type LightningStatus = 'clear' | 'caution' | 'alert'
+
+/**
+ * `GET /sublocations/{slug}/lightning` — satellite lightning status for the
+ * sublocation's coordinates from NOAA GOES-19 GLM (DAN-34). `alert` = any
+ * flash within 10 mi in the last 30 min (`all_clear_at` is the latest such
+ * flash + 30 min); `caution` = within 30 mi; `clear` otherwise. `nearest_mi`
+ * and `last_strike_at` describe the flashes within 30 mi in the window and
+ * are null when there were none. Satellite-detected, informational only —
+ * never a certified safety system, and the UI must say so.
+ */
+export interface Lightning {
+  status: LightningStatus
+  nearest_mi: number | null
+  last_strike_at: string | null
+  strikes_10mi_30min: number
+  strikes_30mi_30min: number
+  all_clear_at: string | null
+  source: string
+  updated_at: string
+}
+
+/**
+ * What the lightning fetch resolves to: the status, `'unavailable'` when the
+ * feed is stale or the request failed (503 — render a muted "no data" card),
+ * or `null` when the sublocation has no coordinates (404 — render nothing).
+ */
+export type LightningResult = Lightning | 'unavailable' | null
+
 export interface Video extends Editorial {
   video_id: number
   title: string

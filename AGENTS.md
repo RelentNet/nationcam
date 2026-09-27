@@ -100,6 +100,10 @@ SNAPSHOTS_DIR=/app/data/snapshots
 LOGTO_M2M_APP_ID=<Logto machine-to-machine app ID>
 LOGTO_M2M_APP_SECRET=<Logto machine-to-machine app secret>
 OPS_API_KEY=<32+ random chars — X-API-Key for /api/admin/* endpoints>
+
+# Optional — satellite lightning (NOAA GOES GLM, public S3, no credentials)
+LIGHTNING_ENABLED=true          # false turns the job off; the endpoint then answers 503
+LIGHTNING_BUCKET=noaa-goes19    # GOES-East; noaa-goes18 (GOES-West) has the same layout
 ```
 
 **First deploy steps:**
@@ -208,6 +212,13 @@ new-nationcam/                        # Repo root
         validate.go                   # Stream name + RTSP URL validation
       logtoadmin/
         client.go                     # Logto Management API client (M2M token lifecycle)
+      lightning/                      # NOAA GOES GLM satellite lightning (DAN-34)
+        lightning.go                  # Flash/Site types, haversine, the 10 mi/30 mi/30 min policy
+        reader.go                     # Pure-Go NetCDF4 parser for GLM LCFA files
+        store.go                      # 60-min in-memory flash buffer + Redis mirror
+        s3.go                         # Public-bucket lister/fetcher, hour prefixes, key parsing
+        job.go                        # 60s tick: list → fetch (4-wide) → parse → store → mirror
+        testdata/                     # One real GLM LCFA file (~230 KB)
       handler/
         router.go                     # Chi router wiring all routes
         health.go                     # GET /health
@@ -219,6 +230,7 @@ new-nationcam/                        # Repo root
         admin_users.go                # GET /admin/users, /admin/users/stats, /admin/roles (Logto management)
         json.go                       # JSON read/write helpers
         cached.go                     # Response caching wrapper
+        lightning.go                  # GET /sublocations/{slug}/lightning
   web/                                # React SPA
     package.json
     Dockerfile                        # Multi-stage: npm build → nginx serve
@@ -317,6 +329,7 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/sublocations/{slug}`           | Single sublocation by slug     | None          |
 | GET    | `/sublocations/{slug}/weather`   | Current conditions plus outdoor-activity estimates — dew point, UV, wet-bulb, heat stress, cloud cover, visibility, pressure + trend, precip, rain next hour, storm potential, US AQI (Open-Meteo, 10-min Redis cache; every added field is nullable and best-effort — see "Outdoor-activity stats" below); 404 without lat/lng | None |
 | GET    | `/sublocations/{slug}/conditions` | 3-day forecast, a 12-hour hourly strip (temp/rain/wind/UV), plus NOAA tide predictions and USGS river stage from the nearest station/gauge (30-min Redis cache), or from the sublocation's `noaa_station_id`/`usgs_site_id` when set (`none` disables that source); 404 without lat/lng | None |
+| GET    | `/sublocations/{slug}/lightning` | Satellite lightning status from NOAA GOES-19 GLM — `status` (`clear`/`caution`/`alert`), nearest strike (mi), last strike time, strike counts within 10 mi/30 mi over 30 min, `all_clear_at` (see "Lightning" below); evaluated per request from the in-memory store, never Redis-cached; 404 without lat/lng, 503 `{error, updated_at}` when the feed is older than 5 min | None |
 | POST   | `/sublocations`                  | Create sublocation             | Admin (Logto) |
 | GET    | `/videos`                        | All active videos              | None          |
 | GET    | `/videos?state_id=N`             | Videos by state                | None          |
@@ -492,6 +505,59 @@ line at startup either way, and never logs the app secret or an issued token.
   `LOGTO_M2M_APP_SECRET` in Coolify → generate an `OPS_API_KEY` (32+ random
   chars) and set it too → redeploy the `api` service.
 
+### Lightning
+
+`api/internal/lightning` turns NOAA's GOES-East Geostationary Lightning Mapper
+into a live per-sublocation status (DAN-34). This is the real strike feed the
+storm-potential tile above explicitly is not — but it is **satellite**
+detection, informational only. The API, the UI copy and this file must never
+call it ground-based detection or a certified safety system; the card's
+footnote ("Satellite-detected (NOAA GOES). Informational only — not a
+certified safety system.") is part of the contract.
+
+- **Source**: GLM Level-2 LCFA files on NOAA Open Data — public S3
+  (`https://noaa-goes19.s3.amazonaws.com`, `LIGHTNING_BUCKET`), no
+  credentials, no SDK. One ~230 KB NetCDF4 file per 20-second window under
+  `GLM-L2-LCFA/YYYY/DDD/HH/` (UTC day-of-year and hour), appearing ~20 s after
+  the window ends; the key encodes the window as `sYYYYDDDHHMMSSt`. GOES-19
+  covers all of CONUS. Parsed with a pure-Go NetCDF4/HDF5 reader
+  (`github.com/batchatco/go-native-netcdf`, no CGO): `flash_lat`/`flash_lon`,
+  `flash_time_offset_of_first_event` (an `_Unsigned` int16 with
+  `scale_factor`/`add_offset`, seconds since the epoch in its `units`),
+  `flash_quality_flag` (only `0` = good is kept). Flashes in a file are ordered
+  by id, not time.
+- **Cadence**: `lightning.Job` (started from `main.go`, same lifecycle as the
+  snapshot job) ticks once at boot and then every 60 s on the minute. It
+  lists the current UTC hour prefix — plus the previous hour within 2 min of
+  the boundary, and every hour back to the last processed key, floored at 60
+  min (so a cold start fills the whole buffer) — fetches keys newer than the
+  last processed one four at a time with a 15 s per-request timeout, and
+  files the good flashes within **100 km of any sublocation with
+  coordinates** (site list refreshed every 10 min) into a 60-minute in-memory
+  buffer. One file or listing failing is one warn line and never stops the
+  tick; each tick logs one `lightning tick` info line (files, failed,
+  flashes, kept, buffered, newest_age). The buffer is mirrored to Redis
+  (`lightning:store`, one JSON value, 65-min TTL) after every tick and loaded
+  at startup, so a restart does not blank the status. `LIGHTNING_ENABLED=false`
+  skips the job; the route still mounts and answers 503.
+- **Policy** (constants in `lightning.go`, the one place they live): `alert` =
+  any flash within **10 mi** in the last **30 min**, with `all_clear_at` = the
+  latest such flash + 30 min; `caution` = any flash within **30 mi** in the
+  last 30 min; `clear` otherwise. `nearest_mi` is the closest flash within 30
+  mi in the window, `last_strike_at` the most recent; both null when there
+  were none. Distances are haversine, reported in statute miles. The endpoint
+  answers 503 when the newest successful fetch is older than 5 min, so a
+  stalled feed reads "unavailable" rather than a false "clear".
+- **UI**: `LightningCard` in `NowPanel.tsx` — one card above the outdoor row on
+  the sublocation and camera pages, and on the conditions page with the two
+  strike counts. Server-rendered from the route loader's `fetchLightning`
+  (null on 404 → no card; `'unavailable'` on 503 → muted card), then
+  re-polled every 60 s while mounted; the alert state shows a live mm:ss
+  countdown to `all_clear_at` and refetches the moment it hits zero. Times
+  are the viewer's local time and are only rendered after mount (the server
+  cannot know the viewer's zone). Colors reuse the theme's calm/caution/
+  alert tone tokens.
+
 ### Stream Management
 
 The `/streams` endpoints proxy to a self-hosted datarhei Restreamer instance. They are only
@@ -570,3 +636,4 @@ from `main.go` runs on the server's root context and stops with it:
 | `jackc/pgx/v5`           | PostgreSQL driver (via sqlc)         |
 | `redis/go-redis/v9`      | Redis client                         |
 | `go-jose/go-jose/v4`     | JWT/JWKS validation                  |
+| `batchatco/go-native-netcdf` | Pure-Go NetCDF4/HDF5 reader for GOES GLM files (no CGO) |
