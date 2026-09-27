@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -44,34 +45,11 @@ func CreateStream(rc *restreamer.Client) http.HandlerFunc {
 			return
 		}
 
-		// Generate a UUID for the process (matches Restreamer UI convention).
-		uuid, err := restreamer.NewUUID()
+		uuid, err := createIngestStream(r.Context(), rc, name, req.RTSPURL)
 		if err != nil {
-			slog.Error("failed to generate UUID", "error", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-			return
-		}
-
-		processID := restreamer.IngestProcessID(uuid)
-
-		// Build the UI-compatible FFmpeg process config.
-		cfg := restreamer.BuildIngestConfig(uuid, req.RTSPURL, rc.BaseURL())
-
-		// Create the process on Restreamer.
-		if _, err := rc.CreateProcess(r.Context(), cfg); err != nil {
 			status, msg := mapRestreamerError(err)
-			slog.Error("create stream failed", "processId", processID, "error", err)
 			writeJSON(w, status, map[string]string{"error": msg})
 			return
-		}
-
-		// Set the restreamer-ui metadata so the process appears in the UI.
-		uiMeta := restreamer.BuildUIMetadata(name, req.RTSPURL, uuid)
-		if err := rc.SetMetadata(r.Context(), processID, "restreamer-ui", uiMeta); err != nil {
-			// Process was created but metadata failed — log but don't fail the request.
-			// The stream will work for HLS but won't show in UI until metadata is fixed.
-			slog.Error("set UI metadata failed (stream still functional)",
-				"processId", processID, "error", err)
 		}
 
 		writeJSON(w, http.StatusCreated, restreamer.StreamResponse{
@@ -81,6 +59,40 @@ func CreateStream(rc *restreamer.Client) http.HandlerFunc {
 			Status:   "created",
 		})
 	}
+}
+
+// createIngestStream creates one RTSP-to-HLS ingest process on Restreamer —
+// UI naming convention, passthrough codec, auto-reconnect — and returns its
+// UUID (the stream id; rc.HLSURL(uuid) is its manifest). Shared by POST
+// /streams and the owner's POST /me/videos so both create identical
+// processes. rtspURL must already have passed restreamer.ValidateRTSPURL.
+// The returned error is a *restreamer.Error or a connection failure, either
+// of which mapRestreamerError turns into a response.
+func createIngestStream(ctx context.Context, rc *restreamer.Client, name, rtspURL string) (string, error) {
+	// Generate a UUID for the process (matches Restreamer UI convention).
+	uuid, err := restreamer.NewUUID()
+	if err != nil {
+		slog.Error("failed to generate UUID", "error", err)
+		return "", err
+	}
+	processID := restreamer.IngestProcessID(uuid)
+
+	// Build the UI-compatible FFmpeg process config and create the process.
+	cfg := restreamer.BuildIngestConfig(uuid, rtspURL, rc.BaseURL())
+	if _, err := rc.CreateProcess(ctx, cfg); err != nil {
+		slog.Error("create stream failed", "processId", processID, "error", err)
+		return "", err
+	}
+
+	// Set the restreamer-ui metadata so the process appears in the UI.
+	uiMeta := restreamer.BuildUIMetadata(name, rtspURL, uuid)
+	if err := rc.SetMetadata(ctx, processID, "restreamer-ui", uiMeta); err != nil {
+		// Process was created but metadata failed — log but don't fail the request.
+		// The stream will work for HLS but won't show in UI until metadata is fixed.
+		slog.Error("set UI metadata failed (stream still functional)",
+			"processId", processID, "error", err)
+	}
+	return uuid, nil
 }
 
 // ListStreams handles GET /streams — returns all active ingest streams.

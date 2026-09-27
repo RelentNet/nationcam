@@ -219,3 +219,70 @@ func TestValidateTokenRejectsUnsignedGarbage(t *testing.T) {
 		t.Fatal("expected error for garbage token")
 	}
 }
+
+// TestRequireUser exercises the real Authenticate -> RequireUser chain: any
+// valid token with a subject passes regardless of scope, a valid token with
+// no subject is refused (nobody to own the row), and no/garbage/expired
+// tokens are 401.
+func TestRequireUser(t *testing.T) {
+	auth, signer, done := testIssuer(t)
+	defer done()
+
+	var seen string
+	handler := auth.Authenticate(RequireUser(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = UserID(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	token := func(sub, scope string, exp time.Time) string {
+		claims := map[string]any{
+			"iss": auth.issuer,
+			"aud": "https://api.nationcam.com",
+			"exp": exp.Unix(),
+		}
+		if sub != "" {
+			claims["sub"] = sub
+		}
+		if scope != "" {
+			claims["scope"] = scope
+		}
+		return signToken(t, signer, claims)
+	}
+	later, earlier := time.Now().Add(time.Hour), time.Now().Add(-time.Hour)
+
+	cases := []struct {
+		name   string
+		header string
+		want   int
+		user   string
+	}{
+		{name: "no token", want: http.StatusUnauthorized},
+		{name: "garbage token", header: "Bearer not.a.jwt", want: http.StatusUnauthorized},
+		{name: "valid, no scope", header: "Bearer " + token("owner-1", "", later), want: http.StatusOK, user: "owner-1"},
+		{name: "valid, admin scope", header: "Bearer " + token("admin-1", "admin", later), want: http.StatusOK, user: "admin-1"},
+		{name: "valid, no subject", header: "Bearer " + token("", "admin", later), want: http.StatusUnauthorized},
+		{name: "expired", header: "Bearer " + token("owner-1", "", earlier), want: http.StatusUnauthorized},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			seen = ""
+			req := httptest.NewRequest(http.MethodGet, "/me", nil)
+			if tc.header != "" {
+				req.Header.Set("Authorization", tc.header)
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Fatalf("status = %d, want %d (body %s)", rec.Code, tc.want, rec.Body.String())
+			}
+			if seen != tc.user {
+				t.Fatalf("handler saw user %q, want %q", seen, tc.user)
+			}
+		})
+	}
+
+	// IsAdmin reads the same scope claim RequireAdmin gates on.
+	if !IsAdmin(WithScopes(context.Background(), "openid admin")) || IsAdmin(context.Background()) {
+		t.Error("IsAdmin disagrees with the scope claim")
+	}
+}

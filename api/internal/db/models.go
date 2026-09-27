@@ -114,6 +114,9 @@ type Sublocation struct {
 	Address       string        `json:"address"`
 	NoaaStationID pgtype.Text   `json:"noaa_station_id"`
 	UsgsSiteID    pgtype.Text   `json:"usgs_site_id"`
+	Status        string        `json:"status"`
+	OwnerID       string        `json:"owner_id"`
+	ReviewNote    string        `json:"review_note"`
 }
 
 type Submission struct {
@@ -127,17 +130,20 @@ type Submission struct {
 }
 
 type Video struct {
-	VideoID       int32     `json:"video_id"`
-	Title         string    `json:"title"`
-	Src           string    `json:"src"`
-	Type          string    `json:"type"`
-	StateID       int32     `json:"state_id"`
-	SublocationID *int32    `json:"sublocation_id"`
-	Status        string    `json:"status"`
-	CreatedBy     string    `json:"created_by"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Slug          string    `json:"slug"`
-	ViewCount     int64     `json:"view_count"`
-	About         string    `json:"about"`
+	VideoID       int32       `json:"video_id"`
+	Title         string      `json:"title"`
+	Src           string      `json:"src"`
+	Type          string      `json:"type"`
+	StateID       int32       `json:"state_id"`
+	SublocationID *int32      `json:"sublocation_id"`
+	Status        string      `json:"status"`
+	CreatedBy     string      `json:"created_by"`
+	CreatedAt     time.Time   `json:"created_at"`
+	UpdatedAt     time.Time   `json:"updated_at"`
+	Slug          string      `json:"slug"`
+	ViewCount     int64       `json:"view_count"`
+	About         string      `json:"about"`
+	OwnerID       string      `json:"owner_id"`
+	StreamID      pgtype.Text `json:"stream_id"`
+	ReviewNote    string      `json:"review_note"`
 }

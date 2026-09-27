@@ -78,11 +78,28 @@ func (a *Auth) Authenticate(next http.Handler) http.Handler {
 // no scopes and are therefore rejected too — this fails closed.
 func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		scopes, _ := r.Context().Value(scopesKey).(string)
-		if !slices.Contains(strings.Fields(scopes), adminScope) {
+		if !IsAdmin(r.Context()) {
+			scopes, _ := r.Context().Value(scopesKey).(string)
 			slog.Warn("admin access denied",
 				"user_id", UserID(r.Context()), "path", r.URL.Path, "scopes", scopes)
 			http.Error(w, `{"error":"forbidden","detail":"missing required permission: `+adminScope+`"}`, http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireUser rejects any request that does not carry a validated Logto
+// access token with a subject — any scope will do. It backs the owner
+// endpoints (/me/*), where the token's `sub` is the owner id, so a token
+// without one is refused even though it verified: there would be nobody to
+// own the row. Unauthenticated and invalid-token requests reach here with no
+// subject in context (Authenticate lets them through as anonymous) and get
+// the same 401.
+func RequireUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if UserID(r.Context()) == "" {
+			http.Error(w, `{"error":"unauthorized","detail":"sign in required"}`, http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -93,6 +110,21 @@ func RequireAdmin(next http.Handler) http.Handler {
 func UserID(ctx context.Context) string {
 	id, _ := ctx.Value(UserIDKey).(string)
 	return id
+}
+
+// IsAdmin reports whether the validated token in ctx carries the adminScope
+// permission — the same test RequireAdmin gates on, exposed so GET /me can
+// tell an admin from an owner without a second middleware.
+func IsAdmin(ctx context.Context) bool {
+	scopes, _ := ctx.Value(scopesKey).(string)
+	return slices.Contains(strings.Fields(scopes), adminScope)
+}
+
+// WithScopes returns ctx carrying the given space-delimited scope claim, as
+// Authenticate would set it. Exported for handler tests that stub the auth
+// context instead of minting tokens.
+func WithScopes(ctx context.Context, scopes string) context.Context {
+	return context.WithValue(ctx, scopesKey, scopes)
 }
 
 type tokenClaims struct {

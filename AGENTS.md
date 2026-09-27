@@ -44,6 +44,7 @@ code change.
 4. Frontend sends `Authorization: Bearer <token>` on admin write requests
 5. Go API validates JWT via Logto's JWKS endpoint (cached 1 hour), checking `exp`/`nbf`/`iss`/`aud`
 6. `RequireAdmin` requires the `admin` permission in the token's `scope` claim (space-delimited) — write endpoints fail closed with 403 without it
+7. `RequireUser` (the owner endpoints under `/me`) accepts any validated token that carries a `sub`, whatever its scope — the `sub` is the owner id — and answers 401 otherwise. See "Owner accounts and review" below
 
 **Admin RBAC — required Logto console setup.** `RequireAdmin` keys on the `scope`
 claim of the API-resource access token. Logto only puts a permission there if it
@@ -191,6 +192,8 @@ new-nationcam/                        # Repo root
         sublocations.sql
         videos.sql
         ads.sql
+        me.sql                        # Owner (/me) queries — DAN-39
+        review.sql                    # Admin review queue + reject cascade — DAN-39
     internal/
       config/config.go                # Env var loading
       cache/redis.go                  # Redis client wrapper (GET/SET/Invalidate)
@@ -201,7 +204,7 @@ new-nationcam/                        # Repo root
         sublocations.sql.go
         videos.sql.go
       middleware/
-        auth.go                       # Logto JWT validation via JWKS + RequireAdmin
+        auth.go                       # Logto JWT validation via JWKS + RequireAdmin / RequireUser / IsAdmin
         apikey.go                     # X-API-Key verification for stream endpoints
         ratelimit.go                  # Sliding-window rate limiter
         cors.go                       # CORS middleware
@@ -226,7 +229,11 @@ new-nationcam/                        # Repo root
         sublocation.go                # GET/POST /sublocations
         video.go                      # GET/POST /videos
         ad.go                         # /ads/next, impression + click tracking, admin CRUD
-        stream.go                     # CRUD handlers for /streams (Restreamer proxy)
+        stream.go                     # CRUD handlers for /streams (Restreamer proxy); createIngestStream shared with /me/videos
+        me.go                         # Owner endpoints: GET /me, /me/sublocations, /me/videos, pause/resume (DAN-39)
+        review.go                     # GET /review, approve/reject for videos and sublocations (DAN-39)
+        status.go                     # Owner limits + the status transition tables (the one place they live)
+        ownerstore.go                 # ownerStore interface (sqlc queries + Tx) so handler tests run on a fake
         admin_users.go                # GET /admin/users, /admin/users/stats, /admin/roles (Logto management)
         json.go                       # JSON read/write helpers
         cached.go                     # Response caching wrapper
@@ -300,8 +307,8 @@ new-nationcam/                        # Repo root
 5 tables (no users table — Logto handles authentication):
 
 - **states**: `state_id`, `name`, `description`, `slug`, `created_at`, `updated_at`
-- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `noaa_station_id`/`usgs_site_id` (nullable, pin or disable the conditions page's tide station / river gauge — see API Endpoints), `created_at`, `updated_at`
-- **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `created_by`, `created_at`, `updated_at`
+- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `noaa_station_id`/`usgs_site_id` (nullable, pin or disable the conditions page's tide station / river gauge — see API Endpoints), `status` (`pending` | `approved` | `rejected`, default `approved`), `owner_id` (Logto `sub`; `''` = admin-owned), `review_note`, `created_at`, `updated_at`
+- **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status` (`pending` | `active` | `inactive` | `paused` | `rejected`), `owner_id` (Logto `sub`; `''` = admin-owned), `stream_id` (nullable — the Restreamer process UUID when the API created the ingest), `review_note`, `created_by`, `created_at`, `updated_at`
 - **ads**: `ad_id`, `name`, `video_url`, `click_url`, `weight`, `starts_at`, `ends_at`, `enabled`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs — at most one set, this is the targeting scope), `created_by`, `created_at`, `updated_at`
 - **ad_impressions**: `impression_id`, `ad_id` (FK), `video_id` (nullable FK), `kind` (`impression` | `click`), `created_at`
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `slug`, `view_count`, `created_by`, `created_at`, `updated_at`
@@ -343,6 +350,22 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
 | GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header) | None |
 | POST   | `/videos`                        | Create video                   | Admin (Logto) |
+| GET    | `/me`                            | `{ user_id, is_admin, limits: { max_cameras, per_day }, counts: { sublocations, videos } }` | User (Logto) |
+| GET    | `/me/sublocations`               | The caller's sublocations, any status, with `review_note` | User (Logto) |
+| POST   | `/me/sublocations`               | `{ name, description, state_id, address?, lat?, lng?, host_name?, host_url?, host_since? }` → status `pending` | User (Logto) |
+| PUT    | `/me/sublocations/{id}`          | Same fields; status unchanged (403 on someone else's) | User (Logto) |
+| DELETE | `/me/sublocations/{id}`          | Only while it has no cameras (409 otherwise) | User (Logto) |
+| GET    | `/me/videos`                     | The caller's cameras, any status, with `review_note` and `sublocation_status` | User (Logto) |
+| POST   | `/me/videos`                     | `{ title, rtsp_url, sublocation_id (must be the caller's), about? }` → validates RTSP, creates the Restreamer ingest, status `pending`; 429 past 10 cameras or 5 per 24 h; 503 without Restreamer | User (Logto) |
+| PUT    | `/me/videos/{id}`                | `{ title, about }`             | User (Logto) |
+| POST   | `/me/videos/{id}/pause`          | `active → paused`; Restreamer `stop` (409 otherwise) | User (Logto) |
+| POST   | `/me/videos/{id}/resume`         | `paused → active`; Restreamer `start` (409 otherwise) | User (Logto) |
+| DELETE | `/me/videos/{id}`                | Deletes the Restreamer process when `stream_id` is set (404 ignored), then the row | User (Logto) |
+| GET    | `/review`                        | `{ sublocations: [pending…], videos: [pending… with owner_id + sublocation] }` | Admin (Logto) |
+| POST   | `/videos/{id}/approve`           | `pending → active`; a pending sublocation is approved in the same transaction | Admin (Logto) |
+| POST   | `/videos/{id}/reject`            | `{ note? }` — `pending`/`active`/`paused → rejected`; Restreamer process stopped (not deleted) | Admin (Logto) |
+| POST   | `/sublocations/{id}/approve`     | `pending → approved`; its cameras stay pending | Admin (Logto) |
+| POST   | `/sublocations/{id}/reject`      | `{ note? }` — `pending → rejected`; its pending cameras are rejected too and their processes stopped | Admin (Logto) |
 | GET    | `/streams`                       | List all active streams        | API Key       |
 | POST   | `/streams`                       | Create RTSP-to-HLS stream      | API Key       |
 | GET    | `/streams/{id}`                  | Get stream status              | API Key       |
@@ -371,6 +394,74 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/admin/users?page=&page_size=`  | Logto users, newest role data resolved per user | Admin (Logto) or Ops key |
 | GET    | `/admin/users/stats`             | `{ total, new_7d, new_30d, admins }` | Admin (Logto) or Ops key |
 | GET    | `/admin/roles`                   | Every Logto role + user count + scopes | Admin (Logto) or Ops key |
+
+### Owner accounts and review
+
+Any signed-in Logto user can add their own sublocations and cameras (DAN-39).
+Both enter review and stay invisible to every public endpoint until an admin
+approves them; owners pause, resume, edit and delete their own cameras; admins
+work a queue. Admin-only writes (`POST/PUT/DELETE /videos`, `/sublocations`,
+everything else in the table above marked Admin) are unchanged.
+
+- **Auth**: `/me/*` is behind `RequireUser` — a validated token with a `sub`,
+  any scope (the frontend must request an API-resource token for these calls
+  too). `owner_id` on a row is that `sub`; every `/me` lookup 403s on someone
+  else's row and 404s on none. Admin-owned legacy rows have `owner_id = ''`
+  and are unreachable under `/me` by construction. `GET /me` works for admins
+  and reports `is_admin` from the scope claim. `/review` and the four
+  approve/reject endpoints are `RequireAdmin`.
+- **Statuses** (tables in `handler/status.go`; anything not drawn is a 409):
+
+  ```
+  videos:        pending ──approve──▶ active ──pause──▶ paused
+                    │                   ▲                 │
+                    │                   └────resume───────┘
+                    └──reject──▶ rejected ◀──reject── active | paused
+                 ('inactive' is the pre-existing admin switch-off; no owner or
+                  review action produces or leaves it)
+
+  sublocations:  pending ──approve──▶ approved
+                    └──────reject───▶ rejected
+  ```
+
+  Approving a camera whose sublocation is still `pending` approves the
+  sublocation in the same transaction; a camera in a `rejected` sublocation
+  cannot be approved. Rejecting a sublocation rejects its still-pending
+  cameras with the same note (its active ones are left alone). Reject
+  **stops** the Restreamer process (best-effort — the moderation decision
+  lands even if Restreamer is down); the owner's delete **removes** it
+  (a 404 from Restreamer is fine). Pause/resume send `stop`/`start` and
+  fail without changing the row if Restreamer refuses, so the row never
+  claims a state the stream is not in.
+- **Public visibility**: a camera is public when `status IN ('active',
+  'paused')` **and** its sublocation (if any) is `approved`; a sublocation is
+  public when `approved`. The predicate lives in every public query in
+  `videos.sql`/`sublocations.sql` — lists (which feed the sitemap and the
+  search index), the per-camera page and everything keyed off
+  `GetVideoBySlug` (frames, snapshot.jpg, stream.m3u8), related cameras, the
+  popular/newest sorts, and the sublocation slug lookup behind
+  weather/conditions/lightning — so a pending sublocation's slug 404s. Paused
+  cameras list (the player shows a placeholder, DAN-40) but do not count in
+  `video_count`/`first_src`, and the snapshot archive (`ListArchiveSources`)
+  captures active cameras only.
+- **Creating a camera** (`POST /me/videos`) validates the RTSP URL with the
+  same `restreamer.ValidateRTSPURL` as `/streams`, creates the ingest through
+  the same `createIngestStream` (passthrough codec, auto-reconnect, UI
+  metadata), stores `stream_id` and `src = rc.HLSURL(id)`, and files it under
+  the sublocation's state. Limits are constants in `status.go`: **10 cameras
+  per owner** (any status; deleting frees a slot) and **5 creations per owner
+  per rolling 24 h**, both 429 with a clear message, checked before anything
+  is created on Restreamer; the same 10/min limiter as `/streams` sits in
+  front. If the row insert fails after the process was created, the process
+  is deleted again.
+- **Caches**: nothing under `/me` or `/review` is cached (per user / live
+  queue). Every owner write and every transition flushes `videos:*`,
+  `sublocations:*` and `states:*`.
+- **Tests**: `handler/me_test.go` and `review_test.go` run the real handlers
+  on an in-memory `ownerStore` (`owner_fakes_test.go`) with a fake Restreamer
+  and the fake Redis; `status_test.go` pins the transition tables;
+  `sql/owner_review_test.go` checks the visibility predicate and the CHECKs
+  against a scratch Postgres when `TEST_DATABASE_URL` is set.
 
 ### Ads
 

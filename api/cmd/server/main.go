@@ -137,7 +137,9 @@ func run() error {
 	job := &archive.Job{
 		Store: snapshots,
 		ListSources: func(ctx context.Context) ([]archive.Source, error) {
-			rows, err := db.New(pool).ListVideos(ctx)
+			// Active cameras only — never paused (not capturing), pending or
+			// rejected ones (DAN-39).
+			rows, err := db.New(pool).ListArchiveSources(ctx)
 			if err != nil {
 				return nil, err
 			}
