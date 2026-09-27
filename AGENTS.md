@@ -314,6 +314,7 @@ new-nationcam/                        # Repo root
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `slug`, `view_count`, `created_by`, `created_at`, `updated_at`
 - **posts**: `post_id`, `title`, `slug`, `body_md`, `excerpt`, `cover_url`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs, `ON DELETE SET NULL` — at most one set, this is the "Field notes" attachment), `status` (`draft` | `published`), `published_at` (nullable), `created_by`, `created_at`, `updated_at`
 - **events**: `event_id`, `title`, `description_md`, `starts_at` (`TIMESTAMPTZ NOT NULL`), `ends_at` (nullable), `url` (nullable), `sublocation_id` (FK, `NOT NULL ON DELETE CASCADE` — an event always belongs to one place), `video_id` (nullable FK, `ON DELETE SET NULL` — an optional "watch here" pointer to a camera in that sublocation), `created_by`, `created_at`, `updated_at`
+- **audio_stations**: `audio_station_id`, `name`, `stream_url` (https only), `enabled`, `sort_order`, `state_id` / `sublocation_id` (both nullable FKs, `ON DELETE CASCADE` — at most one set, optional single-level scope; no per-camera scope), `created_at`, `updated_at`
 
 Video slugs are generated from `title` and are unique per `(state_id, sublocation_id)`;
 duplicate titles get a `-2`, `-3`, … suffix. Columns added after the first production
@@ -391,6 +392,11 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/events`                        | Create event                   | Admin (Logto) |
 | PUT    | `/events/{id}`                   | Update event                   | Admin (Logto) |
 | DELETE | `/events/{id}`                   | Delete event                   | Admin (Logto) |
+| GET    | `/audio/stations?video_id=N`     | DB-backed stations (scoped to that camera's state/sublocation, plus unscoped) then AzuraCast's list, same JSON shape | None |
+| GET    | `/audio/stations/all`            | Every DB-backed station, any scope | Admin (Logto) |
+| POST   | `/audio/stations`                | Create station                 | Admin (Logto) |
+| PUT    | `/audio/stations/{id}`           | Update station                 | Admin (Logto) |
+| DELETE | `/audio/stations/{id}`           | Delete station                 | Admin (Logto) |
 | GET    | `/admin/users?page=&page_size=`  | Logto users, newest role data resolved per user | Admin (Logto) or Ops key |
 | GET    | `/admin/users/stats`             | `{ total, new_7d, new_30d, admins }` | Admin (Logto) or Ops key |
 | GET    | `/admin/roles`                   | Every Logto role + user count + scopes | Admin (Logto) or Ops key |

@@ -6,6 +6,8 @@ import type {
   AdminUserStats,
   AdminUsersResponse,
   Alert,
+  AudioStation,
+  AudioStationInput,
   Branding,
   CameraDetail,
   Conditions,
@@ -812,6 +814,37 @@ export async function deleteEvent(
   token?: string | null,
 ): Promise<void> {
   return del(`/events/${id}`, token)
+}
+
+/* ──── Audio stations (DAN-47) ──── */
+
+/** Every DB-backed station, any scope (admin). AzuraCast stations don't live here. */
+export async function fetchAudioStations(
+  token?: string | null,
+): Promise<Array<AudioStation>> {
+  return authedGet<Array<AudioStation>>('/audio/stations/all', token)
+}
+
+export async function createAudioStation(
+  input: AudioStationInput,
+  token?: string | null,
+): Promise<AudioStation> {
+  return post<AudioStation>('/audio/stations', input, token)
+}
+
+export async function updateAudioStation(
+  id: number,
+  input: AudioStationInput,
+  token?: string | null,
+): Promise<AudioStation> {
+  return put<AudioStation>(`/audio/stations/${id}`, input, token)
+}
+
+export async function deleteAudioStation(
+  id: number,
+  token?: string | null,
+): Promise<void> {
+  return del(`/audio/stations/${id}`, token)
 }
 
 /**
