@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Video } from 'lucide-react'
+import { Pause, Video } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 /** How often poster frames are re-fetched while the tab is visible. */
@@ -45,6 +45,10 @@ interface PosterTileProps {
   /** Poster JPEG from `streamPoster`; undefined draws a placeholder. */
   poster?: string
   live?: boolean
+  /** Owner has paused this camera — shows a muted "Paused" badge instead of
+   *  the live pulse, while the tile stays clickable (DAN-40). Takes priority
+   *  over `live` when both are set. */
+  paused?: boolean
   /** Highlighted as the camera currently in the featured player. */
   selected?: boolean
   /** From `usePosterTick` — appended as `?t=` to bust the poster cache. */
@@ -63,6 +67,7 @@ export default function PosterTile({
   meta,
   poster,
   live = false,
+  paused = false,
   selected = false,
   tick = 0,
   link,
@@ -88,14 +93,21 @@ export default function PosterTile({
             <Video size={28} />
           </div>
         )}
-        {live && (
+        {paused ? (
           <span className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-white uppercase">
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full bg-live"
-              style={{ animation: 'pulse-live 1.5s ease-in-out infinite' }}
-            />
-            Live
+            <Pause size={10} />
+            Paused
           </span>
+        ) : (
+          live && (
+            <span className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-white uppercase">
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full bg-live"
+                style={{ animation: 'pulse-live 1.5s ease-in-out infinite' }}
+              />
+              Live
+            </span>
+          )
         )}
       </div>
       <div className="px-3 py-2.5">

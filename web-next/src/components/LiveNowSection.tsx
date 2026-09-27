@@ -24,7 +24,8 @@ interface LiveNowSectionProps {
 }
 
 /**
- * "Live now" — every active camera, one click away from the home page.
+ * "Live now" — every active or paused camera, one click away from the home
+ * page (a paused one shows the "Paused" badge instead of "Live" — DAN-40).
  * Grouped by state (locked decision), capped at 24 tiles with a link to the
  * full directory when there are more. Reuses `PosterTile` and builds camera
  * links exactly like `routes/locations/$slug.index.tsx` does.
@@ -35,8 +36,10 @@ export default function LiveNowSection({
   sublocations,
 }: LiveNowSectionProps) {
   const tick = usePosterTick()
-  const activeVideos = videos.filter((v) => v.status === 'active')
-  if (activeVideos.length === 0) return null
+  const visibleVideos = videos.filter(
+    (v) => v.status === 'active' || v.status === 'paused',
+  )
+  if (visibleVideos.length === 0) return null
 
   const stateSlugById = new Map(states.map((s) => [s.state_id, s.slug]))
   const sublocationSlugById = new Map(
@@ -46,7 +49,7 @@ export default function LiveNowSection({
   // Group by state, preserving first-seen order per state, then sort states
   // alphabetically so the grid reads consistently across renders.
   const groupsByStateId = new Map<number, StateGroup>()
-  for (const video of activeVideos) {
+  for (const video of visibleVideos) {
     let group = groupsByStateId.get(video.state_id)
     if (!group) {
       group = {
@@ -73,7 +76,7 @@ export default function LiveNowSection({
     sections.push({ ...group, videos: trimmed })
     remaining -= trimmed.length
   }
-  const hasMore = activeVideos.length > MAX_TILES
+  const hasMore = visibleVideos.length > MAX_TILES
 
   return (
     <section className="py-20">
@@ -104,8 +107,12 @@ export default function LiveNowSection({
                     <PosterTile
                       key={video.video_id}
                       title={video.title}
-                      poster={streamPoster(video.src, true)}
-                      live
+                      poster={streamPoster(
+                        video.src,
+                        video.status === 'active',
+                      )}
+                      live={video.status === 'active'}
+                      paused={video.status === 'paused'}
                       tick={tick}
                       link={
                         group.stateSlug && sublocationSlug

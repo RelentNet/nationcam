@@ -258,7 +258,11 @@ export interface Video extends Editorial {
   slug: string
   state_id: number
   sublocation_id: number | null
-  status: 'active' | 'inactive'
+  /** 'paused' is an owner-initiated pause (DAN-39/DAN-40) — still public,
+   *  but CameraPlayer/PosterTile show a placeholder/badge instead of the
+   *  live player. 'pending'/'rejected' exist in the database but the public
+   *  API never returns them here. */
+  status: 'active' | 'inactive' | 'paused'
   created_by: string
   created_at: string
   updated_at: string
@@ -266,6 +270,12 @@ export interface Video extends Editorial {
   sublocation_name: string
   /** Only present on `GET /videos?sort=views|newest` rows (and `Camera`). */
   view_count?: number
+  /** Only present on `Camera` (the per-camera endpoint resolves these slugs)
+   *  — undefined on every other `Video` row. Lets the paused-camera
+   *  placeholder build the snapshot URL and the "browse other cameras" link
+   *  without needing a stricter prop type at every `CameraPlayer` call site. */
+  state_slug?: string
+  sublocation_slug?: string
 }
 
 /**
