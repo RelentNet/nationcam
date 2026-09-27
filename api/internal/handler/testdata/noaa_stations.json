@@ -1,0 +1,30 @@
+{
+  "count": 3,
+  "units": "english",
+  "stations": [
+    {
+      "id": "8760922",
+      "name": "Pilots Station East, S.W. Pass",
+      "lat": 28.9317,
+      "lng": -89.4075,
+      "state": "LA",
+      "tidal": true
+    },
+    {
+      "id": "8761724",
+      "name": "Grand Isle",
+      "lat": 29.2633,
+      "lng": -89.9567,
+      "state": "LA",
+      "tidal": true
+    },
+    {
+      "id": "8518750",
+      "name": "The Battery, NY",
+      "lat": 40.7,
+      "lng": -74.0142,
+      "state": "NY",
+      "tidal": true
+    }
+  ]
+}

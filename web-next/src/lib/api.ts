@@ -3,6 +3,7 @@ import type {
   AdInput,
   Branding,
   CameraDetail,
+  Conditions,
   CreateStateInput,
   CreateStreamInput,
   CreateSublocationInput,
@@ -317,6 +318,17 @@ export async function fetchSublocationBySlug(
  */
 export async function fetchWeather(slug: string): Promise<Weather | null> {
   return get<Weather>(`/sublocations/${slug}/weather`).catch(() => null)
+}
+
+/**
+ * Forecast plus tides/river stage for the sublocation's coordinates. Null on
+ * 404 (no lat/lng set) or any failure — the page simply renders no
+ * conditions section.
+ */
+export async function fetchConditions(
+  slug: string,
+): Promise<Conditions | null> {
+  return get<Conditions>(`/sublocations/${slug}/conditions`).catch(() => null)
 }
 
 export async function createSublocation(
