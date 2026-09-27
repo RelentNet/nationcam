@@ -2,6 +2,7 @@ import type {
   Ad,
   AdInput,
   AdminPost,
+  Alert,
   Branding,
   CameraDetail,
   Conditions,
@@ -375,6 +376,20 @@ export async function fetchLightning(slug: string): Promise<LightningResult> {
   } catch {
     return 'unavailable'
   }
+}
+
+/**
+ * Active NWS watches/warnings/advisories for the sublocation's coordinates,
+ * most severe first. Resolves to `[]` on 404 (no lat/lng), any upstream
+ * failure, or a timeout — the API itself never errors for this endpoint,
+ * but the fetch is wrapped the same defensive way as the other panel
+ * fetchers in case the request itself fails client-side. Used by the route
+ * loaders for the server render and by the banner's 5-minute client-side poll.
+ */
+export async function fetchAlerts(slug: string): Promise<Array<Alert>> {
+  return get<{ alerts: Array<Alert> }>(`/sublocations/${slug}/alerts`)
+    .then((r) => r.alerts)
+    .catch(() => [])
 }
 
 export async function createSublocation(

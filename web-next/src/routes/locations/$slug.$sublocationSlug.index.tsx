@@ -1,5 +1,6 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import {
+  fetchAlerts,
   fetchLightning,
   fetchRelatedPosts,
   fetchSublocationBySlug,
@@ -19,12 +20,13 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
     ).catch(() => null)
     if (!sublocation) throw notFound()
 
-    const [videos, siblings, weather, lightning, relatedPosts, events] =
+    const [videos, siblings, weather, lightning, alerts, relatedPosts, events] =
       await Promise.all([
         fetchVideosBySublocation(sublocation.sublocation_id),
         fetchSublocationsByState(params.slug),
         fetchWeather(params.sublocationSlug),
         fetchLightning(params.sublocationSlug),
+        fetchAlerts(params.sublocationSlug),
         fetchRelatedPosts({ sublocationId: sublocation.sublocation_id }),
         fetchUpcomingEventsFor({ sublocationId: sublocation.sublocation_id }),
       ])
@@ -35,6 +37,7 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
       siblings,
       weather,
       lightning,
+      alerts,
       relatedPosts,
       events,
       featured: pickFeatured(videos),

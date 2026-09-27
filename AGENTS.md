@@ -231,6 +231,7 @@ new-nationcam/                        # Repo root
         json.go                       # JSON read/write helpers
         cached.go                     # Response caching wrapper
         lightning.go                  # GET /sublocations/{slug}/lightning
+        alerts.go                     # GET /sublocations/{slug}/alerts
   web/                                # React SPA
     package.json
     Dockerfile                        # Multi-stage: npm build → nginx serve
@@ -330,6 +331,7 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/sublocations/{slug}/weather`   | Current conditions plus outdoor-activity estimates — dew point, UV, wet-bulb, heat stress, cloud cover, visibility, pressure + trend, precip, rain next hour, storm potential, US AQI (Open-Meteo, 10-min Redis cache; every added field is nullable and best-effort — see "Outdoor-activity stats" below); 404 without lat/lng | None |
 | GET    | `/sublocations/{slug}/conditions` | 3-day forecast, a 12-hour hourly strip (temp/rain/wind/UV), plus NOAA tide predictions and USGS river stage from the nearest station/gauge (30-min Redis cache), or from the sublocation's `noaa_station_id`/`usgs_site_id` when set (`none` disables that source); 404 without lat/lng | None |
 | GET    | `/sublocations/{slug}/lightning` | Satellite lightning status from NOAA GOES-19 GLM — `status` (`clear`/`caution`/`alert`), nearest strike (mi), last strike time, strike counts within 10 mi/30 mi over 30 min, `all_clear_at` (see "Lightning" below); evaluated per request from the in-memory store, never Redis-cached; 404 without lat/lng, 503 `{error, updated_at}` when the feed is older than 5 min | None |
+| GET    | `/sublocations/{slug}/alerts` | Active NWS watches/warnings/advisories for the sublocation's coordinates (api.weather.gov), most severe then soonest-ending first (5-min Redis cache); 404 without lat/lng, upstream failure/timeout answers `{ alerts: [] }` rather than an error | None |
 | POST   | `/sublocations`                  | Create sublocation             | Admin (Logto) |
 | GET    | `/videos`                        | All active videos              | None          |
 | GET    | `/videos?state_id=N`             | Videos by state                | None          |
@@ -471,6 +473,10 @@ never fails the response.
   existing detail stats. The conditions page's 12-hour strip (hour, temp,
   rain %, wind, UV) is server-rendered from `GET .../conditions`'s `hourly`
   array, which reuses the same forecast call as the 3-day forecast.
+- Active NWS watches/warnings for the same coordinates are a separate
+  endpoint (`GET .../alerts`, see API Endpoints) — official NWS products
+  from api.weather.gov, not an Open-Meteo forecast estimate like the fields
+  above, so they are never folded into this response.
 
 ### Logto management connection
 

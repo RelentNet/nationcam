@@ -1,7 +1,8 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ArrowRight, Zap } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type {
+  Alert,
   HeatStressLevel,
   Lightning,
   LightningResult,
@@ -9,7 +10,7 @@ import type {
   Sublocation,
   Weather,
 } from '@/lib/types'
-import { fetchLightning } from '@/lib/api'
+import { fetchAlerts, fetchLightning } from '@/lib/api'
 
 function clockText(date: Date, timeZone: string): string {
   try {
@@ -122,11 +123,11 @@ function StatusTile({
   tone: Tone
 }) {
   return (
-    <div className={`rounded-lg px-2.5 py-1.5 ${toneClasses[tone]}`}>
+    <div className={`min-w-0 rounded-lg px-2.5 py-1.5 ${toneClasses[tone]}`}>
       <b className="block font-mono text-[13px] leading-tight font-semibold tabular-nums">
         {value}
       </b>
-      <span className="text-[11px] tracking-[0.05em] uppercase opacity-80">
+      <span className="block text-[11px] tracking-[0.05em] break-words uppercase opacity-80">
         {label}
       </span>
     </div>
@@ -239,6 +240,158 @@ function statusTiles(
     })
   }
   return tiles
+}
+
+/* ──── NWS active alerts (DAN-35) ──── */
+
+/** How often the banner re-asks the API while mounted — matches the API's
+ *  own Redis TTL, so a poll is never wasted. */
+const ALERTS_POLL_MS = 5 * 60_000
+
+type AlertTone = 'alert' | 'caution' | 'neutral'
+
+const alertToneClasses: Record<AlertTone, string> = {
+  alert: 'bg-live/10 text-live',
+  caution: 'bg-accent/10 text-accent',
+  neutral: 'bg-surface1 text-subtext0',
+}
+
+/**
+ * Red for a Warning, orange for a Watch/Advisory, grey for anything else.
+ * Matched on the event name rather than NWS's `severity` field, since
+ * severity doesn't line up 1:1 with these three — e.g. a Flood Watch and a
+ * Flood Warning can both come back "Severe".
+ */
+function alertTone(event: string): AlertTone {
+  if (/warning/i.test(event)) return 'alert'
+  if (/watch|advisory/i.test(event)) return 'caution'
+  return 'neutral'
+}
+
+/**
+ * "3:42 PM" — UTC before mount so the server render and first client paint
+ * agree, the viewer's real time zone once mounted. Same render-then-correct
+ * pattern as `EventWhen` in SublocationPage.tsx.
+ */
+function alertUntilText(iso: string, mounted: boolean): string {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    timeZone: mounted ? undefined : 'UTC',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function AlertCard({ alert, mounted }: { alert: Alert; mounted: boolean }) {
+  const [open, setOpen] = useState(false)
+  const hasDetails = Boolean(alert.description || alert.instruction)
+  return (
+    <div
+      className={`rounded-lg px-3 py-2.5 ${alertToneClasses[alertTone(alert.event)]}`}
+      role="status"
+    >
+      <div className="flex items-center gap-2">
+        <AlertTriangle size={14} aria-hidden="true" className="shrink-0" />
+        <span className="font-mono text-[11px] tracking-[0.08em] uppercase opacity-80">
+          {alert.event}
+        </span>
+        {alert.ends && (
+          <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums opacity-80">
+            until {alertUntilText(alert.ends, mounted)}
+          </span>
+        )}
+      </div>
+      <p className="mt-1 mb-0 text-[13px] font-medium">{alert.headline}</p>
+      {hasDetails && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="mt-1.5 font-mono text-[11px] font-medium underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
+          >
+            {open ? 'Hide details' : 'Details'}
+          </button>
+          {open && (
+            <div className="mt-1.5 flex flex-col gap-1.5 text-[12px] opacity-90">
+              {alert.description && (
+                <p className="mb-0 whitespace-pre-line">{alert.description}</p>
+              )}
+              {alert.instruction && (
+                <p className="mb-0 font-medium whitespace-pre-line">
+                  {alert.instruction}
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Active NWS watches/warnings/advisories for the sublocation (DAN-35), one
+ * banner per alert, most severe first (the API's own sort order). `initial`
+ * is the route loader's fetch (server-rendered); the banner then refetches
+ * every 5 minutes while mounted, matching the API's own Redis TTL. Always
+ * mount this unconditionally (never gated on `initial.length` by the
+ * caller) — a poll can bring the first alert in for a page that started
+ * with none, and that only happens if the component is already mounted and
+ * polling. It owns its full wrapper, including whether one renders at all,
+ * so it — and the space it takes — disappears entirely once the list is
+ * empty, whether that's true on first render or after a poll clears the
+ * last active alert.
+ */
+export function AlertsBanner({
+  slug,
+  initial,
+  standalone = false,
+}: {
+  slug: string
+  initial: Array<Alert>
+  /** true for a top-of-page placement (the conditions page) with its own
+   *  bordered card; false (default) for a section inside NowPanel's
+   *  stacked card, matching its border-bottom/padding rhythm. */
+  standalone?: boolean
+}) {
+  const [alerts, setAlerts] = useState<Array<Alert>>(initial)
+  const [mounted, setMounted] = useState(false)
+  // A navigation to another sublocation hands the banner a fresh `initial`.
+  useEffect(() => setAlerts(initial), [initial, slug])
+  useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = setInterval(() => {
+      void fetchAlerts(slug).then((next) => {
+        if (!cancelled) setAlerts(next)
+      })
+    }, ALERTS_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [slug])
+
+  if (alerts.length === 0) return null
+
+  const list = (
+    <div className="flex flex-col gap-2">
+      {alerts.map((a) => (
+        <AlertCard key={a.id} alert={a} mounted={mounted} />
+      ))}
+    </div>
+  )
+
+  if (standalone) {
+    return (
+      <div className="mb-6 overflow-hidden rounded-2xl border border-overlay0 bg-surface0 p-3">
+        {list}
+      </div>
+    )
+  }
+
+  return <div className="border-b border-overlay0 px-5 py-3">{list}</div>
 }
 
 /* ──── Lightning (DAN-34) ──── */
@@ -435,11 +588,14 @@ export default function NowPanel({
   weather: w,
   sublocation,
   lightning = null,
+  alerts = [],
 }: {
   weather: Weather
   sublocation: Sublocation
   /** The route loader's lightning fetch; `null`/omitted renders no card. */
   lightning?: LightningResult
+  /** The route loader's alerts fetch; empty/omitted renders no banner. */
+  alerts?: Array<Alert>
 }) {
   const host = hostRow(sublocation)
   // NowPanel is only ever rendered inside a /locations/$slug/$sublocationSlug
@@ -517,6 +673,8 @@ export default function NowPanel({
         </div>
       </div>
 
+      <AlertsBanner slug={sublocation.slug} initial={alerts} />
+
       {lightning !== null && (
         <div className="border-b border-overlay0 px-5 py-3">
           <LightningCard slug={sublocation.slug} initial={lightning} />
@@ -528,7 +686,7 @@ export default function NowPanel({
           <p className="mb-1.5 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
             Outdoor conditions
           </p>
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2">
             {tiles.map(({ id, ...tile }) => (
               <StatusTile key={id} {...tile} />
             ))}

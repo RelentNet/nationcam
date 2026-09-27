@@ -217,6 +217,39 @@ export interface Lightning {
  */
 export type LightningResult = Lightning | 'unavailable' | null
 
+/** `severity` on `Alert` — NWS's fixed vocabulary, most to least severe. */
+export type AlertSeverity =
+  'Extreme' | 'Severe' | 'Moderate' | 'Minor' | 'Unknown'
+
+/**
+ * One active NWS watch/warning/advisory from
+ * `GET /sublocations/{slug}/alerts` (DAN-35), sourced from
+ * `api.weather.gov/alerts/active`. `description` is truncated to 400
+ * characters server-side; `instruction` is null when NWS didn't send one;
+ * `ends` falls back to the feature's `expires` when NWS left `ends` unset
+ * (common for watches), and is null when neither is present.
+ */
+export interface Alert {
+  id: string
+  event: string
+  severity: AlertSeverity
+  urgency: string
+  headline: string
+  description: string
+  instruction: string | null
+  onset: string
+  ends: string | null
+  sender: string
+}
+
+/** `GET /sublocations/{slug}/alerts` — active NWS alerts for the
+ *  sublocation's coordinates, most severe first then soonest-ending.
+ *  Always `{ alerts: [] }` on 404/failure so a banner section can render
+ *  nothing rather than an error. */
+export interface AlertsResponse {
+  alerts: Array<Alert>
+}
+
 export interface Video extends Editorial {
   video_id: number
   title: string

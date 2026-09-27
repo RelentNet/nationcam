@@ -1,0 +1,77 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.tornado-watch-1",
+      "type": "Feature",
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.tornado-watch-1",
+        "event": "Tornado Watch",
+        "severity": "Extreme",
+        "urgency": "Expected",
+        "headline": "Tornado Watch issued September 27 at 4:00PM CDT until September 27 at 10:00PM CDT by NWS Storm Prediction Center",
+        "description": "TORNADO WATCH 512 IS IN EFFECT UNTIL 10 PM CDT THIS EVENING FOR THE FOLLOWING AREAS... IN LOUISIANA THIS WATCH INCLUDES 12 COUNTIES. THIS INCLUDES THE CITIES OF NEW ORLEANS, VENICE, AND HOUMA.",
+        "instruction": "",
+        "onset": "2026-09-27T16:00:00-05:00",
+        "ends": null,
+        "expires": "2026-09-27T22:00:00-05:00",
+        "senderName": "NWS Storm Prediction Center",
+        "messageType": "Alert"
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.flood-warning-1",
+      "type": "Feature",
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.flood-warning-1",
+        "event": "Flash Flood Warning",
+        "severity": "Severe",
+        "urgency": "Immediate",
+        "headline": "Flash Flood Warning issued September 27 at 5:45PM CDT until September 27 at 6:30PM CDT by NWS New Orleans LA",
+        "description": "At 545 PM CDT, Doppler radar indicated heavy rain across the warned area. Between 3 and 5 inches of rain have fallen.",
+        "instruction": "Turn around, don't drown when encountering flooded roads.",
+        "onset": "2026-09-27T17:45:00-05:00",
+        "ends": "2026-09-27T18:30:00-05:00",
+        "expires": "2026-09-27T18:30:00-05:00",
+        "senderName": "NWS New Orleans LA",
+        "messageType": "Alert"
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.severe-thunderstorm-1",
+      "type": "Feature",
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.severe-thunderstorm-1",
+        "event": "Severe Thunderstorm Warning",
+        "severity": "Severe",
+        "urgency": "Immediate",
+        "headline": "Severe Thunderstorm Warning issued September 27 at 6:12PM CDT until September 27 at 7:00PM CDT by NWS New Orleans LA",
+        "description": "At 612 PM CDT, a severe thunderstorm was located near Venice, moving northeast at 25 mph. HAZARD...60 mph wind gusts and quarter size hail.",
+        "instruction": "For your protection move to an interior room on the lowest floor of a building.",
+        "onset": "2026-09-27T18:12:00-05:00",
+        "ends": "2026-09-27T19:00:00-05:00",
+        "expires": "2026-09-27T19:00:00-05:00",
+        "senderName": "NWS New Orleans LA",
+        "messageType": "Alert"
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.heat-advisory-1",
+      "type": "Feature",
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.heat-advisory-1",
+        "event": "Heat Advisory",
+        "severity": "Moderate",
+        "urgency": "Expected",
+        "headline": "Heat Advisory issued September 27 at 9:00AM CDT until September 28 at 7:00PM CDT by NWS New Orleans LA",
+        "description": "Hot temperatures combined with high humidity will combine to create a dangerous situation. Heat index values up to 112 expected.",
+        "instruction": "Drink plenty of fluids, stay in an air-conditioned room, and check on relatives and neighbors.",
+        "onset": "2026-09-27T09:00:00-05:00",
+        "ends": "2026-09-28T19:00:00-05:00",
+        "expires": "2026-09-28T19:00:00-05:00",
+        "senderName": "NWS New Orleans LA",
+        "messageType": "Alert"
+      }
+    }
+  ]
+}
