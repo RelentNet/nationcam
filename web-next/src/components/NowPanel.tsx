@@ -1,3 +1,5 @@
+import { Link, useParams } from '@tanstack/react-router'
+import { ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Sublocation, Weather } from '@/lib/types'
 
@@ -97,6 +99,11 @@ export default function NowPanel({
   sublocation: Sublocation
 }) {
   const host = hostRow(sublocation)
+  // NowPanel is only ever rendered inside a /locations/$slug/$sublocationSlug
+  // route, but it isn't handed the state slug as a prop — reading it off the
+  // matched route avoids threading it through every caller.
+  const { slug: stateSlug } = useParams({ strict: false })
+  const hasCoords = sublocation.lat != null && sublocation.lng != null
   return (
     <aside
       aria-label={`Current conditions at ${sublocation.name}`}
@@ -138,6 +145,18 @@ export default function NowPanel({
           <span>↓ {w.sunset}</span>
         </div>
       </div>
+
+      {hasCoords && stateSlug && (
+        <div className="border-b border-overlay0 px-5 py-2.5">
+          <Link
+            to="/locations/$slug/$sublocationSlug/conditions"
+            params={{ slug: stateSlug, sublocationSlug: sublocation.slug }}
+            className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent hover:underline"
+          >
+            Full conditions <ArrowRight size={12} />
+          </Link>
+        </div>
+      )}
 
       {w.marine && (
         <div className="border-b border-overlay0 px-5 py-3">

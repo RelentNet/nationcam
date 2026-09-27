@@ -91,6 +91,41 @@ export interface Weather {
   fetched_at: string
 }
 
+/** One day of `Conditions.forecast`. */
+export interface ForecastDay {
+  date: string
+  high_f: number
+  low_f: number
+  precip_chance: number
+  wind_max_mph: number
+  sunrise: string
+  sunset: string
+}
+
+/** One predicted high or low tide in `Conditions.tides.predictions`. */
+export interface TidePrediction {
+  time: string
+  height_ft: number
+  type: 'high' | 'low'
+}
+
+/** `GET /sublocations/{slug}/conditions` — the "is it worth going today"
+ *  page: a 3-day forecast plus, where public data exists nearby, NOAA tide
+ *  predictions and USGS river stage. `tides`/`river` are null when no
+ *  station/gauge is within range. */
+export interface Conditions {
+  forecast: Array<ForecastDay>
+  tides: {
+    station_name: string
+    predictions: Array<TidePrediction>
+  } | null
+  river: {
+    site_name: string
+    stage_ft: number
+    observed_at: string
+  } | null
+}
+
 export interface Video extends Editorial {
   video_id: number
   title: string

@@ -30,17 +30,26 @@ export const Route = createFileRoute('/sitemap.xml')({
 
         const locationPaths = await Promise.all(
           states.map(async (state) => {
-            const sublocations = (
-              await fetchSublocationsByState(state.slug)
-            ).filter((sub) => sub.video_count > 0)
-            return [
-              `/locations/${state.slug}`,
-              ...sublocations.map((sub) => {
+            const sublocations = await fetchSublocationsByState(state.slug)
+            // The sublocation hub page itself stays gated on having cameras
+            // (an empty hub reads as unfinished, see above), but a conditions
+            // page needs only coordinates — it has forecast/tide/river
+            // content of its own even before a camera goes live there.
+            return sublocations.flatMap((sub) => {
+              const paths: Array<string> = []
+              if (sub.video_count > 0) {
                 subPathById.set(sub.sublocation_id, `${state.slug}/${sub.slug}`)
-                return `/locations/${state.slug}/${sub.slug}`
-              }),
-            ]
+                paths.push(`/locations/${state.slug}/${sub.slug}`)
+              }
+              if (sub.lat != null && sub.lng != null) {
+                paths.push(`/locations/${state.slug}/${sub.slug}/conditions`)
+              }
+              return paths
+            })
           }),
+        )
+        const locationIndexPaths = states.map(
+          (state) => `/locations/${state.slug}`,
         )
 
         // Camera pages — the highest-value URLs we have. Cameras with no
@@ -53,7 +62,12 @@ export const Route = createFileRoute('/sitemap.xml')({
             : []
         })
 
-        const urls = [...STATIC_PATHS, ...locationPaths.flat(), ...cameraPaths]
+        const urls = [
+          ...STATIC_PATHS,
+          ...locationIndexPaths,
+          ...locationPaths.flat(),
+          ...cameraPaths,
+        ]
           .map((path) => `  <url><loc>${SITE_URL}${path}</loc></url>`)
           .join('\n')
 

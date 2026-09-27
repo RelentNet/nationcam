@@ -38,6 +38,7 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.Get("/states/{slug}/sublocations", ListSublocationsByState(pool, c))
 	r.Get("/sublocations/{slug}", GetSublocation(pool, c))
 	r.Get("/sublocations/{slug}/weather", GetWeather(pool, c))
+	r.Get("/sublocations/{slug}/conditions", GetConditions(pool, c))
 	r.With(mw.RequireAdmin).Post("/sublocations", CreateSublocation(pool, c))
 	r.With(mw.RequireAdmin).Put("/sublocations/{id}", UpdateSublocation(pool, c))
 	r.With(mw.RequireAdmin).Delete("/sublocations/{id}", DeleteSublocation(pool, c))

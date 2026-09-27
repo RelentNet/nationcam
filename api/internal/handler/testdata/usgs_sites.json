@@ -1,0 +1,47 @@
+{
+  "value": {
+    "timeSeries": [
+      {
+        "sourceInfo": {
+          "siteName": "Mississippi River at New Orleans, LA",
+          "siteCode": [{ "value": "07374000", "network": "NWIS", "agencyCode": "USGS" }],
+          "geoLocation": {
+            "geogLocation": {
+              "srs": "EPSG:4326",
+              "latitude": 29.9403,
+              "longitude": -90.0715
+            }
+          }
+        },
+        "values": [
+          {
+            "value": [
+              { "value": "8.42", "dateTime": "2026-09-26T11:00:00.000-05:00" },
+              { "value": "8.51", "dateTime": "2026-09-26T11:15:00.000-05:00" }
+            ]
+          }
+        ]
+      },
+      {
+        "sourceInfo": {
+          "siteName": "Grand Rapids, MI river gauge",
+          "siteCode": [{ "value": "04119000", "network": "NWIS", "agencyCode": "USGS" }],
+          "geoLocation": {
+            "geogLocation": {
+              "srs": "EPSG:4326",
+              "latitude": 42.9634,
+              "longitude": -85.6681
+            }
+          }
+        },
+        "values": [
+          {
+            "value": [
+              { "value": "3.10", "dateTime": "2026-09-26T11:00:00.000-04:00" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
