@@ -9,6 +9,8 @@ import type {
   CreateStreamInput,
   CreateSublocationInput,
   CreateVideoInput,
+  EventInput,
+  EventItem,
   FramesResponse,
   Host,
   PaginatedResponse,
@@ -690,6 +692,61 @@ export async function deletePost(
   token?: string | null,
 ): Promise<void> {
   return del(`/posts/${id}`, token)
+}
+
+/* ──── Events ──── */
+
+/** Every upcoming event sitewide, soonest first (limit 50) — backs /events.
+ *  Failures resolve to `[]` so the page renders an empty state instead of
+ *  breaking. */
+export async function fetchUpcomingEvents(): Promise<Array<EventItem>> {
+  return get<Array<EventItem>>('/events?upcoming=1').catch(() => [])
+}
+
+/**
+ * Up to 3 upcoming events for a sublocation or camera — backs the "Upcoming"
+ * block. Pass exactly one of the two; any failure (or neither given)
+ * resolves to `[]` so the block simply doesn't render.
+ */
+export async function fetchUpcomingEventsFor(scope: {
+  videoId?: number
+  sublocationId?: number
+}): Promise<Array<EventItem>> {
+  const q = new URLSearchParams()
+  if (scope.videoId) q.set('video_id', String(scope.videoId))
+  else if (scope.sublocationId)
+    q.set('sublocation_id', String(scope.sublocationId))
+  else return []
+  return get<Array<EventItem>>(`/events?${q.toString()}`).catch(() => [])
+}
+
+/** Every event, upcoming or past, newest starts_at first (admin). */
+export async function fetchAllEvents(
+  token?: string | null,
+): Promise<Array<EventItem>> {
+  return authedGet<Array<EventItem>>('/events/all', token)
+}
+
+export async function createEvent(
+  input: EventInput,
+  token?: string | null,
+): Promise<EventItem> {
+  return post<EventItem>('/events', input, token)
+}
+
+export async function updateEvent(
+  id: number,
+  input: EventInput,
+  token?: string | null,
+): Promise<EventItem> {
+  return put<EventItem>(`/events/${id}`, input, token)
+}
+
+export async function deleteEvent(
+  id: number,
+  token?: string | null,
+): Promise<void> {
+  return del(`/events/${id}`, token)
 }
 
 /**

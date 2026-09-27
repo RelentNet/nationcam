@@ -8,6 +8,7 @@ const footerSections = [
       { label: 'All Locations', to: '/locations' },
       { label: 'Louisiana', to: '/locations/louisiana' },
       { label: 'Field Notes', to: '/notes' },
+      { label: 'Events', to: '/events' },
     ],
   },
   {

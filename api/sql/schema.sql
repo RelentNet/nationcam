@@ -362,6 +362,47 @@ CREATE OR REPLACE TRIGGER trg_posts_updated
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ────────────────────────────────────────────────
+-- Events — DAN-27
+--
+-- Hosts' events (tournaments, rodeos, festivals) shown on the cameras that
+-- can watch them and on the sitewide /events page. Unlike ads/posts, the
+-- attachment is not "at most one of three": sublocation_id is required (an
+-- event always belongs to one place) and video_id is an optional, additional
+-- "watch here" pointer to a specific camera in that sublocation — the API
+-- rejects a video_id that doesn't belong to the chosen sublocation_id rather
+-- than enforcing it here, since that check needs a join. Times are stored as
+-- timestamptz and rendered in the viewer's local time by the frontend.
+-- Self-contained (table + indexes + trigger) so it drops in without
+-- interleaving with the sections above; everything here is
+-- CREATE ... IF NOT EXISTS / OR REPLACE, so a restart against a database that
+-- already has it is a no-op.
+-- ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS events (
+  event_id       SERIAL PRIMARY KEY,
+  title          TEXT NOT NULL,
+  description_md TEXT NOT NULL DEFAULT '',
+  starts_at      TIMESTAMPTZ NOT NULL,
+  ends_at        TIMESTAMPTZ,
+  url            TEXT,
+  sublocation_id INTEGER NOT NULL REFERENCES sublocations(sublocation_id) ON DELETE CASCADE,
+  video_id       INTEGER REFERENCES videos(video_id) ON DELETE SET NULL,
+  created_by     TEXT NOT NULL DEFAULT '',
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_sublocation_id ON events(sublocation_id);
+CREATE INDEX IF NOT EXISTS idx_events_video_id ON events(video_id);
+-- Backs "upcoming, soonest first" on all three listings (sitewide, by
+-- sublocation, by camera) and "newest first" on the admin listing.
+CREATE INDEX IF NOT EXISTS idx_events_starts_at ON events(starts_at);
+
+CREATE OR REPLACE TRIGGER trg_events_updated
+  BEFORE UPDATE ON events
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────
 -- Triggers
 -- ────────────────────────────────────────────────
 

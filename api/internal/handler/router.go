@@ -122,5 +122,16 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/frames/days", ListFrameDays(pool, c, snapshots))
 	r.Get("/snapshots/*", ServeSnapshots(snapshots).ServeHTTP)
 
+	// ── Events (DAN-27) ────────────────────────────────────────────
+	// Hosts' events shown on the cameras that can watch them and on the
+	// sitewide /events page. GET endpoints are public and cached like other
+	// GETs; the scoped listings (?video_id=|sublocation_id=) back the
+	// "Upcoming" block on a camera/sublocation page. Admin CRUD mirrors posts.
+	r.Get("/events", ListEvents(pool, c))
+	r.With(mw.RequireAdmin).Get("/events/all", ListAllEvents(pool))
+	r.With(mw.RequireAdmin).Post("/events", CreateEvent(pool, c))
+	r.With(mw.RequireAdmin).Put("/events/{id}", UpdateEvent(pool, c))
+	r.With(mw.RequireAdmin).Delete("/events/{id}", DeleteEvent(pool, c))
+
 	return r
 }

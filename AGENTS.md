@@ -138,6 +138,9 @@ go test ./...                     # Run tests (when added)
 ```bash
 export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH"
 ```
+On some machines Go instead lives at `$HOME/.gotoolchain/go/bin` (it does on
+this one) — run `go version` first to check which applies before assuming
+Go is missing.
 
 ### sqlc (from `api/` directory)
 
@@ -282,6 +285,7 @@ new-nationcam/                        # Repo root
 - **ad_impressions**: `impression_id`, `ad_id` (FK), `video_id` (nullable FK), `kind` (`impression` | `click`), `created_at`
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `slug`, `view_count`, `created_by`, `created_at`, `updated_at`
 - **posts**: `post_id`, `title`, `slug`, `body_md`, `excerpt`, `cover_url`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs, `ON DELETE SET NULL` — at most one set, this is the "Field notes" attachment), `status` (`draft` | `published`), `published_at` (nullable), `created_by`, `created_at`, `updated_at`
+- **events**: `event_id`, `title`, `description_md`, `starts_at` (`TIMESTAMPTZ NOT NULL`), `ends_at` (nullable), `url` (nullable), `sublocation_id` (FK, `NOT NULL ON DELETE CASCADE` — an event always belongs to one place), `video_id` (nullable FK, `ON DELETE SET NULL` — an optional "watch here" pointer to a camera in that sublocation), `created_by`, `created_at`, `updated_at`
 
 Video slugs are generated from `title` and are unique per `(state_id, sublocation_id)`;
 duplicate titles get a `-2`, `-3`, … suffix. Columns added after the first production
@@ -334,6 +338,12 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/posts`                         | Create post                    | Admin (Logto) |
 | PUT    | `/posts/{id}`                    | Update post                    | Admin (Logto) |
 | DELETE | `/posts/{id}`                    | Delete post                    | Admin (Logto) |
+| GET    | `/events?upcoming=1`             | Every upcoming event sitewide, soonest first (limit 50) | None |
+| GET    | `/events?sublocation_id=\|video_id=` | Upcoming events for that scope, limit 3 ("Upcoming" block) | None |
+| GET    | `/events/all`                    | Every event, upcoming or past, newest starts_at first | Admin (Logto) |
+| POST   | `/events`                        | Create event                   | Admin (Logto) |
+| PUT    | `/events/{id}`                   | Update event                   | Admin (Logto) |
+| DELETE | `/events/{id}`                   | Delete event                   | Admin (Logto) |
 
 ### Ads
 
@@ -379,6 +389,21 @@ light markdown `EditorialText` renders elsewhere on the site, and the cover imag
 reuses the existing upload flow (`POST /uploads`). Public listings and the
 single-post lookup only ever return `status = 'published'` rows, so a draft's slug
 is never reachable outside the dashboard; writes flush `posts:*`.
+
+### Events
+
+Hosts' events (tournaments, rodeos, festivals) written in the dashboard's Events
+panel, shown on the cameras that can watch them and at the sitewide `/events`
+page. Unlike ads/posts, the attachment is not "at most one of three":
+`sublocation_id` is required (an event always belongs to one place) and
+`video_id` is an optional, additional "watch here" pointer to a specific camera
+in that sublocation — the API rejects a `video_id` that doesn't belong to the
+chosen `sublocation_id`. `starts_at`/`ends_at` are stored as `timestamptz` and
+rendered in the viewer's own local time zone on the frontend, not the camera's.
+An event counts as "upcoming" until it ends (or, with no end time, until it
+starts) — `GET /events?upcoming=1` backs the sitewide page (limit 50, soonest
+first) and the two scoped listings back the "Upcoming" block on a
+camera/sublocation page (limit 3); writes flush `events:*`.
 
 ### Stream Management
 

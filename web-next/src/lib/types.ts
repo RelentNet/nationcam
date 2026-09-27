@@ -379,6 +379,46 @@ export interface PostInput {
   video_id: number | null
 }
 
+/* ──── Events ──── */
+
+/**
+ * A host's event (tournament, rodeo, festival) as returned by every listing
+ * — public and admin alike. Unlike posts, `sublocation_id` is always set (an
+ * event always belongs to one place); `video_id` is an optional, additional
+ * "watch here" pointer to a specific camera in that sublocation. Every query
+ * joins the sublocation and its parent state, so the frontend can link
+ * straight to the camera or sublocation page without a second request.
+ */
+export interface EventItem {
+  event_id: number
+  title: string
+  description_md: string
+  starts_at: string
+  ends_at: string | null
+  url: string | null
+  sublocation_id: number
+  video_id: number | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  sublocation_name: string
+  sublocation_slug: string
+  state_name: string
+  state_slug: string
+  video_title: string
+  video_slug: string
+}
+
+export interface EventInput {
+  title: string
+  description_md: string
+  starts_at: string
+  ends_at: string | null
+  url: string
+  sublocation_id: number
+  video_id: number | null
+}
+
 /* ──── Submissions (contact / "Add Your Camera" form) ──── */
 
 /** A contact-form submission as returned by `GET /api/submissions` (admin). */

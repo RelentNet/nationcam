@@ -3,6 +3,7 @@ import {
   fetchRelatedPosts,
   fetchSublocationBySlug,
   fetchSublocationsByState,
+  fetchUpcomingEventsFor,
   fetchVideosBySublocation,
   fetchWeather,
 } from '@/lib/api'
@@ -17,12 +18,15 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
     ).catch(() => null)
     if (!sublocation) throw notFound()
 
-    const [videos, siblings, weather, relatedPosts] = await Promise.all([
-      fetchVideosBySublocation(sublocation.sublocation_id),
-      fetchSublocationsByState(params.slug),
-      fetchWeather(params.sublocationSlug),
-      fetchRelatedPosts({ sublocationId: sublocation.sublocation_id }),
-    ])
+    const [videos, siblings, weather, relatedPosts, events] = await Promise.all(
+      [
+        fetchVideosBySublocation(sublocation.sublocation_id),
+        fetchSublocationsByState(params.slug),
+        fetchWeather(params.sublocationSlug),
+        fetchRelatedPosts({ sublocationId: sublocation.sublocation_id }),
+        fetchUpcomingEventsFor({ sublocationId: sublocation.sublocation_id }),
+      ],
+    )
     // Pick the featured camera server-side so the client hydrates the same one.
     return {
       sublocation,
@@ -30,6 +34,7 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
       siblings,
       weather,
       relatedPosts,
+      events,
       featured: pickFeatured(videos),
     }
   },
