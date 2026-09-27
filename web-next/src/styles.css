@@ -590,6 +590,35 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 /* ═══════════════════════════════════════════════
+   Snapshot Scrubber (SnapshotStrip.tsx)
+   ═══════════════════════════════════════════════ */
+.snapshot-scrubber {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-overlay0);
+  cursor: pointer;
+}
+
+.snapshot-scrubber::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.snapshot-scrubber::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* ═══════════════════════════════════════════════
    Selection Color
    ═══════════════════════════════════════════════ */
 ::selection {

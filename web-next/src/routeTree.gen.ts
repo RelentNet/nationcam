@@ -26,6 +26,7 @@ import { Route as LocationsSlugIndexRouteImport } from './routes/locations/$slug
 import { Route as LocationsSlugSublocationSlugIndexRouteImport } from './routes/locations/$slug.$sublocationSlug.index'
 import { Route as LocationsSlugSublocationSlugCameraSlugRouteImport } from './routes/locations/$slug.$sublocationSlug.$cameraSlug'
 import { Route as LocationsSlugSublocationSlugConditionsRouteImport } from './routes/locations/$slug.$sublocationSlug.conditions'
+import { Route as LocationsSlugSublocationSlugCameraSlugArchiveRouteImport } from './routes/locations/$slug.$sublocationSlug.$cameraSlug_.archive'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -115,6 +116,12 @@ const LocationsSlugSublocationSlugConditionsRoute =
     path: '/locations/$slug/$sublocationSlug/conditions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LocationsSlugSublocationSlugCameraSlugArchiveRoute =
+  LocationsSlugSublocationSlugCameraSlugArchiveRouteImport.update({
+    id: '/locations/$slug/$sublocationSlug/$cameraSlug_/archive',
+    path: '/locations/$slug/$sublocationSlug/$cameraSlug/archive',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
   '/locations/$slug/$sublocationSlug/': typeof LocationsSlugSublocationSlugIndexRoute
+  '/locations/$slug/$sublocationSlug/$cameraSlug/archive': typeof LocationsSlugSublocationSlugCameraSlugArchiveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
   '/locations/$slug/$sublocationSlug': typeof LocationsSlugSublocationSlugIndexRoute
+  '/locations/$slug/$sublocationSlug/$cameraSlug/archive': typeof LocationsSlugSublocationSlugCameraSlugArchiveRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
   '/locations/$slug/$sublocationSlug/': typeof LocationsSlugSublocationSlugIndexRoute
+  '/locations/$slug/$sublocationSlug/$cameraSlug_/archive': typeof LocationsSlugSublocationSlugCameraSlugArchiveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
     | '/locations/$slug/$sublocationSlug/'
+    | '/locations/$slug/$sublocationSlug/$cameraSlug/archive'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
     | '/locations/$slug/$sublocationSlug'
+    | '/locations/$slug/$sublocationSlug/$cameraSlug/archive'
   id:
     | '__root__'
     | '/'
@@ -232,6 +244,7 @@ export interface FileRouteTypes {
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
     | '/locations/$slug/$sublocationSlug/'
+    | '/locations/$slug/$sublocationSlug/$cameraSlug_/archive'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -252,6 +265,7 @@ export interface RootRouteChildren {
   LocationsSlugSublocationSlugCameraSlugRoute: typeof LocationsSlugSublocationSlugCameraSlugRoute
   LocationsSlugSublocationSlugConditionsRoute: typeof LocationsSlugSublocationSlugConditionsRoute
   LocationsSlugSublocationSlugIndexRoute: typeof LocationsSlugSublocationSlugIndexRoute
+  LocationsSlugSublocationSlugCameraSlugArchiveRoute: typeof LocationsSlugSublocationSlugCameraSlugArchiveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -375,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LocationsSlugSublocationSlugConditionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/locations/$slug/$sublocationSlug/$cameraSlug_/archive': {
+      id: '/locations/$slug/$sublocationSlug/$cameraSlug_/archive'
+      path: '/locations/$slug/$sublocationSlug/$cameraSlug/archive'
+      fullPath: '/locations/$slug/$sublocationSlug/$cameraSlug/archive'
+      preLoaderRoute: typeof LocationsSlugSublocationSlugCameraSlugArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -399,6 +420,8 @@ const rootRouteChildren: RootRouteChildren = {
     LocationsSlugSublocationSlugConditionsRoute,
   LocationsSlugSublocationSlugIndexRoute:
     LocationsSlugSublocationSlugIndexRoute,
+  LocationsSlugSublocationSlugCameraSlugArchiveRoute:
+    LocationsSlugSublocationSlugCameraSlugArchiveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

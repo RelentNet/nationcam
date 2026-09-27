@@ -430,3 +430,21 @@ export interface CreateStreamInput {
   name: string
   rtspUrl: string
 }
+
+/* ──── Snapshot archive ──── */
+
+/**
+ * One archived still from `GET .../frames`. `time` is `HH:MM` in the camera's
+ * local (America/Chicago) day; `url` is the browser-facing path returned by
+ * the API (`/api/snapshots/{video_id}/{day}/{HHMM}.jpg`) — used as-is.
+ */
+export interface Frame {
+  time: string
+  url: string
+}
+
+/** `GET .../frames?day=YYYY-MM-DD` — one local day's stills, sorted by time. */
+export interface FramesResponse {
+  day: string
+  frames: Array<Frame>
+}
