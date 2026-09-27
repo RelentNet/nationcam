@@ -26,6 +26,7 @@ import { Route as LocationsIndexRouteImport } from './routes/locations/index'
 import { Route as NotesIndexRouteImport } from './routes/notes.index'
 import { Route as NotesSlugRouteImport } from './routes/notes.$slug'
 import { Route as LocationsSlugIndexRouteImport } from './routes/locations/$slug.index'
+import { Route as EmbedSlugSublocationSlugCameraSlugRouteImport } from './routes/embed.$slug.$sublocationSlug.$cameraSlug'
 import { Route as LocationsSlugSublocationSlugIndexRouteImport } from './routes/locations/$slug.$sublocationSlug.index'
 import { Route as LocationsSlugSublocationSlugCameraSlugRouteImport } from './routes/locations/$slug.$sublocationSlug.$cameraSlug'
 import { Route as LocationsSlugSublocationSlugConditionsRouteImport } from './routes/locations/$slug.$sublocationSlug.conditions'
@@ -116,6 +117,12 @@ const LocationsSlugIndexRoute = LocationsSlugIndexRouteImport.update({
   path: '/locations/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmbedSlugSublocationSlugCameraSlugRoute =
+  EmbedSlugSublocationSlugCameraSlugRouteImport.update({
+    id: '/embed/$slug/$sublocationSlug/$cameraSlug',
+    path: '/embed/$slug/$sublocationSlug/$cameraSlug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LocationsSlugSublocationSlugIndexRoute =
   LocationsSlugSublocationSlugIndexRouteImport.update({
     id: '/locations/$slug/$sublocationSlug/',
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
+  '/embed/$slug/$sublocationSlug/$cameraSlug': typeof EmbedSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
   '/locations/$slug/$sublocationSlug/': typeof LocationsSlugSublocationSlugIndexRoute
@@ -182,6 +190,7 @@ export interface FileRoutesByTo {
   '/locations': typeof LocationsIndexRoute
   '/notes': typeof NotesIndexRoute
   '/locations/$slug': typeof LocationsSlugIndexRoute
+  '/embed/$slug/$sublocationSlug/$cameraSlug': typeof EmbedSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
   '/locations/$slug/$sublocationSlug': typeof LocationsSlugSublocationSlugIndexRoute
@@ -206,6 +215,7 @@ export interface FileRoutesById {
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
+  '/embed/$slug/$sublocationSlug/$cameraSlug': typeof EmbedSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/conditions': typeof LocationsSlugSublocationSlugConditionsRoute
   '/locations/$slug/$sublocationSlug/': typeof LocationsSlugSublocationSlugIndexRoute
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/locations/'
     | '/notes/'
     | '/locations/$slug/'
+    | '/embed/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
     | '/locations/$slug/$sublocationSlug/'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/locations'
     | '/notes'
     | '/locations/$slug'
+    | '/embed/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
     | '/locations/$slug/$sublocationSlug'
@@ -277,6 +289,7 @@ export interface FileRouteTypes {
     | '/locations/'
     | '/notes/'
     | '/locations/$slug/'
+    | '/embed/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/conditions'
     | '/locations/$slug/$sublocationSlug/'
@@ -301,6 +314,7 @@ export interface RootRouteChildren {
   LocationsIndexRoute: typeof LocationsIndexRoute
   NotesIndexRoute: typeof NotesIndexRoute
   LocationsSlugIndexRoute: typeof LocationsSlugIndexRoute
+  EmbedSlugSublocationSlugCameraSlugRoute: typeof EmbedSlugSublocationSlugCameraSlugRoute
   LocationsSlugSublocationSlugCameraSlugRoute: typeof LocationsSlugSublocationSlugCameraSlugRoute
   LocationsSlugSublocationSlugConditionsRoute: typeof LocationsSlugSublocationSlugConditionsRoute
   LocationsSlugSublocationSlugIndexRoute: typeof LocationsSlugSublocationSlugIndexRoute
@@ -428,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LocationsSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/embed/$slug/$sublocationSlug/$cameraSlug': {
+      id: '/embed/$slug/$sublocationSlug/$cameraSlug'
+      path: '/embed/$slug/$sublocationSlug/$cameraSlug'
+      fullPath: '/embed/$slug/$sublocationSlug/$cameraSlug'
+      preLoaderRoute: typeof EmbedSlugSublocationSlugCameraSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/locations/$slug/$sublocationSlug/': {
       id: '/locations/$slug/$sublocationSlug/'
       path: '/locations/$slug/$sublocationSlug'
@@ -477,6 +498,8 @@ const rootRouteChildren: RootRouteChildren = {
   LocationsIndexRoute: LocationsIndexRoute,
   NotesIndexRoute: NotesIndexRoute,
   LocationsSlugIndexRoute: LocationsSlugIndexRoute,
+  EmbedSlugSublocationSlugCameraSlugRoute:
+    EmbedSlugSublocationSlugCameraSlugRoute,
   LocationsSlugSublocationSlugCameraSlugRoute:
     LocationsSlugSublocationSlugCameraSlugRoute,
   LocationsSlugSublocationSlugConditionsRoute:
@@ -489,3 +512,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

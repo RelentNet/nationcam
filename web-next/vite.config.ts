@@ -49,7 +49,18 @@ const config = defineConfig({
   plugins: [
     devApiProxy(),
     devtools(),
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    nitro({
+      rollupConfig: { external: [/^@sentry\//] },
+      // The embed widget (DAN-33) is meant to sit inside another site's
+      // `<iframe>`, so only that route gets a permissive frame-ancestors CSP
+      // (and no X-Frame-Options is ever set — Nitro doesn't add one by
+      // default) — every other route keeps today's headers unchanged.
+      routeRules: {
+        '/embed/**': {
+          headers: { 'Content-Security-Policy': 'frame-ancestors *' },
+        },
+      },
+    }),
     tailwindcss(),
     tanstackStart(),
     viteReact(),

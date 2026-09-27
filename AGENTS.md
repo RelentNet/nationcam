@@ -564,6 +564,28 @@ certified safety system.") is part of the contract.
   cannot know the viewer's zone). Colors reuse the theme's calm/caution/
   alert tone tokens.
 
+### Embed widget
+
+`web-next/src/routes/embed.$slug.$sublocationSlug.$cameraSlug.tsx` (route
+`/embed/{state}/{sublocation}/{camera}`, DAN-33) renders a self-contained
+card — still (or live player with `?player=1`), a compact conditions row,
+`LightningCard` when available, and a "Watch live on NationCam" link — meant
+to sit in another site's `<iframe>`. It reuses `__root.tsx`'s single root
+route rather than a second document shell: `isEmbedSurface` there strips the
+navbar/footer/ad slots/AdSense/PostHog/devtools for `/embed/*` and sets the
+theme class straight from `?theme=` (default dark) instead of localStorage,
+so every viewer of a host's page sees the same theme. Fetching the camera is
+what records the view (same endpoint the camera page loader uses), and there
+is no ad slot in the card, so an embed load never touches the ad-impression
+path. `web-next/vite.config.ts`'s `nitro({ routeRules })` sets
+`Content-Security-Policy: frame-ancestors *` for `/embed/**` only — every
+other route keeps today's headers (no `X-Frame-Options` is set anywhere,
+including `/embed/*`). `EmbedSnippet.tsx` builds the `<iframe>` snippet
+(400×360 default) and a copy-to-clipboard box shown behind "Embed this
+camera" on the camera page and an "Embed code" button on Dashboard →
+Cameras. Embed pages are not in the sitemap and set
+`<meta name="robots" content="noindex">`.
+
 ### Stream Management
 
 The `/streams` endpoints proxy to a self-hosted datarhei Restreamer instance. They are only
