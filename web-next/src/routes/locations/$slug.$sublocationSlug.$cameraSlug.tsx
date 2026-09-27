@@ -1,4 +1,5 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
+import type { StripFrame } from '@/components/SnapshotStrip'
 import type { Camera } from '@/lib/types'
 import {
   fetchCamera,
@@ -17,6 +18,54 @@ function describe(camera: Camera): string {
   return `Watch ${camera.title}, a live streaming camera in ${camera.sublocation_name}, ${camera.state_name}. Free real-time video, streaming 24/7 on NationCam.`
 }
 
+/** `Date` → `YYYY-MM-DD` in America/Chicago (the archive's local day). */
+function chicagoDateString(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+/** Minutes since midnight, America/Chicago, for a given instant. */
+function chicagoMinutesOfDay(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0)
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? 0)
+  return hour * 60 + minute
+}
+
+/** "14:15" → 855 (minutes since midnight). */
+function frameMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+/**
+ * Today's and yesterday's frames, trimmed to the last 24 hours and marked
+ * `yesterday` where they came from the earlier day. Exactly 24 hours ago has
+ * the same America/Chicago clock time as `now` (DST-transition days aside),
+ * so a yesterday frame is in range once its time-of-day is at or after now's
+ * — every one of today's frames is inside the last 24 hours by construction.
+ */
+function last24HoursOfFrames(
+  today: Array<StripFrame>,
+  yesterday: Array<StripFrame>,
+  now: Date,
+): Array<StripFrame> {
+  const cutoff = chicagoMinutesOfDay(now)
+  const keptYesterday = yesterday
+    .filter((frame) => frameMinutes(frame.time) >= cutoff)
+    .map((frame) => ({ ...frame, yesterday: true as const }))
+  return [...keptYesterday, ...today]
+}
+
 export const Route = createFileRoute(
   '/locations/$slug/$sublocationSlug/$cameraSlug',
 )({
@@ -30,6 +79,9 @@ export const Route = createFileRoute(
     ).catch(() => null)
     if (!detail) throw notFound()
 
+    const now = new Date()
+    const yesterday = chicagoDateString(new Date(now.getTime() - 86400000))
+
     // The page is the sublocation hub with this camera selected, so it needs
     // the sublocation, every camera here, the state's other spots and weather.
     const [
@@ -39,6 +91,7 @@ export const Route = createFileRoute(
       weather,
       relatedPosts,
       todayFrames,
+      yesterdayFrames,
       events,
     ] = await Promise.all([
       fetchSublocationBySlug(params.sublocationSlug),
@@ -47,6 +100,12 @@ export const Route = createFileRoute(
       fetchWeather(params.sublocationSlug),
       fetchRelatedPosts({ videoId: detail.camera.video_id }),
       fetchFrames(params.slug, params.sublocationSlug, params.cameraSlug),
+      fetchFrames(
+        params.slug,
+        params.sublocationSlug,
+        params.cameraSlug,
+        yesterday,
+      ),
       fetchUpcomingEventsFor({ videoId: detail.camera.video_id }),
     ])
     return {
@@ -56,7 +115,11 @@ export const Route = createFileRoute(
       siblings,
       weather,
       relatedPosts,
-      frames: todayFrames.frames,
+      frames: last24HoursOfFrames(
+        todayFrames.frames,
+        yesterdayFrames.frames,
+        now,
+      ),
       events,
     }
   },
