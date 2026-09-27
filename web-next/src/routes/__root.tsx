@@ -163,10 +163,12 @@ function adScopeFromMatches(matches: ReturnType<typeof useMatches>): AdScope {
 
 /**
  * Page body with banner ad slots in reserved in-flow gutter columns on wide
- * screens plus one mobile slot below the content. The gutter ads sit at the top
- * of the page and scroll out of view with the rest of the content — they do not
- * hover or follow the viewport. Each `BannerSlot` renders nothing until an ad is
- * sold, so empty gutters just stay empty. Dashboard/admin/auth surfaces render
+ * screens plus one mobile slot below the content. The gutter columns are
+ * reserved space, never overlays: they take their own width beside the content,
+ * and on wide screens they stick just below the navbar so a sold banner stays on
+ * screen while the page scrolls (the same treatment the state and sublocation
+ * sidebars already use). Each `BannerSlot` renders nothing until an ad is sold,
+ * so empty gutters just stay empty. Dashboard/admin/auth surfaces render
  * full-width with no ad slots.
  */
 function PageBody({ children }: { children: React.ReactNode }) {
@@ -178,7 +180,10 @@ function PageBody({ children }: { children: React.ReactNode }) {
   }
 
   const scope = adScopeFromMatches(matches)
-  const gutter = 'hidden h-fit w-40 shrink-0 pt-3 xl:block'
+  // `self-start` + `h-fit` keep the column shorter than the flex row, which is
+  // what lets `sticky` engage; `top-20` clears the 56px navbar with a margin.
+  const gutter =
+    'hidden h-fit w-40 shrink-0 self-start pt-3 xl:sticky xl:top-20 xl:block'
 
   return (
     <main className="pt-14">
