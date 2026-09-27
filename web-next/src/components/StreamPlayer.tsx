@@ -105,6 +105,12 @@ export default function StreamPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isError, setIsError] = useState(false)
+  // Rendered as the `stream-ready` class (fades the video in). It must be
+  // React state: React rewrites the <video> className on every zoom change,
+  // which wiped a class added via classList and left the video at opacity 0.
+  const [isReady, setIsReady] = useState(false)
+  const readyRef = useRef(false)
+  readyRef.current = isReady
 
   // Digital zoom: CSS transform (translate then scale, transform-origin
   // center) on the <video> element. panX/panY are raw CSS px offsets.
@@ -155,9 +161,9 @@ export default function StreamPlayer({
     // Trigger re-init by toggling a dependency (src is stable so we use a key
     // trick at the call-site level OR just re-set source on the video element).
     cleanup()
+    setIsReady(false)
     const video = videoRef.current
     if (video) {
-      video.classList.remove('stream-ready')
       // Force the effect to re-run by re-setting src attribute.
       video.removeAttribute('src')
       video.load()
@@ -176,7 +182,7 @@ export default function StreamPlayer({
 
     setIsLoading(true)
     setIsError(false)
-    video.classList.remove('stream-ready')
+    setIsReady(false)
     retriesRef.current = 0
 
     const markReady = () => {
@@ -186,9 +192,7 @@ export default function StreamPlayer({
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
       }
-      requestAnimationFrame(() => {
-        video.classList.add('stream-ready')
-      })
+      setIsReady(true)
     }
 
     const markError = () => {
@@ -199,7 +203,7 @@ export default function StreamPlayer({
 
     // Start a loading timeout — if we don't get MANIFEST_PARSED in time, error.
     timeoutRef.current = setTimeout(() => {
-      if (!video.classList.contains('stream-ready')) {
+      if (!readyRef.current) {
         console.warn('[StreamPlayer] load timeout for', src)
         markError()
       }
@@ -339,6 +343,9 @@ export default function StreamPlayer({
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {})
     } else {
+      // Fullscreen always starts at 1x: a zoomed frame entering fullscreen
+      // read as "cropped" on an ultrawide.
+      setXform({ zoom: 1, panX: 0, panY: 0 })
       container.requestFullscreen().catch(() => {})
     }
   }, [])
@@ -581,7 +588,9 @@ export default function StreamPlayer({
         onPointerCancel={onVideoPointerUp}
         // touch-pan-y at 1x: one finger still scrolls the page, but a pinch
         // reaches the player instead of zooming the whole page.
-        className={`h-full w-full object-cover ${xform.zoom > 1 ? 'touch-none cursor-grab active:cursor-grabbing' : 'touch-pan-y'}`}
+        // Size and object-fit live in styles.css (`.stream-player video`) so the
+        // fullscreen override is a plain cascade, not a fight with utilities.
+        className={`${isReady ? 'stream-ready' : ''} ${xform.zoom > 1 ? 'touch-none cursor-grab active:cursor-grabbing' : 'touch-pan-y'}`}
         style={{
           transform: `translate(${xform.panX}px, ${xform.panY}px) scale(${xform.zoom})`,
           transformOrigin: 'center center',
@@ -595,7 +604,7 @@ export default function StreamPlayer({
       {isLoading && !isError && (
         <div className="absolute inset-0 flex items-center justify-center bg-crust">
           {poster ? (
-            <img src={poster} alt="" className="h-full w-full object-cover" />
+            <img src={poster} alt="" className="stream-poster" />
           ) : (
             <div
               className="h-full w-full bg-gradient-to-r from-crust via-surface0 to-crust bg-[length:200%_100%]"

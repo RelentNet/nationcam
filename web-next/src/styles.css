@@ -511,11 +511,16 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   background: var(--color-crust);
 }
 
-.stream-player video {
+.stream-player video,
+.stream-player .stream-poster {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   background: var(--color-crust);
+}
+
+.stream-player video {
   opacity: 0;
   transition: opacity 500ms var(--spring-ease-out);
 }
@@ -545,9 +550,14 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Fullscreen shows the whole frame letterboxed instead of cropping — the
-   in-page layout keeps object-cover above. */
+   in-page layout keeps object-fit: cover above. The -webkit- form is a
+   separate rule so an unknown selector can't invalidate the standard one. */
 .stream-player:fullscreen video,
-.stream-player:fullscreen img {
+.stream-player:fullscreen .stream-poster {
+  object-fit: contain;
+}
+.stream-player:-webkit-full-screen video,
+.stream-player:-webkit-full-screen .stream-poster {
   object-fit: contain;
 }
 
