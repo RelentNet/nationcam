@@ -359,8 +359,13 @@ function MostWatchedSection({ videos, states, sublocations }: RankedRowProps) {
   const tick = usePosterTick()
   if (videos.length === 0) return null
 
-  const stateSlugById = new Map(states.map((s) => [s.state_id, s.slug]))
-  const sublocationSlugById = new Map(
+  // `globalThis.Map` — this file also imports the `Map` icon from
+  // lucide-react (for the hero's "Explore Locations" link), which shadows
+  // the built-in constructor at module scope.
+  const stateSlugById = new globalThis.Map(
+    states.map((s) => [s.state_id, s.slug]),
+  )
+  const sublocationSlugById = new globalThis.Map(
     sublocations.map((s) => [s.sublocation_id, s.slug]),
   )
   const top = videos.slice(0, HOME_ROW_SIZE)
@@ -422,8 +427,10 @@ function NewestSection({ videos, states, sublocations }: RankedRowProps) {
   )
   if (!hasRecent) return null
 
-  const stateSlugById = new Map(states.map((s) => [s.state_id, s.slug]))
-  const sublocationSlugById = new Map(
+  const stateSlugById = new globalThis.Map(
+    states.map((s) => [s.state_id, s.slug]),
+  )
+  const sublocationSlugById = new globalThis.Map(
     sublocations.map((s) => [s.sublocation_id, s.slug]),
   )
   const top = videos.slice(0, HOME_ROW_SIZE)
