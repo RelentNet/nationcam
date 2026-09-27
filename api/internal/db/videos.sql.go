@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createVideo = `-- name: CreateVideo :one
@@ -82,7 +84,8 @@ func (q *Queries) DeleteVideo(ctx context.Context, videoID int32) error {
 
 const getVideoByID = `-- name: GetVideoByID :one
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
-       v.status, v.about, v.created_by, v.created_at, v.updated_at,
+       v.status, v.about, v.owner_id, v.stream_id, v.review_note,
+       v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name
 FROM videos v
@@ -92,22 +95,27 @@ WHERE v.video_id = $1
 `
 
 type GetVideoByIDRow struct {
-	VideoID         int32     `json:"video_id"`
-	Title           string    `json:"title"`
-	Src             string    `json:"src"`
-	Type            string    `json:"type"`
-	Slug            string    `json:"slug"`
-	StateID         int32     `json:"state_id"`
-	SublocationID   *int32    `json:"sublocation_id"`
-	Status          string    `json:"status"`
-	About           string    `json:"about"`
-	CreatedBy       string    `json:"created_by"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	StateName       string    `json:"state_name"`
-	SublocationName string    `json:"sublocation_name"`
+	VideoID         int32       `json:"video_id"`
+	Title           string      `json:"title"`
+	Src             string      `json:"src"`
+	Type            string      `json:"type"`
+	Slug            string      `json:"slug"`
+	StateID         int32       `json:"state_id"`
+	SublocationID   *int32      `json:"sublocation_id"`
+	Status          string      `json:"status"`
+	About           string      `json:"about"`
+	OwnerID         string      `json:"owner_id"`
+	StreamID        pgtype.Text `json:"stream_id"`
+	ReviewNote      string      `json:"review_note"`
+	CreatedBy       string      `json:"created_by"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	StateName       string      `json:"state_name"`
+	SublocationName string      `json:"sublocation_name"`
 }
 
+// GetVideoByID backs the admin create/update responses, so it returns any
+// status and carries the ownership/review columns.
 func (q *Queries) GetVideoByID(ctx context.Context, videoID int32) (GetVideoByIDRow, error) {
 	row := q.db.QueryRow(ctx, getVideoByID, videoID)
 	var i GetVideoByIDRow
@@ -121,6 +129,9 @@ func (q *Queries) GetVideoByID(ctx context.Context, videoID int32) (GetVideoByID
 		&i.SublocationID,
 		&i.Status,
 		&i.About,
+		&i.OwnerID,
+		&i.StreamID,
+		&i.ReviewNote,
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -139,7 +150,8 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.status = 'active'
+WHERE v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
   AND s.slug = $1
   AND COALESCE(sub.slug, '') = $2
   AND v.slug = $3
@@ -213,6 +225,43 @@ func (q *Queries) IncrementVideoViews(ctx context.Context, arg IncrementVideoVie
 	return err
 }
 
+const listArchiveSources = `-- name: ListArchiveSources :many
+SELECT v.video_id, v.src
+FROM videos v
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.status = 'active'
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+ORDER BY v.video_id
+`
+
+type ListArchiveSourcesRow struct {
+	VideoID int32  `json:"video_id"`
+	Src     string `json:"src"`
+}
+
+// ListArchiveSources is the snapshot archive's source list: active cameras
+// only. Paused cameras are public (placeholder) but not capturing, and
+// pending/rejected ones must not be archived at all.
+func (q *Queries) ListArchiveSources(ctx context.Context) ([]ListArchiveSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listArchiveSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListArchiveSourcesRow{}
+	for rows.Next() {
+		var i ListArchiveSourcesRow
+		if err := rows.Scan(&i.VideoID, &i.Src); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRelatedVideos = `-- name: ListRelatedVideos :many
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.about, v.created_by, v.created_at, v.updated_at,
@@ -222,7 +271,8 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.status = 'active'
+WHERE v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
   AND v.video_id <> $1
   AND (v.sublocation_id = $2 OR v.state_id = $3)
 ORDER BY (v.sublocation_id IS NOT DISTINCT FROM $2) DESC, v.title
@@ -318,6 +368,7 @@ func (q *Queries) ListVideoSources(ctx context.Context) ([]string, error) {
 }
 
 const listVideos = `-- name: ListVideos :many
+
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.about, v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
@@ -325,7 +376,8 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.status = 'active'
+WHERE v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
 ORDER BY v.title
 `
 
@@ -346,6 +398,13 @@ type ListVideosRow struct {
 	SublocationName string    `json:"sublocation_name"`
 }
 
+// Public visibility (DAN-39): a camera is public when its status is 'active'
+// or 'paused' (a paused camera renders a placeholder, DAN-40) AND its
+// sublocation, if any, is 'approved'. Every query below that feeds a public
+// endpoint — the lists (which also feed the sitemap and the search index),
+// the per-camera page, related cameras, the popular/newest sorts, and via
+// GetVideoBySlug the frames/snapshot/stream endpoints — applies the same
+// predicate, so pending, inactive and rejected rows never leak.
 func (q *Queries) ListVideos(ctx context.Context) ([]ListVideosRow, error) {
 	rows, err := q.db.Query(ctx, listVideos)
 	if err != nil {
@@ -389,7 +448,8 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.status = 'active'
+WHERE v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
 ORDER BY v.created_at DESC, v.title
 `
 
@@ -457,7 +517,9 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.state_id = $1 AND v.status = 'active'
+WHERE v.state_id = $1
+  AND v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
 ORDER BY v.title
 `
 
@@ -521,7 +583,9 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.sublocation_id = $1 AND v.status = 'active'
+WHERE v.sublocation_id = $1
+  AND v.status IN ('active', 'paused')
+  AND sub.status = 'approved'
 ORDER BY v.title
 `
 
@@ -585,7 +649,8 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.status = 'active'
+WHERE v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
 ORDER BY v.view_count DESC, v.title
 `
 
@@ -647,7 +712,8 @@ func (q *Queries) ListVideosByViews(ctx context.Context) ([]ListVideosByViewsRow
 
 const listVideosPaginated = `-- name: ListVideosPaginated :many
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
-       v.status, v.about, v.created_by, v.created_at, v.updated_at,
+       v.status, v.about, v.owner_id, v.stream_id, v.review_note,
+       v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name,
        COUNT(*) OVER()::int AS total_count
@@ -664,26 +730,30 @@ type ListVideosPaginatedParams struct {
 }
 
 type ListVideosPaginatedRow struct {
-	VideoID         int32     `json:"video_id"`
-	Title           string    `json:"title"`
-	Src             string    `json:"src"`
-	Type            string    `json:"type"`
-	Slug            string    `json:"slug"`
-	StateID         int32     `json:"state_id"`
-	SublocationID   *int32    `json:"sublocation_id"`
-	Status          string    `json:"status"`
-	About           string    `json:"about"`
-	CreatedBy       string    `json:"created_by"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	StateName       string    `json:"state_name"`
-	SublocationName string    `json:"sublocation_name"`
-	TotalCount      int32     `json:"total_count"`
+	VideoID         int32       `json:"video_id"`
+	Title           string      `json:"title"`
+	Src             string      `json:"src"`
+	Type            string      `json:"type"`
+	Slug            string      `json:"slug"`
+	StateID         int32       `json:"state_id"`
+	SublocationID   *int32      `json:"sublocation_id"`
+	Status          string      `json:"status"`
+	About           string      `json:"about"`
+	OwnerID         string      `json:"owner_id"`
+	StreamID        pgtype.Text `json:"stream_id"`
+	ReviewNote      string      `json:"review_note"`
+	CreatedBy       string      `json:"created_by"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	StateName       string      `json:"state_name"`
+	SublocationName string      `json:"sublocation_name"`
+	TotalCount      int32       `json:"total_count"`
 }
 
 // ListVideosPaginated backs the admin dashboard, so it deliberately returns
-// inactive cameras too — filtering them out here made deactivated cameras
-// unreachable from the dashboard with no way to reactivate them.
+// every status — filtering here made deactivated cameras unreachable from the
+// dashboard with no way to reactivate them. Carries owner_id/stream_id/
+// review_note so the admin console can tell owner-submitted cameras apart.
 func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginatedParams) ([]ListVideosPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listVideosPaginated, arg.Limit, arg.Offset)
 	if err != nil {
@@ -703,6 +773,9 @@ func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginat
 			&i.SublocationID,
 			&i.Status,
 			&i.About,
+			&i.OwnerID,
+			&i.StreamID,
+			&i.ReviewNote,
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,

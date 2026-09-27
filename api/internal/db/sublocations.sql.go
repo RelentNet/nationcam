@@ -141,6 +141,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.noaa_station_id, sub.usgs_site_id,
+       sub.status, sub.owner_id, sub.review_note,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -178,6 +179,9 @@ type GetSublocationByIDRow struct {
 	Address          string        `json:"address"`
 	NoaaStationID    pgtype.Text   `json:"noaa_station_id"`
 	UsgsSiteID       pgtype.Text   `json:"usgs_site_id"`
+	Status           string        `json:"status"`
+	OwnerID          string        `json:"owner_id"`
+	ReviewNote       string        `json:"review_note"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
 	StateName        string        `json:"state_name"`
@@ -213,6 +217,9 @@ func (q *Queries) GetSublocationByID(ctx context.Context, sublocationID int32) (
 		&i.Address,
 		&i.NoaaStationID,
 		&i.UsgsSiteID,
+		&i.Status,
+		&i.OwnerID,
+		&i.ReviewNote,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateName,
@@ -239,7 +246,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
 LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.slug = $1
+WHERE sub.slug = $1 AND sub.status = 'approved'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 `
 
@@ -313,6 +320,7 @@ func (q *Queries) GetSublocationBySlug(ctx context.Context, slug string) (GetSub
 }
 
 const listSublocationsByState = `-- name: ListSublocationsByState :many
+
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
@@ -327,7 +335,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
 LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.state_id = $1
+WHERE sub.state_id = $1 AND sub.status = 'approved'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 ORDER BY sub.name
 `
@@ -364,6 +372,13 @@ type ListSublocationsByStateRow struct {
 	VideoCount       int32         `json:"video_count"`
 }
 
+// Public visibility (DAN-39): ListSublocationsByState and GetSublocationBySlug
+// feed the public endpoints (the state page, the sitemap, and — via the slug
+// lookup — weather/conditions/lightning), so both return approved rows only;
+// a pending or rejected sublocation's slug 404s publicly. GetSublocationByID
+// and the paginated admin list return every status and carry the
+// ownership/review columns. Video counts and first_src count active cameras
+// only, so a paused camera still lists but does not count as live.
 func (q *Queries) ListSublocationsByState(ctx context.Context, stateID int32) ([]ListSublocationsByStateRow, error) {
 	rows, err := q.db.Query(ctx, listSublocationsByState, stateID)
 	if err != nil {
@@ -419,6 +434,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.noaa_station_id, sub.usgs_site_id,
+       sub.status, sub.owner_id, sub.review_note,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -463,6 +479,9 @@ type ListSublocationsPaginatedRow struct {
 	Address          string        `json:"address"`
 	NoaaStationID    pgtype.Text   `json:"noaa_station_id"`
 	UsgsSiteID       pgtype.Text   `json:"usgs_site_id"`
+	Status           string        `json:"status"`
+	OwnerID          string        `json:"owner_id"`
+	ReviewNote       string        `json:"review_note"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
 	StateName        string        `json:"state_name"`
@@ -505,6 +524,9 @@ func (q *Queries) ListSublocationsPaginated(ctx context.Context, arg ListSubloca
 			&i.Address,
 			&i.NoaaStationID,
 			&i.UsgsSiteID,
+			&i.Status,
+			&i.OwnerID,
+			&i.ReviewNote,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateName,

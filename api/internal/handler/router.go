@@ -170,5 +170,43 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// error. Cached 5 min in Redis (alerts:{slug}).
 	r.Get("/sublocations/{slug}/alerts", GetAlerts(AlertsSiteFromDB(pool), c))
 
+	// ── Owner accounts and review (DAN-39) ─────────────────────────
+	// Any signed-in Logto user (RequireUser: valid token with a subject, any
+	// scope) can submit their own sublocations and cameras under /me; both
+	// enter review and stay out of every public endpoint until an admin
+	// approves them from /review. Nothing under /me is Redis-cached (per
+	// user); every write flushes the public catalog caches. POST /me/videos
+	// creates a Restreamer process, so it shares the streams limiter pattern
+	// on top of the per-owner limits in status.go. rc may be nil (Restreamer
+	// not configured): creating a camera then answers 503, and pause/resume/
+	// delete on a camera that has a stream id do too.
+	owners := newOwnerStore(pool)
+	mountOwnerRoutes(r, owners, c, rc)
+
 	return r
+}
+
+// mountOwnerRoutes wires the /me and review endpoints; split out so the
+// handler tests can mount them on a fake store without the rest of NewRouter.
+func mountOwnerRoutes(r chi.Router, owners ownerStore, c *cache.Cache, rc *restreamer.Client) {
+	r.Route("/me", func(r chi.Router) {
+		r.Use(mw.RequireUser)
+		r.Get("/", GetMe(owners))
+		r.Get("/sublocations", ListMySublocations(owners))
+		r.Post("/sublocations", CreateMySublocation(owners, c))
+		r.Put("/sublocations/{id}", UpdateMySublocation(owners, c))
+		r.Delete("/sublocations/{id}", DeleteMySublocation(owners, c))
+		r.Get("/videos", ListMyVideos(owners))
+		r.With(mw.RateLimit(mw.NewRateLimiter(10, time.Minute))).Post("/videos", CreateMyVideo(owners, c, rc))
+		r.Put("/videos/{id}", UpdateMyVideo(owners, c))
+		r.Post("/videos/{id}/pause", PauseMyVideo(owners, c, rc))
+		r.Post("/videos/{id}/resume", ResumeMyVideo(owners, c, rc))
+		r.Delete("/videos/{id}", DeleteMyVideo(owners, c, rc))
+	})
+
+	r.With(mw.RequireAdmin).Get("/review", ReviewQueue(owners))
+	r.With(mw.RequireAdmin).Post("/videos/{id}/approve", ApproveVideo(owners, c))
+	r.With(mw.RequireAdmin).Post("/videos/{id}/reject", RejectVideo(owners, c, rc))
+	r.With(mw.RequireAdmin).Post("/sublocations/{id}/approve", ApproveSublocation(owners, c))
+	r.With(mw.RequireAdmin).Post("/sublocations/{id}/reject", RejectSublocation(owners, c, rc))
 }

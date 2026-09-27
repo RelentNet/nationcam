@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS videos (
   type           TEXT NOT NULL DEFAULT 'application/x-mpegURL',
   state_id       INTEGER NOT NULL REFERENCES states(state_id) ON DELETE CASCADE,
   sublocation_id INTEGER REFERENCES sublocations(sublocation_id) ON DELETE SET NULL,
-  status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending', 'active', 'inactive', 'paused', 'rejected')),
   created_by     TEXT NOT NULL DEFAULT '',
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -170,6 +170,38 @@ ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS address    TEXT NOT NULL DEFAU
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS noaa_station_id TEXT;
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS usgs_site_id    TEXT;
 
+-- Owner accounts and review (DAN-39). Any signed-in user can add their own
+-- sublocations and cameras; both enter review and stay invisible to public
+-- endpoints until an admin approves them.
+--
+--   videos.status:       pending → active ⇄ paused; pending/active/paused → rejected
+--                        ('inactive' is the pre-existing admin-only switch-off)
+--   sublocations.status: pending → approved | rejected
+--
+-- owner_id is the Logto `sub` of the account that created the row; '' marks
+-- the admin-owned legacy rows. stream_id is the Restreamer process UUID when
+-- the API created the ingest itself (NULL for externally hosted HLS), so
+-- pause/resume/reject/delete can drive the process. review_note is the
+-- admin's reason on reject, shown to the owner. Existing rows stay valid:
+-- videos keep their status and sublocations default to 'approved'.
+--
+-- Postgres has no ADD CONSTRAINT IF NOT EXISTS, so the widened status CHECK
+-- is re-asserted with drop-then-add (same pattern as ads_type_check). Both
+-- tables are small; the re-validation on every startup is free.
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS owner_id    TEXT NOT NULL DEFAULT '';
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS stream_id   TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS review_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_status_check;
+ALTER TABLE videos ADD CONSTRAINT videos_status_check
+  CHECK (status IN ('pending', 'active', 'inactive', 'paused', 'rejected'));
+
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS status      TEXT NOT NULL DEFAULT 'approved';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS owner_id    TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS review_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE sublocations DROP CONSTRAINT IF EXISTS sublocations_status_check;
+ALTER TABLE sublocations ADD CONSTRAINT sublocations_status_check
+  CHECK (status IN ('pending', 'approved', 'rejected'));
+
 -- ────────────────────────────────────────────────
 -- Indexes
 -- ────────────────────────────────────────────────
@@ -179,6 +211,9 @@ CREATE INDEX IF NOT EXISTS idx_sublocations_state_id ON sublocations(state_id);
 CREATE INDEX IF NOT EXISTS idx_videos_state_id ON videos(state_id);
 CREATE INDEX IF NOT EXISTS idx_videos_sublocation_id ON videos(sublocation_id);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
+CREATE INDEX IF NOT EXISTS idx_videos_owner_id ON videos(owner_id);
+CREATE INDEX IF NOT EXISTS idx_sublocations_status ON sublocations(status);
+CREATE INDEX IF NOT EXISTS idx_sublocations_owner_id ON sublocations(owner_id);
 
 -- ────────────────────────────────────────────────
 -- Ads

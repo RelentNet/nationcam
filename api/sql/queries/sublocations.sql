@@ -1,3 +1,11 @@
+-- Public visibility (DAN-39): ListSublocationsByState and GetSublocationBySlug
+-- feed the public endpoints (the state page, the sitemap, and — via the slug
+-- lookup — weather/conditions/lightning), so both return approved rows only;
+-- a pending or rejected sublocation's slug 404s publicly. GetSublocationByID
+-- and the paginated admin list return every status and carry the
+-- ownership/review columns. Video counts and first_src count active cameras
+-- only, so a paused camera still lists but does not count as live.
+
 -- name: ListSublocationsByState :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
@@ -13,7 +21,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
 LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.state_id = $1
+WHERE sub.state_id = $1 AND sub.status = 'approved'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 ORDER BY sub.name;
 
@@ -32,7 +40,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
 LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.slug = $1
+WHERE sub.slug = $1 AND sub.status = 'approved'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url;
 
 -- name: GetSublocationByID :one
@@ -40,6 +48,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.noaa_station_id, sub.usgs_site_id,
+       sub.status, sub.owner_id, sub.review_note,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -81,6 +90,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.noaa_station_id, sub.usgs_site_id,
+       sub.status, sub.owner_id, sub.review_note,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
