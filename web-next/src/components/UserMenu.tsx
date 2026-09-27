@@ -16,7 +16,7 @@ const LOGTO_ENDPOINT =
 const ACCOUNT_URL = `${LOGTO_ENDPOINT}/account`
 
 export default function UserMenu() {
-  const { isAuthenticated, isLoading, user, login, logout } = useAuth()
+  const { isAuthenticated, isLoading, isAdmin, user, login, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -94,7 +94,7 @@ export default function UserMenu() {
           <MenuLink
             to="/dashboard"
             icon={LayoutDashboard}
-            label="Dashboard"
+            label="My cameras"
             onClick={() => setOpen(false)}
           />
           <MenuExternalLink
@@ -102,12 +102,14 @@ export default function UserMenu() {
             icon={ExternalLink}
             label="Account Settings"
           />
-          <MenuLink
-            to="/admin"
-            icon={Shield}
-            label="Admin Console"
-            onClick={() => setOpen(false)}
-          />
+          {isAdmin && (
+            <MenuLink
+              to="/admin"
+              icon={Shield}
+              label="Admin"
+              onClick={() => setOpen(false)}
+            />
+          )}
         </div>
 
         <div className="border-t border-overlay0/50 py-1">

@@ -2,11 +2,15 @@ import type {
   Ad,
   AdInput,
   AdminPost,
+  AdminRolesResponse,
+  AdminUserStats,
+  AdminUsersResponse,
   Alert,
   Branding,
   CameraDetail,
   Conditions,
   ConditionsOverride,
+  CreateOwnerVideoInput,
   CreateStateInput,
   CreateStreamInput,
   CreateSublocationInput,
@@ -17,11 +21,16 @@ import type {
   Host,
   Lightning,
   LightningResult,
+  Me,
+  OwnerSublocation,
+  OwnerSublocationInput,
+  OwnerVideo,
   PaginatedResponse,
   Post,
   PostInput,
   PostsListResponse,
   RelatedPost,
+  ReviewQueue,
   ServedAd,
   State,
   StreamDetail,
@@ -29,6 +38,7 @@ import type {
   Sublocation,
   Submission,
   SubmitContactInput,
+  UpdateOwnerVideoInput,
   UpdateStateInput,
   UpdateSublocationInput,
   UpdateVideoInput,
@@ -848,4 +858,240 @@ export async function fetchFrameDays(
   )
     .then((r) => r.days)
     .catch(() => [])
+}
+
+/* ──── Owner accounts (DAN-39/DAN-41) ──── */
+
+/**
+ * Parses the API's `{ error, detail? }` JSON error body into one message,
+ * preferring `detail` when present — it carries the specific unmet
+ * condition (missing permission, limit reached, wrong status for the
+ * action) that the owner/admin dashboards show inline. Falls back to the
+ * raw response text, then the status text, so a non-JSON body still
+ * surfaces something readable.
+ */
+async function apiErrorMessage(res: Response): Promise<string> {
+  const text = await res.text()
+  try {
+    const body = JSON.parse(text) as { error?: string; detail?: string }
+    if (body.detail) return body.detail
+    if (body.error) return body.error
+  } catch {
+    // Not JSON — fall through to the raw text.
+  }
+  return text || res.statusText || `Request failed (${res.status})`
+}
+
+/** GET for the /me and /review families — throws the API's own error/detail
+ *  message on failure (401/403/404/etc.), not a generic "GET x failed". */
+async function meGet<T>(path: string, token?: string | null): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  if (!res.ok) throw new Error(await apiErrorMessage(res))
+  return res.json() as Promise<T>
+}
+
+/** POST/PUT for the /me and /review families — same error handling as
+ *  `meGet`. A 204 (no body) resolves to `undefined`. */
+async function meWrite<T>(
+  method: 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body: unknown,
+  token?: string | null,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(await apiErrorMessage(res))
+  if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
+}
+
+/** `GET /me` — the caller's admin flag, owner limits, and row counts. */
+export function fetchMe(token?: string | null): Promise<Me> {
+  return meGet<Me>('/me', token)
+}
+
+/** `GET /me/sublocations` — the caller's own sublocations, any status. */
+export function fetchMySublocations(
+  token?: string | null,
+): Promise<Array<OwnerSublocation>> {
+  return meGet<Array<OwnerSublocation>>('/me/sublocations', token)
+}
+
+export function createMySublocation(
+  input: OwnerSublocationInput,
+  token?: string | null,
+): Promise<OwnerSublocation> {
+  return meWrite<OwnerSublocation>('POST', '/me/sublocations', input, token)
+}
+
+export function updateMySublocation(
+  id: number,
+  input: OwnerSublocationInput,
+  token?: string | null,
+): Promise<OwnerSublocation> {
+  return meWrite<OwnerSublocation>(
+    'PUT',
+    `/me/sublocations/${id}`,
+    input,
+    token,
+  )
+}
+
+/** 409 (the API's "delete or move its cameras first") when it still has
+ *  cameras — the caller shows that message inline rather than deleting. */
+export function deleteMySublocation(
+  id: number,
+  token?: string | null,
+): Promise<void> {
+  return meWrite<void>('DELETE', `/me/sublocations/${id}`, undefined, token)
+}
+
+/** `GET /me/videos` — the caller's own cameras, any status. */
+export function fetchMyVideos(
+  token?: string | null,
+): Promise<Array<OwnerVideo>> {
+  return meGet<Array<OwnerVideo>>('/me/videos', token)
+}
+
+/** 429 past the camera limit or the daily creation limit; 503 when stream
+ *  management is not configured — both carry a clear `error` message. */
+export function createMyVideo(
+  input: CreateOwnerVideoInput,
+  token?: string | null,
+): Promise<OwnerVideo> {
+  return meWrite<OwnerVideo>('POST', '/me/videos', input, token)
+}
+
+export function updateMyVideo(
+  id: number,
+  input: UpdateOwnerVideoInput,
+  token?: string | null,
+): Promise<OwnerVideo> {
+  return meWrite<OwnerVideo>('PUT', `/me/videos/${id}`, input, token)
+}
+
+/** 409 when the camera isn't `active`. */
+export function pauseMyVideo(
+  id: number,
+  token?: string | null,
+): Promise<OwnerVideo> {
+  return meWrite<OwnerVideo>('POST', `/me/videos/${id}/pause`, {}, token)
+}
+
+/** 409 when the camera isn't `paused`. */
+export function resumeMyVideo(
+  id: number,
+  token?: string | null,
+): Promise<OwnerVideo> {
+  return meWrite<OwnerVideo>('POST', `/me/videos/${id}/resume`, {}, token)
+}
+
+export function deleteMyVideo(
+  id: number,
+  token?: string | null,
+): Promise<void> {
+  return meWrite<void>('DELETE', `/me/videos/${id}`, undefined, token)
+}
+
+/* ──── Admin review queue (DAN-39/DAN-41) ──── */
+
+/** `GET /review` — every pending sublocation and camera, oldest first. */
+export function fetchReviewQueue(token?: string | null): Promise<ReviewQueue> {
+  return meGet<ReviewQueue>('/review', token)
+}
+
+export function approveVideo(
+  id: number,
+  token?: string | null,
+): Promise<OwnerVideo> {
+  return meWrite<OwnerVideo>('POST', `/videos/${id}/approve`, {}, token)
+}
+
+export function rejectVideo(
+  id: number,
+  note: string,
+  token?: string | null,
+): Promise<OwnerVideo> {
+  return meWrite<OwnerVideo>('POST', `/videos/${id}/reject`, { note }, token)
+}
+
+export function approveSublocation(
+  id: number,
+  token?: string | null,
+): Promise<OwnerSublocation> {
+  return meWrite<OwnerSublocation>(
+    'POST',
+    `/sublocations/${id}/approve`,
+    {},
+    token,
+  )
+}
+
+export function rejectSublocation(
+  id: number,
+  note: string,
+  token?: string | null,
+): Promise<OwnerSublocation> {
+  return meWrite<OwnerSublocation>(
+    'POST',
+    `/sublocations/${id}/reject`,
+    { note },
+    token,
+  )
+}
+
+/* ──── Logto management connection (admin Users panel, DAN-37/DAN-41) ────
+   All three endpoints are optional server-side (unset LOGTO_M2M_APP_ID/
+   SECRET means the routes are never mounted, so a request 404s exactly like
+   any undefined route). The Users panel renders "Not configured" for that
+   one case, so these resolve to `null` on 404 specifically rather than
+   throwing — any other failure (401/403/5xx) still throws so the panel can
+   show a real error instead of silently looking unconfigured. */
+
+async function adminGetOrNotConfigured<T>(
+  path: string,
+  token?: string | null,
+): Promise<T | null> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(await apiErrorMessage(res))
+  return res.json() as Promise<T>
+}
+
+/** `GET /admin/users?page=&page_size=` — `null` when not configured. */
+export function fetchAdminUsers(
+  page: number,
+  pageSize: number,
+  token?: string | null,
+): Promise<AdminUsersResponse | null> {
+  return adminGetOrNotConfigured<AdminUsersResponse>(
+    `/admin/users?page=${page}&page_size=${pageSize}`,
+    token,
+  )
+}
+
+/** `GET /admin/users/stats` — `null` when not configured. */
+export function fetchAdminUserStats(
+  token?: string | null,
+): Promise<AdminUserStats | null> {
+  return adminGetOrNotConfigured<AdminUserStats>('/admin/users/stats', token)
+}
+
+/** `GET /admin/roles` — `null` when not configured. */
+export function fetchAdminRoles(
+  token?: string | null,
+): Promise<AdminRolesResponse | null> {
+  return adminGetOrNotConfigured<AdminRolesResponse>('/admin/roles', token)
 }

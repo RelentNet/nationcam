@@ -632,3 +632,150 @@ export interface FramesResponse {
   day: string
   frames: Array<Frame>
 }
+
+/* ──── Owner accounts (DAN-39/DAN-41) ──── */
+
+/** `GET /me` — who the caller is, whether their token carries the admin
+ *  scope, the owner limits, and how many rows they own. Works for admins
+ *  too (their own rows, if any, count the same way). */
+export interface Me {
+  user_id: string
+  is_admin: boolean
+  limits: { max_cameras: number; per_day: number }
+  counts: { sublocations: number; videos: number }
+}
+
+export type SublocationStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * A sublocation row as returned by the owner (`/me/sublocations`) and admin
+ * review (`/review`) endpoints — every status, with `owner_id`/`review_note`
+ * that the public `Sublocation` type never carries.
+ */
+export interface OwnerSublocation {
+  sublocation_id: number
+  name: string
+  description: string
+  state_id: number
+  slug: string
+  status: SublocationStatus
+  owner_id: string
+  review_note: string
+  lat: number | null
+  lng: number | null
+  host_name: string
+  host_url: string
+  host_since: string | null
+  address: string
+  created_at: string
+  updated_at: string
+  state_name: string
+  state_slug: string
+  video_count: number
+}
+
+export type OwnerVideoStatus =
+  'pending' | 'active' | 'inactive' | 'paused' | 'rejected'
+
+/**
+ * A camera row as returned by the owner (`/me/videos`) and admin review
+ * (`/review`) endpoints — every status, with `owner_id`/`stream_id`/
+ * `review_note` and the parent sublocation's own status (so a pending
+ * sublocation's still-pending camera can be told apart from an approved
+ * one), none of which the public `Video` type carries.
+ */
+export interface OwnerVideo {
+  video_id: number
+  title: string
+  slug: string
+  src: string
+  type: string
+  state_id: number
+  sublocation_id: number | null
+  status: OwnerVideoStatus
+  owner_id: string
+  stream_id: string | null
+  review_note: string
+  about: string
+  created_at: string
+  updated_at: string
+  state_name: string
+  state_slug: string
+  sublocation_name: string
+  sublocation_slug: string
+  sublocation_status: string
+}
+
+/** Body of `POST`/`PUT /me/sublocations`. */
+export interface OwnerSublocationInput {
+  name: string
+  description?: string
+  state_id: number
+  address?: string
+  lat?: number | null
+  lng?: number | null
+  host_name?: string
+  host_url?: string
+  host_since?: string | null
+}
+
+/** Body of `POST /me/videos`. */
+export interface CreateOwnerVideoInput {
+  title: string
+  rtsp_url: string
+  sublocation_id: number
+  about?: string
+}
+
+/** Body of `PUT /me/videos/{id}`. */
+export interface UpdateOwnerVideoInput {
+  title: string
+  about?: string
+}
+
+/** `GET /review` — every pending sublocation and camera, oldest first. */
+export interface ReviewQueue {
+  sublocations: Array<OwnerSublocation>
+  videos: Array<OwnerVideo>
+}
+
+/* ──── Logto management connection (admin Users panel, DAN-37/DAN-41) ──── */
+
+/** One row of `GET /admin/users` — a Logto user with its role names resolved. */
+export interface AdminUser {
+  id: string
+  name: string
+  primary_email: string
+  created_at: string
+  last_sign_in_at: string | null
+  roles: Array<string>
+}
+
+export interface AdminUsersResponse {
+  total: number
+  page: number
+  page_size: number
+  users: Array<AdminUser>
+}
+
+/** `GET /admin/users/stats`. */
+export interface AdminUserStats {
+  total: number
+  new_7d: number
+  new_30d: number
+  admins: number
+}
+
+/** One row of `GET /admin/roles`. */
+export interface AdminRole {
+  id: string
+  name: string
+  description: string
+  is_default: boolean
+  user_count: number
+  scopes: Array<string>
+}
+
+export interface AdminRolesResponse {
+  roles: Array<AdminRole>
+}

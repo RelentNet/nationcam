@@ -463,6 +463,58 @@ everything else in the table above marked Admin) are unchanged.
   `sql/owner_review_test.go` checks the visibility predicate and the CHECKs
   against a scratch Postgres when `TEST_DATABASE_URL` is set.
 
+### Owner dashboard and admin console
+
+The frontend for the owner-accounts API above (DAN-41): a signed-in user gets
+an owner dashboard for only their own rows, and an admin gets the full
+console with a review queue and a users panel. Both routes are `ssr:false`
+(see Architecture) and live in `web-next/src/routes/`.
+
+- **`/dashboard`** (`routes/dashboard.tsx`) — owner dashboard. Behind the
+  same sign-in gate as before; any signed-in user lands here (Sign In always
+  redirects to `/dashboard`, see `routes/callback.tsx`). Sections: a limits
+  line from `GET /me` ("3 of 10 cameras"), a link to `/admin` when the
+  caller's token carries the admin scope, a "How review works" note,
+  **My locations** (`components/owner/MyLocationsPanel.tsx` — `GET/POST/PUT/
+  DELETE /me/sublocations`, status pill + review note, delete only while it
+  has no cameras) and **My cameras** (`components/owner/MyCamerasPanel.tsx`
+  — `GET/POST/PUT /me/videos` + pause/resume, status pill, a location picker
+  scoped to the owner's own `/me/sublocations`, an "Embed code" box once a
+  camera is not pending/rejected). `components/owner/ownerUi.tsx` holds the
+  shared `StatusPill`/`ReviewNote`.
+- **`/admin`** (`routes/admin.tsx`) — the full console, guarded by `isAdmin`
+  (`useAuth`'s token-scope check); a signed-in non-admin is redirected to
+  `/dashboard`, a signed-out visitor sees a sign-in prompt. Ten tabs: the
+  original Cameras/States/Sublocations/Streams/Ads/Notes/Events panels
+  (moved, unchanged, into `components/admin/*Panel.tsx`), the existing
+  `SubmissionsInbox`, **Review queue** (`components/admin/
+  ReviewQueuePanel.tsx` — `GET /review`, an HLS preview of a pending camera
+  via `StreamPlayer`, Approve / Reject-with-note calling the four
+  approve/reject endpoints) and **Users** (`components/admin/
+  UsersPanel.tsx` — `GET /admin/users(/stats)` + `/admin/roles`; renders
+  "Not configured" when those 404, since the Logto management connection is
+  optional server-side config).
+- **Shared UI**: `components/dashboardUi.tsx` holds every building block
+  used by more than one panel — `PanelHeader`, `CreatePanel`, `AboutField`,
+  `FormField`/`FormFooter`, `ConfirmDeleteDialog`/`ModalShell`, `ToggleRow`,
+  `StatusDot`/`ActionBtn`, the `toISO`/`toLocalInput` datetime helpers (Ads +
+  Events), and the branding form (`useBranding`, `UploadField`,
+  `BrandingFields`, shared by States + Sublocations). A panel-local helper
+  (a form's own field list, its row component, its edit modal) stays in that
+  panel's own file.
+- **Errors**: the owner/review/admin API functions in `lib/api.ts` (`fetchMe`,
+  `fetchMy*`, `create/update/deleteMy*`, `pause/resumeMyVideo`,
+  `fetchReviewQueue`, `approve/rejectVideo`, `approve/rejectSublocation`,
+  `fetchAdminUsers`/`fetchAdminUserStats`/`fetchAdminRoles`) throw the API's
+  own `detail`/`error` message (via `apiErrorMessage`) rather than a generic
+  "request failed" string, so a 401/403/409/429 shows inline as the exact
+  reason — a missing permission, a camera limit, an invalid status
+  transition, a sublocation that still has cameras.
+- **Navbar/UserMenu**: `components/UserMenu.tsx`'s dropdown shows "My
+  cameras" → `/dashboard` for every signed-in user, and "Admin" → `/admin`
+  only when `isAdmin`. `Navbar.tsx` itself carries no auth-aware links (both
+  its desktop and mobile menus render `UserMenu`).
+
 ### Ads
 
 Ads are sold by locality. Which of `video_id` / `sublocation_id` / `state_id` is set
