@@ -5,6 +5,7 @@ import type {
   Branding,
   CameraDetail,
   Conditions,
+  ConditionsOverride,
   CreateStateInput,
   CreateStreamInput,
   CreateSublocationInput,
@@ -212,6 +213,20 @@ function hostBody(input: Partial<Host>): Host {
   }
 }
 
+/**
+ * Same idea for the tide-station / river-gauge overrides: every field
+ * present, empty string when unset so the API's write path sees "no
+ * override" (NULL) rather than omitting the key.
+ */
+function conditionsOverrideBody(
+  input: Partial<ConditionsOverride>,
+): ConditionsOverride {
+  return {
+    noaa_station_id: input.noaa_station_id || '',
+    usgs_site_id: input.usgs_site_id || '',
+  }
+}
+
 /* ──── Uploads ──── */
 
 /**
@@ -352,6 +367,7 @@ export async function createSublocation(
       about: input.about ?? '',
       ...brandingBody(input),
       ...hostBody(input),
+      ...conditionsOverrideBody(input),
     },
     token,
   )
@@ -371,6 +387,7 @@ export async function updateSublocation(
       about: input.about ?? '',
       ...brandingBody(input),
       ...hostBody(input),
+      ...conditionsOverrideBody(input),
     },
     token,
   )

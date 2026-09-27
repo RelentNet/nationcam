@@ -14,33 +14,37 @@ import (
 
 const createSublocation = `-- name: CreateSublocation :one
 INSERT INTO sublocations (name, description, state_id, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about,
-                          lat, lng, host_name, host_url, host_since, address, title_url, tourism_name, tourism_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                          lat, lng, host_name, host_url, host_since, address, title_url, tourism_name, tourism_url,
+                          noaa_station_id, usgs_site_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 RETURNING sublocation_id, name, description, state_id, slug,
           hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, title_url, tourism_name, tourism_url, about,
           lat, lng, host_name, host_url, host_since, address,
+          noaa_station_id, usgs_site_id,
           created_at, updated_at
 `
 
 type CreateSublocationParams struct {
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	StateID     int32         `json:"state_id"`
-	HeroUrl     string        `json:"hero_url"`
-	HeroKind    string        `json:"hero_kind"`
-	LogoUrl     string        `json:"logo_url"`
-	SponsorUrl  string        `json:"sponsor_url"`
-	SponsorLink string        `json:"sponsor_link"`
-	About       string        `json:"about"`
-	Lat         pgtype.Float8 `json:"lat"`
-	Lng         pgtype.Float8 `json:"lng"`
-	HostName    string        `json:"host_name"`
-	HostUrl     string        `json:"host_url"`
-	HostSince   pgtype.Date   `json:"host_since"`
-	Address     string        `json:"address"`
-	TitleUrl    string        `json:"title_url"`
-	TourismName string        `json:"tourism_name"`
-	TourismUrl  string        `json:"tourism_url"`
+	Name          string        `json:"name"`
+	Description   string        `json:"description"`
+	StateID       int32         `json:"state_id"`
+	HeroUrl       string        `json:"hero_url"`
+	HeroKind      string        `json:"hero_kind"`
+	LogoUrl       string        `json:"logo_url"`
+	SponsorUrl    string        `json:"sponsor_url"`
+	SponsorLink   string        `json:"sponsor_link"`
+	About         string        `json:"about"`
+	Lat           pgtype.Float8 `json:"lat"`
+	Lng           pgtype.Float8 `json:"lng"`
+	HostName      string        `json:"host_name"`
+	HostUrl       string        `json:"host_url"`
+	HostSince     pgtype.Date   `json:"host_since"`
+	Address       string        `json:"address"`
+	TitleUrl      string        `json:"title_url"`
+	TourismName   string        `json:"tourism_name"`
+	TourismUrl    string        `json:"tourism_url"`
+	NoaaStationID pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID    pgtype.Text   `json:"usgs_site_id"`
 }
 
 type CreateSublocationRow struct {
@@ -64,6 +68,8 @@ type CreateSublocationRow struct {
 	HostUrl       string        `json:"host_url"`
 	HostSince     pgtype.Date   `json:"host_since"`
 	Address       string        `json:"address"`
+	NoaaStationID pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID    pgtype.Text   `json:"usgs_site_id"`
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`
 }
@@ -88,6 +94,8 @@ func (q *Queries) CreateSublocation(ctx context.Context, arg CreateSublocationPa
 		arg.TitleUrl,
 		arg.TourismName,
 		arg.TourismUrl,
+		arg.NoaaStationID,
+		arg.UsgsSiteID,
 	)
 	var i CreateSublocationRow
 	err := row.Scan(
@@ -111,6 +119,8 @@ func (q *Queries) CreateSublocation(ctx context.Context, arg CreateSublocationPa
 		&i.HostUrl,
 		&i.HostSince,
 		&i.Address,
+		&i.NoaaStationID,
+		&i.UsgsSiteID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -130,6 +140,7 @@ const getSublocationByID = `-- name: GetSublocationByID :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -165,6 +176,8 @@ type GetSublocationByIDRow struct {
 	HostUrl          string        `json:"host_url"`
 	HostSince        pgtype.Date   `json:"host_since"`
 	Address          string        `json:"address"`
+	NoaaStationID    pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID       pgtype.Text   `json:"usgs_site_id"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
 	StateName        string        `json:"state_name"`
@@ -198,6 +211,8 @@ func (q *Queries) GetSublocationByID(ctx context.Context, sublocationID int32) (
 		&i.HostUrl,
 		&i.HostSince,
 		&i.Address,
+		&i.NoaaStationID,
+		&i.UsgsSiteID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateName,
@@ -213,6 +228,7 @@ const getSublocationBySlug = `-- name: GetSublocationBySlug :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -248,6 +264,8 @@ type GetSublocationBySlugRow struct {
 	HostUrl          string        `json:"host_url"`
 	HostSince        pgtype.Date   `json:"host_since"`
 	Address          string        `json:"address"`
+	NoaaStationID    pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID       pgtype.Text   `json:"usgs_site_id"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
 	StateName        string        `json:"state_name"`
@@ -281,6 +299,8 @@ func (q *Queries) GetSublocationBySlug(ctx context.Context, slug string) (GetSub
 		&i.HostUrl,
 		&i.HostSince,
 		&i.Address,
+		&i.NoaaStationID,
+		&i.UsgsSiteID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateName,
@@ -296,6 +316,7 @@ const listSublocationsByState = `-- name: ListSublocationsByState :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -332,6 +353,8 @@ type ListSublocationsByStateRow struct {
 	HostUrl          string        `json:"host_url"`
 	HostSince        pgtype.Date   `json:"host_since"`
 	Address          string        `json:"address"`
+	NoaaStationID    pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID       pgtype.Text   `json:"usgs_site_id"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
 	StateName        string        `json:"state_name"`
@@ -371,6 +394,8 @@ func (q *Queries) ListSublocationsByState(ctx context.Context, stateID int32) ([
 			&i.HostUrl,
 			&i.HostSince,
 			&i.Address,
+			&i.NoaaStationID,
+			&i.UsgsSiteID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateName,
@@ -393,6 +418,7 @@ const listSublocationsPaginated = `-- name: ListSublocationsPaginated :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -435,6 +461,8 @@ type ListSublocationsPaginatedRow struct {
 	HostUrl          string        `json:"host_url"`
 	HostSince        pgtype.Date   `json:"host_since"`
 	Address          string        `json:"address"`
+	NoaaStationID    pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID       pgtype.Text   `json:"usgs_site_id"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
 	StateName        string        `json:"state_name"`
@@ -475,6 +503,8 @@ func (q *Queries) ListSublocationsPaginated(ctx context.Context, arg ListSubloca
 			&i.HostUrl,
 			&i.HostSince,
 			&i.Address,
+			&i.NoaaStationID,
+			&i.UsgsSiteID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateName,
@@ -499,7 +529,8 @@ UPDATE sublocations SET name = $2, description = $3, state_id = $4,
        hero_url = $5, hero_kind = $6, logo_url = $7, sponsor_url = $8, sponsor_link = $9,
        about = $10,
        lat = $11, lng = $12, host_name = $13, host_url = $14, host_since = $15, address = $16,
-       title_url = $17, tourism_name = $18, tourism_url = $19
+       title_url = $17, tourism_name = $18, tourism_url = $19,
+       noaa_station_id = $20, usgs_site_id = $21
 WHERE sublocation_id = $1
 `
 
@@ -523,6 +554,8 @@ type UpdateSublocationParams struct {
 	TitleUrl      string        `json:"title_url"`
 	TourismName   string        `json:"tourism_name"`
 	TourismUrl    string        `json:"tourism_url"`
+	NoaaStationID pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID    pgtype.Text   `json:"usgs_site_id"`
 }
 
 func (q *Queries) UpdateSublocation(ctx context.Context, arg UpdateSublocationParams) error {
@@ -546,6 +579,8 @@ func (q *Queries) UpdateSublocation(ctx context.Context, arg UpdateSublocationPa
 		arg.TitleUrl,
 		arg.TourismName,
 		arg.TourismUrl,
+		arg.NoaaStationID,
+		arg.UsgsSiteID,
 	)
 	return err
 }

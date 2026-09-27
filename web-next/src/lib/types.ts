@@ -40,6 +40,17 @@ export interface Host {
   address: string
 }
 
+/**
+ * Per-sublocation override for which NOAA tide station and USGS river gauge
+ * the conditions page uses, instead of always taking the nearest one (which
+ * can land on the wrong body of water). `null`/empty means "use the nearest
+ * lookup"; the sentinel `'none'` disables that source entirely.
+ */
+export interface ConditionsOverride {
+  noaa_station_id: string | null
+  usgs_site_id: string | null
+}
+
 export interface State extends Branding, Editorial {
   state_id: number
   name: string
@@ -52,7 +63,8 @@ export interface State extends Branding, Editorial {
   upcoming: boolean
 }
 
-export interface Sublocation extends Branding, Editorial, Host {
+export interface Sublocation
+  extends Branding, Editorial, Host, ConditionsOverride {
   sublocation_id: number
   name: string
   description: string
@@ -112,17 +124,22 @@ export interface TidePrediction {
 /** `GET /sublocations/{slug}/conditions` — the "is it worth going today"
  *  page: a 3-day forecast plus, where public data exists nearby, NOAA tide
  *  predictions and USGS river stage. `tides`/`river` are null when no
- *  station/gauge is within range. */
+ *  station/gauge is within range, or when the sublocation's override turns
+ *  that source off. `source` is `'override'` when a sublocation's
+ *  `noaa_station_id`/`usgs_site_id` pinned it, `'nearest'` when it was
+ *  picked by distance. */
 export interface Conditions {
   forecast: Array<ForecastDay>
   tides: {
     station_name: string
     predictions: Array<TidePrediction>
+    source: 'override' | 'nearest'
   } | null
   river: {
     site_name: string
     stage_ft: number
     observed_at: string
+    source: 'override' | 'nearest'
   } | null
 }
 
@@ -175,14 +192,22 @@ export interface UpdateStateInput
 }
 
 export interface CreateSublocationInput
-  extends Partial<Branding>, Partial<Editorial>, Partial<Host> {
+  extends
+    Partial<Branding>,
+    Partial<Editorial>,
+    Partial<Host>,
+    Partial<ConditionsOverride> {
   name: string
   description?: string
   state_id: number
 }
 
 export interface UpdateSublocationInput
-  extends Partial<Branding>, Partial<Editorial>, Partial<Host> {
+  extends
+    Partial<Branding>,
+    Partial<Editorial>,
+    Partial<Host>,
+    Partial<ConditionsOverride> {
   name: string
   description?: string
   state_id: number

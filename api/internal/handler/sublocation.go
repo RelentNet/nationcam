@@ -115,6 +115,7 @@ type updateSublocationRequest struct {
 	brandingInput
 	aboutInput
 	hostInput
+	conditionsOverrideInput
 }
 
 // UpdateSublocation handles PUT /sublocations/{id} — updates a sublocation (admin only).
@@ -148,6 +149,7 @@ func UpdateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
 		}
+		req.normalizeConditionsOverride()
 
 		if err := db.New(pool).UpdateSublocation(r.Context(), db.UpdateSublocationParams{
 			SublocationID: int32(id),
@@ -169,6 +171,8 @@ func UpdateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			HostUrl:       req.HostURL,
 			HostSince:     req.HostSince,
 			Address:       req.Address,
+			NoaaStationID: overrideText(req.NoaaStationID),
+			UsgsSiteID:    overrideText(req.UsgsSiteID),
 		}); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -198,6 +202,7 @@ type createSublocationRequest struct {
 	brandingInput
 	aboutInput
 	hostInput
+	conditionsOverrideInput
 }
 
 // CreateSublocation handles POST /sublocations (admin only).
@@ -224,26 +229,29 @@ func CreateSublocation(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
 		}
+		req.normalizeConditionsOverride()
 
 		created, err := db.New(pool).CreateSublocation(r.Context(), db.CreateSublocationParams{
-			Name:        req.Name,
-			Description: req.Description,
-			StateID:     req.StateID,
-			HeroUrl:     req.HeroURL,
-			HeroKind:    req.HeroKind,
-			LogoUrl:     req.LogoURL,
-			SponsorUrl:  req.SponsorURL,
-			SponsorLink: req.SponsorLink,
-			TitleUrl:    req.TitleURL,
-			TourismName: req.TourismName,
-			TourismUrl:  req.TourismURL,
-			About:       req.About,
-			Lat:         req.Lat,
-			Lng:         req.Lng,
-			HostName:    req.HostName,
-			HostUrl:     req.HostURL,
-			HostSince:   req.HostSince,
-			Address:     req.Address,
+			Name:          req.Name,
+			Description:   req.Description,
+			StateID:       req.StateID,
+			HeroUrl:       req.HeroURL,
+			HeroKind:      req.HeroKind,
+			LogoUrl:       req.LogoURL,
+			SponsorUrl:    req.SponsorURL,
+			SponsorLink:   req.SponsorLink,
+			TitleUrl:      req.TitleURL,
+			TourismName:   req.TourismName,
+			TourismUrl:    req.TourismURL,
+			About:         req.About,
+			Lat:           req.Lat,
+			Lng:           req.Lng,
+			HostName:      req.HostName,
+			HostUrl:       req.HostURL,
+			HostSince:     req.HostSince,
+			Address:       req.Address,
+			NoaaStationID: overrideText(req.NoaaStationID),
+			UsgsSiteID:    overrideText(req.UsgsSiteID),
 		})
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

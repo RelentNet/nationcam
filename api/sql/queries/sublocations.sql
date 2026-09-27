@@ -2,6 +2,7 @@
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -20,6 +21,7 @@ ORDER BY sub.name;
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -37,6 +39,7 @@ GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url;
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
@@ -52,11 +55,13 @@ GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url;
 
 -- name: CreateSublocation :one
 INSERT INTO sublocations (name, description, state_id, hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, about,
-                          lat, lng, host_name, host_url, host_since, address, title_url, tourism_name, tourism_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                          lat, lng, host_name, host_url, host_since, address, title_url, tourism_name, tourism_url,
+                          noaa_station_id, usgs_site_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 RETURNING sublocation_id, name, description, state_id, slug,
           hero_url, hero_kind, logo_url, sponsor_url, sponsor_link, title_url, tourism_name, tourism_url, about,
           lat, lng, host_name, host_url, host_since, address,
+          noaa_station_id, usgs_site_id,
           created_at, updated_at;
 
 -- name: UpdateSublocation :exec
@@ -64,7 +69,8 @@ UPDATE sublocations SET name = $2, description = $3, state_id = $4,
        hero_url = $5, hero_kind = $6, logo_url = $7, sponsor_url = $8, sponsor_link = $9,
        about = $10,
        lat = $11, lng = $12, host_name = $13, host_url = $14, host_since = $15, address = $16,
-       title_url = $17, tourism_name = $18, tourism_url = $19
+       title_url = $17, tourism_name = $18, tourism_url = $19,
+       noaa_station_id = $20, usgs_site_id = $21
 WHERE sublocation_id = $1;
 
 -- name: DeleteSublocation :exec
@@ -74,6 +80,7 @@ DELETE FROM sublocations WHERE sublocation_id = $1;
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        sub.hero_url, sub.hero_kind, sub.logo_url, sub.sponsor_url, sub.sponsor_link, sub.title_url, sub.tourism_name, sub.tourism_url, sub.about,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
+       sub.noaa_station_id, sub.usgs_site_id,
        sub.created_at, sub.updated_at,
        s.name AS state_name,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,

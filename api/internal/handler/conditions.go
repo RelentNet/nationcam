@@ -14,6 +14,7 @@ import (
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
 	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -58,12 +59,18 @@ type tidePrediction struct {
 type tideBlock struct {
 	StationName string           `json:"station_name"`
 	Predictions []tidePrediction `json:"predictions"`
+	// Source is "override" when noaa_station_id pinned this station, or
+	// "nearest" when it was picked by distance.
+	Source string `json:"source"`
 }
 
 type riverBlock struct {
 	SiteName   string  `json:"site_name"`
 	StageFt    float64 `json:"stage_ft"`
 	ObservedAt string  `json:"observed_at"`
+	// Source is "override" when usgs_site_id pinned this site, or "nearest"
+	// when it was picked by distance.
+	Source string `json:"source"`
 }
 
 type conditionsResponse struct {
@@ -216,6 +223,33 @@ func findTideStation(ctx context.Context, c *cache.Cache, slug string, lat, lng 
 		_ = c.Set(ctx, key, string(body), stationCacheTTL)
 	}
 	return cs.Station, cs.Found
+}
+
+// fetchTideStationMeta fetches one NOAA station's metadata (its display name,
+// for the override path where the admin already picked the station and the
+// nearest-lookup scan is skipped entirely). Cached 24h per station id, same
+// as the nearest lookup — a station's name does not change day to day.
+func fetchTideStationMeta(ctx context.Context, c *cache.Cache, id string) (tideStation, error) {
+	key := "conditions:tide-station-meta:" + id
+	if cached, err := c.Get(ctx, key); err == nil && cached != "" {
+		var st tideStation
+		if json.Unmarshal([]byte(cached), &st) == nil {
+			return st, nil
+		}
+	}
+
+	var resp noaaStationsResponse
+	if err := fetchJSON(ctx, "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/"+id+".json", &resp); err != nil {
+		return tideStation{}, err
+	}
+	if len(resp.Stations) == 0 {
+		return tideStation{}, fmt.Errorf("no station metadata for %s", id)
+	}
+	st := resp.Stations[0]
+	if body, err := json.Marshal(st); err == nil {
+		_ = c.Set(ctx, key, string(body), stationCacheTTL)
+	}
+	return st, nil
 }
 
 type noaaPrediction struct {
@@ -429,6 +463,111 @@ func fetchRiverSiteByID(ctx context.Context, id string) (*riverSite, error) {
 	return &sites[0], nil
 }
 
+/* ──── Per-sublocation overrides (DAN-28) ──── */
+
+// sourceOverride interprets a sublocation's noaa_station_id / usgs_site_id
+// column, which follow the identical rule: unset or empty means "no opinion,
+// fall back to the nearest lookup"; the sentinel "none" disables that source
+// entirely; anything else pins the source to that id, skipping the nearest
+// lookup. Pure and deterministic, so the override/none/fallback branching can
+// be unit tested with no network calls.
+func sourceOverride(raw pgtype.Text) (id string, disabled bool) {
+	if !raw.Valid || raw.String == "" {
+		return "", false
+	}
+	if raw.String == "none" {
+		return "", true
+	}
+	return raw.String, false
+}
+
+// resolveTidesWith holds the override/none/fallback decision tree for tides,
+// with every network-touching step injected as a closure so the branching
+// itself is testable against fixtures without a live NOAA call.
+func resolveTidesWith(slug string, override pgtype.Text,
+	fetchMeta func() (tideStation, error),
+	findNearest func() (tideStation, bool),
+	fetchPredictions func(tideStation) (*tideBlock, error),
+) *tideBlock {
+	id, disabled := sourceOverride(override)
+	if disabled {
+		return nil
+	}
+
+	if id != "" {
+		station, err := fetchMeta()
+		if err != nil {
+			slog.Warn("tide station metadata fetch failed", "slug", slug, "station", id, "error", err)
+			station = tideStation{}
+		}
+		station.ID = id
+		block, err := fetchPredictions(station)
+		if err != nil {
+			slog.Warn("tide predictions fetch failed", "slug", slug, "station", id, "error", err)
+			return nil
+		}
+		block.Source = "override"
+		return block
+	}
+
+	station, ok := findNearest()
+	if !ok {
+		return nil
+	}
+	block, err := fetchPredictions(station)
+	if err != nil {
+		slog.Warn("tide predictions fetch failed", "slug", slug, "station", station.ID, "error", err)
+		return nil
+	}
+	block.Source = "nearest"
+	return block
+}
+
+// resolveTides wires resolveTidesWith to the real NOAA calls for one request.
+func resolveTides(ctx context.Context, c *cache.Cache, sub db.GetSublocationBySlugRow, lat, lng float64) *tideBlock {
+	return resolveTidesWith(sub.Slug, sub.NoaaStationID,
+		func() (tideStation, error) { return fetchTideStationMeta(ctx, c, sub.NoaaStationID.String) },
+		func() (tideStation, bool) { return findTideStation(ctx, c, sub.Slug, lat, lng) },
+		func(st tideStation) (*tideBlock, error) { return fetchTides(ctx, st) },
+	)
+}
+
+// resolveRiverWith is resolveTidesWith's counterpart for river stage. The
+// USGS instantaneous-values response already carries the site's name, so
+// there is no separate metadata lookup like fetchTideStationMeta.
+func resolveRiverWith(slug string, override pgtype.Text,
+	fetchByID func(id string) (*riverSite, error),
+	findNearest func() (riverSite, bool),
+) *riverBlock {
+	id, disabled := sourceOverride(override)
+	if disabled {
+		return nil
+	}
+
+	if id != "" {
+		site, err := fetchByID(id)
+		if err != nil {
+			slog.Warn("usgs site override fetch failed", "slug", slug, "site", id, "error", err)
+			return nil
+		}
+		return &riverBlock{SiteName: site.Name, StageFt: site.StageFt, ObservedAt: site.ObservedAt, Source: "override"}
+	}
+
+	site, ok := findNearest()
+	if !ok {
+		return nil
+	}
+	return &riverBlock{SiteName: site.Name, StageFt: site.StageFt, ObservedAt: site.ObservedAt, Source: "nearest"}
+}
+
+// resolveRiver wires resolveRiverWith to the real USGS calls for one request.
+func resolveRiver(ctx context.Context, c *cache.Cache, sub db.GetSublocationBySlugRow, lat, lng float64) *riverBlock {
+	return resolveRiverWith(sub.Slug, sub.UsgsSiteID,
+		func(id string) (*riverSite, error) { return fetchRiverSiteByID(ctx, id) },
+		func() (riverSite, bool) { return findRiverSite(ctx, c, sub.Slug, lat, lng) },
+	)
+}
+
 /* ──── Handler ──── */
 
 // GetConditions handles GET /sublocations/{slug}/conditions — a 3-day
@@ -462,22 +601,8 @@ func GetConditions(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			out.Forecast = forecast
 		}
 
-		if station, ok := findTideStation(r.Context(), c, sub.Slug, lat, lng); ok {
-			tides, err := fetchTides(r.Context(), station)
-			if err != nil {
-				slog.Warn("tide predictions fetch failed", "slug", sub.Slug, "station", station.ID, "error", err)
-			} else {
-				out.Tides = tides
-			}
-		}
-
-		if site, ok := findRiverSite(r.Context(), c, sub.Slug, lat, lng); ok {
-			out.River = &riverBlock{
-				SiteName:   site.Name,
-				StageFt:    site.StageFt,
-				ObservedAt: site.ObservedAt,
-			}
-		}
+		out.Tides = resolveTides(r.Context(), c, sub, lat, lng)
+		out.River = resolveRiver(r.Context(), c, sub, lat, lng)
 
 		body, _ := json.Marshal(out)
 		_ = c.Set(r.Context(), key, string(body), conditionsTTL)

@@ -33,6 +33,7 @@ import type {
   AdType,
   AdminPost,
   Branding,
+  ConditionsOverride,
   EventInput,
   EventItem,
   Host,
@@ -1190,6 +1191,11 @@ function SublocationsPanel({
     reset: resetBranding,
   } = useBranding()
   const { host, update: updateHost, reset: resetHost } = useHostForm()
+  const {
+    override,
+    update: updateOverride,
+    reset: resetOverride,
+  } = useConditionsOverrideForm()
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
 
@@ -1292,6 +1298,7 @@ function SublocationsPanel({
           about,
           ...branding,
           ...hostBody(host),
+          ...conditionsOverrideBody(override),
         },
         token,
       )
@@ -1302,6 +1309,7 @@ function SublocationsPanel({
       setAbout('')
       resetBranding()
       resetHost()
+      resetOverride()
       onSuccess()
     } catch {
       setMsg({ text: 'Failed to create sublocation.', ok: false })
@@ -1352,6 +1360,10 @@ function SublocationsPanel({
               </div>
               <AboutField value={about} onChange={setAbout} />
               <HostFields host={host} update={updateHost} />
+              <ConditionsOverrideFields
+                override={override}
+                update={updateOverride}
+              />
               <BrandingFields
                 branding={branding}
                 update={updateBranding}
@@ -3978,6 +3990,104 @@ function HostFields({
   )
 }
 
+/** The tide/river override block as form strings; converted by
+ *  `conditionsOverrideBody` on submit. */
+type ConditionsOverrideForm = Record<keyof ConditionsOverride, string>
+
+const emptyConditionsOverride: ConditionsOverrideForm = {
+  noaa_station_id: '',
+  usgs_site_id: '',
+}
+
+// useConditionsOverrideForm holds the two conditions-page override fields for
+// a sublocation form, seeded from an existing row (edit) or blank (create).
+function useConditionsOverrideForm(initial?: ConditionsOverride) {
+  const [override, setOverride] = useState<ConditionsOverrideForm>(() =>
+    initial
+      ? {
+          noaa_station_id: initial.noaa_station_id ?? '',
+          usgs_site_id: initial.usgs_site_id ?? '',
+        }
+      : emptyConditionsOverride,
+  )
+  const update = (patch: Partial<ConditionsOverrideForm>) =>
+    setOverride((o) => ({ ...o, ...patch }))
+  const reset = () => setOverride(emptyConditionsOverride)
+  return { override, update, reset }
+}
+
+// conditionsOverrideBody turns the form strings into the API shape: blank
+// becomes null ("no override, use the nearest station/gauge").
+function conditionsOverrideBody(o: ConditionsOverrideForm): ConditionsOverride {
+  return {
+    noaa_station_id: o.noaa_station_id.trim() || null,
+    usgs_site_id: o.usgs_site_id.trim() || null,
+  }
+}
+
+// ConditionsOverrideFields lets an admin pin (or turn off with "none") the
+// tide station and river gauge a sublocation's conditions page uses, instead
+// of always taking the nearest one — see DAN-28.
+function ConditionsOverrideFields({
+  override,
+  update,
+}: {
+  override: ConditionsOverrideForm
+  update: (patch: Partial<ConditionsOverrideForm>) => void
+}) {
+  return (
+    <div className="space-y-4 rounded-lg border border-overlay0/60 bg-base/40 p-4">
+      <p className="mb-0 text-xs font-semibold tracking-wide text-subtext0 uppercase">
+        Conditions overrides
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <FormField
+            label="NOAA tide station ID"
+            value={override.noaa_station_id}
+            onChange={(v) => update({ noaa_station_id: v })}
+            placeholder="8760922"
+          />
+          <p className="mt-1 mb-0 text-xs text-overlay2">
+            Pins the tide table to this station instead of the nearest one.
+            Enter <code>none</code> to turn tides off. Find an ID on the{' '}
+            <a
+              href="https://tidesandcurrents.noaa.gov/stations.html?type=Tide+Predictions"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              NOAA station list
+            </a>
+            .
+          </p>
+        </div>
+        <div>
+          <FormField
+            label="USGS site ID"
+            value={override.usgs_site_id}
+            onChange={(v) => update({ usgs_site_id: v })}
+            placeholder="07374525"
+          />
+          <p className="mt-1 mb-0 text-xs text-overlay2">
+            Pins river stage to this gauge instead of the nearest one. Enter{' '}
+            <code>none</code> to turn river stage off. Find an ID on the{' '}
+            <a
+              href="https://waterdata.usgs.gov/nwis/rt"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              USGS site map
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // AboutField is the editorial-copy textarea shared by the state, sublocation and
 // camera forms. The hint spells out the light markdown EditorialText renders —
 // anything else (including pasted HTML) comes out as plain text on the page.
@@ -4571,6 +4681,8 @@ function EditSublocationModal({
   const [about, setAbout] = useState(sublocation.about)
   const { branding, update: updateBranding } = useBranding(sublocation)
   const { host, update: updateHost } = useHostForm(sublocation)
+  const { override, update: updateOverride } =
+    useConditionsOverrideForm(sublocation)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<FormMsg>(null)
   useAutoHide(msg, setMsg)
@@ -4594,6 +4706,7 @@ function EditSublocationModal({
           about,
           ...branding,
           ...hostBody(host),
+          ...conditionsOverrideBody(override),
         },
         token,
       )
@@ -4628,6 +4741,7 @@ function EditSublocationModal({
         />
         <AboutField value={about} onChange={setAbout} />
         <HostFields host={host} update={updateHost} />
+        <ConditionsOverrideFields override={override} update={updateOverride} />
         <BrandingFields
           branding={branding}
           update={updateBranding}

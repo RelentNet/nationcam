@@ -112,6 +112,8 @@ type Sublocation struct {
 	HostUrl       string        `json:"host_url"`
 	HostSince     pgtype.Date   `json:"host_since"`
 	Address       string        `json:"address"`
+	NoaaStationID pgtype.Text   `json:"noaa_station_id"`
+	UsgsSiteID    pgtype.Text   `json:"usgs_site_id"`
 }
 
 type Submission struct {
