@@ -277,6 +277,106 @@ export interface AdInput {
   video_id: number | null
 }
 
+/* ──── Field notes (posts) ──── */
+
+export type PostStatus = 'draft' | 'published'
+
+/**
+ * A field-notes post as returned by the public listing/article endpoints
+ * (`GET /posts`, `GET /posts/{slug}`) — includes the resolved scope name/slug
+ * so the list and article pages can link straight to the attached
+ * camera/sublocation/state without a second request. `state_name`/`state_slug`
+ * and `sublocation_name`/`sublocation_slug` resolve from whichever attachment
+ * is actually set: a post scoped to a sublocation has no direct `state_id`, so
+ * `state_slug` comes from that sublocation's parent state; a post scoped to a
+ * camera has neither directly, so both come from the camera's own
+ * state/sublocation.
+ */
+export interface Post {
+  post_id: number
+  title: string
+  slug: string
+  body_md: string
+  excerpt: string
+  cover_url: string
+  state_id: number | null
+  sublocation_id: number | null
+  video_id: number | null
+  status: PostStatus
+  published_at: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  state_name: string
+  state_slug: string
+  sublocation_name: string
+  sublocation_slug: string
+  video_title: string
+  video_slug: string
+}
+
+/** `GET /posts` (no scope filter) — a page of `Post` plus whether another page follows. */
+export interface PostsListResponse {
+  data: Array<Post>
+  has_more: boolean
+}
+
+/**
+ * A related post from the scoped listings
+ * (`GET /posts?video_id=|sublocation_id=|state_id=`) that back the "Field
+ * notes" block. No joined scope names here — the caller already knows the
+ * scope it asked for.
+ */
+export interface RelatedPost {
+  post_id: number
+  title: string
+  slug: string
+  body_md: string
+  excerpt: string
+  cover_url: string
+  state_id: number | null
+  sublocation_id: number | null
+  video_id: number | null
+  status: PostStatus
+  published_at: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+/** A post row in the admin dashboard (`GET /posts/all`) — every status, with
+ *  scope names for the list row (the dashboard links by id, not by URL). */
+export interface AdminPost {
+  post_id: number
+  title: string
+  slug: string
+  body_md: string
+  excerpt: string
+  cover_url: string
+  state_id: number | null
+  sublocation_id: number | null
+  video_id: number | null
+  status: PostStatus
+  published_at: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  state_name: string
+  sublocation_name: string
+  video_title: string
+}
+
+export interface PostInput {
+  title: string
+  body_md: string
+  excerpt: string
+  cover_url: string
+  status: PostStatus
+  state_id: number | null
+  sublocation_id: number | null
+  video_id: number | null
+}
+
 /* ──── Submissions (contact / "Add Your Camera" form) ──── */
 
 /** A contact-form submission as returned by `GET /api/submissions` (admin). */

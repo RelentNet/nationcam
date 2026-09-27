@@ -39,6 +39,23 @@ type AdImpression struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type Post struct {
+	PostID        int32              `json:"post_id"`
+	Title         string             `json:"title"`
+	Slug          string             `json:"slug"`
+	BodyMd        string             `json:"body_md"`
+	Excerpt       string             `json:"excerpt"`
+	CoverUrl      string             `json:"cover_url"`
+	StateID       *int32             `json:"state_id"`
+	SublocationID *int32             `json:"sublocation_id"`
+	VideoID       *int32             `json:"video_id"`
+	Status        string             `json:"status"`
+	PublishedAt   pgtype.Timestamptz `json:"published_at"`
+	CreatedBy     string             `json:"created_by"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+}
+
 type State struct {
 	StateID     int32     `json:"state_id"`
 	Name        string    `json:"name"`

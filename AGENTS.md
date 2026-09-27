@@ -281,6 +281,7 @@ new-nationcam/                        # Repo root
 - **ads**: `ad_id`, `name`, `video_url`, `click_url`, `weight`, `starts_at`, `ends_at`, `enabled`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs — at most one set, this is the targeting scope), `created_by`, `created_at`, `updated_at`
 - **ad_impressions**: `impression_id`, `ad_id` (FK), `video_id` (nullable FK), `kind` (`impression` | `click`), `created_at`
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `slug`, `view_count`, `created_by`, `created_at`, `updated_at`
+- **posts**: `post_id`, `title`, `slug`, `body_md`, `excerpt`, `cover_url`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs, `ON DELETE SET NULL` — at most one set, this is the "Field notes" attachment), `status` (`draft` | `published`), `published_at` (nullable), `created_by`, `created_at`, `updated_at`
 
 Video slugs are generated from `title` and are unique per `(state_id, sublocation_id)`;
 duplicate titles get a `-2`, `-3`, … suffix. Columns added after the first production
@@ -326,6 +327,13 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/ads`                           | Create ad                      | Admin (Logto) |
 | PUT    | `/ads/{id}`                      | Update ad                      | Admin (Logto) |
 | DELETE | `/ads/{id}`                      | Delete ad (409 once it billed) | Admin (Logto) |
+| GET    | `/posts?limit=&offset=`          | Published posts, newest first (default limit 20) | None |
+| GET    | `/posts/{slug}`                  | Single published post (404 if draft/missing) | None |
+| GET    | `/posts?video_id=\|sublocation_id=\|state_id=` | Published posts for that scope, limit 3 (related notes) | None |
+| GET    | `/posts/all`                     | Every post, any status          | Admin (Logto) |
+| POST   | `/posts`                         | Create post                    | Admin (Logto) |
+| PUT    | `/posts/{id}`                    | Update post                    | Admin (Logto) |
+| DELETE | `/posts/{id}`                    | Delete post                    | Admin (Logto) |
 
 ### Ads
 
@@ -356,6 +364,21 @@ then state, then global — and picks among that scope's ads by weight.
   `injectCreative` drops the loader tag from pasted unit code because the root
   layout already loads it once. Do not enable AdSense Auto ads: they place anchor
   and vignette ads over the player and the search dialog.
+
+### Field notes
+
+A small blog ("Field notes"), written in the dashboard's Notes panel and published
+at `/notes`. Each post is optionally attached to one state, sublocation, or camera —
+whichever of `state_id`/`sublocation_id`/`video_id` is set on the row is the
+attachment, same "at most one" CHECK as ads — and shows up as a "Field notes" block
+(up to 3 posts) on that camera/sublocation page; all three NULL is an unscoped post,
+visible only in the main `/notes` feed. `status` is `draft` or `published`, no
+scheduling; publishing a post fills `published_at` the first time only (a later
+edit or a draft/republish cycle never resets it). The body is written as the same
+light markdown `EditorialText` renders elsewhere on the site, and the cover image
+reuses the existing upload flow (`POST /uploads`). Public listings and the
+single-post lookup only ever return `status = 'published'` rows, so a draft's slug
+is never reachable outside the dashboard; writes flush `posts:*`.
 
 ### Stream Management
 

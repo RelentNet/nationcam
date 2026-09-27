@@ -7,6 +7,7 @@ const footerSections = [
     links: [
       { label: 'All Locations', to: '/locations' },
       { label: 'Louisiana', to: '/locations/louisiana' },
+      { label: 'Field Notes', to: '/notes' },
     ],
   },
   {

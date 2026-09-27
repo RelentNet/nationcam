@@ -102,6 +102,18 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.With(mw.RequireAdmin).Get("/submissions", ListSubmissions(pool))
 	r.With(mw.RequireAdmin).Patch("/submissions/{id}", UpdateSubmission(pool))
 
+	// ── Field notes (DAN-25) ──────────────────────────────────────
+	// A lightweight blog written in the dashboard, published at /notes. GET
+	// endpoints are public and cached like other GETs; the scoped listings
+	// (?video_id=|sublocation_id=|state_id=) back the related-notes block on a
+	// camera/sublocation/state page. Admin CRUD mirrors ads.
+	r.Get("/posts", ListPosts(pool, c))
+	r.Get("/posts/{slug}", GetPostBySlug(pool, c))
+	r.With(mw.RequireAdmin).Get("/posts/all", ListAllPosts(pool))
+	r.With(mw.RequireAdmin).Post("/posts", CreatePost(pool, c))
+	r.With(mw.RequireAdmin).Put("/posts/{id}", UpdatePost(pool, c))
+	r.With(mw.RequireAdmin).Delete("/posts/{id}", DeletePost(pool, c))
+
 	// ── Snapshot archive (DAN-22) ─────────────────────────────────
 	// Per-camera stills captured every 15 minutes by archive.Job. The two JSON
 	// listings are public and cached like other GETs; the files themselves are

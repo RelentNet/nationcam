@@ -1,5 +1,6 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import {
+  fetchRelatedPosts,
   fetchSublocationBySlug,
   fetchSublocationsByState,
   fetchVideosBySublocation,
@@ -16,10 +17,11 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
     ).catch(() => null)
     if (!sublocation) throw notFound()
 
-    const [videos, siblings, weather] = await Promise.all([
+    const [videos, siblings, weather, relatedPosts] = await Promise.all([
       fetchVideosBySublocation(sublocation.sublocation_id),
       fetchSublocationsByState(params.slug),
       fetchWeather(params.sublocationSlug),
+      fetchRelatedPosts({ sublocationId: sublocation.sublocation_id }),
     ])
     // Pick the featured camera server-side so the client hydrates the same one.
     return {
@@ -27,6 +29,7 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
       videos,
       siblings,
       weather,
+      relatedPosts,
       featured: pickFeatured(videos),
     }
   },
