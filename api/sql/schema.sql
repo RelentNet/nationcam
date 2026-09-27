@@ -160,6 +160,16 @@ ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS host_url   TEXT NOT NULL DEFAU
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS host_since DATE;
 ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS address    TEXT NOT NULL DEFAULT '';
 
+-- Per-sublocation override for which NOAA tide station and USGS river gauge the
+-- conditions page uses, instead of always taking the nearest one — the nearest
+-- pick can be on the wrong body of water (DAN-28: a Mississippi River levee
+-- camera picking up a lake tide station and a lake river gauge, both merely
+-- within the distance limits). NULL/empty means "no opinion, use the nearest
+-- lookup"; the sentinel value 'none' disables that source for the sublocation
+-- entirely rather than pinning it to a station/gauge.
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS noaa_station_id TEXT;
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS usgs_site_id    TEXT;
+
 -- ────────────────────────────────────────────────
 -- Indexes
 -- ────────────────────────────────────────────────

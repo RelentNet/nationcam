@@ -2,9 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func loadFixture(t *testing.T, name string, v any) {
@@ -110,5 +113,208 @@ func TestBboxAround(t *testing.T) {
 	}
 	if south >= 29.9 || north <= 29.9 {
 		t.Errorf("bbox does not straddle the center latitude: south=%v north=%v", south, north)
+	}
+}
+
+/* ──── Per-sublocation overrides (DAN-28) ──── */
+
+func TestSourceOverrideUnset(t *testing.T) {
+	id, disabled := sourceOverride(pgtype.Text{})
+	if id != "" || disabled {
+		t.Errorf("unset override = (%q, %v), want (\"\", false)", id, disabled)
+	}
+}
+
+func TestSourceOverrideEmptyString(t *testing.T) {
+	id, disabled := sourceOverride(pgtype.Text{String: "", Valid: true})
+	if id != "" || disabled {
+		t.Errorf("empty-string override = (%q, %v), want (\"\", false)", id, disabled)
+	}
+}
+
+func TestSourceOverrideNone(t *testing.T) {
+	id, disabled := sourceOverride(pgtype.Text{String: "none", Valid: true})
+	if id != "" || !disabled {
+		t.Errorf("\"none\" override = (%q, %v), want (\"\", true)", id, disabled)
+	}
+}
+
+func TestSourceOverrideExplicitID(t *testing.T) {
+	id, disabled := sourceOverride(pgtype.Text{String: "07374525", Valid: true})
+	if id != "07374525" || disabled {
+		t.Errorf("explicit override = (%q, %v), want (\"07374525\", false)", id, disabled)
+	}
+}
+
+func TestResolveTidesOverrideSkipsNearestLookup(t *testing.T) {
+	block := resolveTidesWith("westwego", pgtype.Text{String: "8760922", Valid: true},
+		func() (tideStation, error) {
+			return tideStation{ID: "8760922", Name: "Pilots Station East"}, nil
+		},
+		func() (tideStation, bool) {
+			t.Fatal("nearest lookup must not run when an override is set")
+			return tideStation{}, false
+		},
+		func(st tideStation) (*tideBlock, error) {
+			if st.ID != "8760922" {
+				t.Errorf("predictions requested for station %q, want 8760922", st.ID)
+			}
+			return &tideBlock{StationName: st.Name, Predictions: []tidePrediction{{Time: "2026-01-01 00:00", HeightFt: 1.2, Type: "high"}}}, nil
+		},
+	)
+	if block == nil {
+		t.Fatal("expected a tide block")
+	}
+	if block.Source != "override" {
+		t.Errorf("source = %q, want override", block.Source)
+	}
+	if block.StationName != "Pilots Station East" {
+		t.Errorf("station name = %q, want the overridden station's name", block.StationName)
+	}
+}
+
+func TestResolveTidesOverrideMetadataFailureStillFetchesPredictions(t *testing.T) {
+	// A metadata lookup failure (e.g. NOAA hiccup) must not block the
+	// override — predictions are still requested for the pinned id.
+	block := resolveTidesWith("westwego", pgtype.Text{String: "8760922", Valid: true},
+		func() (tideStation, error) { return tideStation{}, fmt.Errorf("noaa unavailable") },
+		func() (tideStation, bool) {
+			t.Fatal("nearest lookup must not run when an override is set")
+			return tideStation{}, false
+		},
+		func(st tideStation) (*tideBlock, error) {
+			if st.ID != "8760922" {
+				t.Errorf("predictions requested for station %q, want 8760922", st.ID)
+			}
+			return &tideBlock{StationName: "", Predictions: []tidePrediction{}}, nil
+		},
+	)
+	if block == nil || block.Source != "override" {
+		t.Fatalf("expected an override tide block despite the metadata failure, got %+v", block)
+	}
+}
+
+func TestResolveTidesNoneDisablesTides(t *testing.T) {
+	block := resolveTidesWith("gym", pgtype.Text{String: "none", Valid: true},
+		func() (tideStation, error) {
+			t.Fatal("metadata must not be fetched when the source is disabled")
+			return tideStation{}, nil
+		},
+		func() (tideStation, bool) {
+			t.Fatal("nearest lookup must not run when the source is disabled")
+			return tideStation{}, false
+		},
+		func(tideStation) (*tideBlock, error) {
+			t.Fatal("predictions must not be fetched when the source is disabled")
+			return nil, nil
+		},
+	)
+	if block != nil {
+		t.Errorf("expected nil tides for \"none\", got %+v", block)
+	}
+}
+
+func TestResolveTidesFallsBackToNearestStation(t *testing.T) {
+	var resp noaaStationsResponse
+	loadFixture(t, "noaa_stations.json", &resp)
+
+	block := resolveTidesWith("venice-marina", pgtype.Text{},
+		func() (tideStation, error) {
+			t.Fatal("metadata must not be fetched without an override")
+			return tideStation{}, nil
+		},
+		func() (tideStation, bool) {
+			return nearestTideStation(resp.Stations, 29.2836, -89.3495, tideStationRadiusKm)
+		},
+		func(st tideStation) (*tideBlock, error) {
+			return &tideBlock{StationName: st.Name, Predictions: []tidePrediction{}}, nil
+		},
+	)
+	if block == nil {
+		t.Fatal("expected a fallback tide block")
+	}
+	if block.Source != "nearest" {
+		t.Errorf("source = %q, want nearest", block.Source)
+	}
+	if block.StationName == "" {
+		t.Errorf("expected the nearest fixture station's name to be used")
+	}
+}
+
+func TestResolveRiverOverrideSkipsNearestLookup(t *testing.T) {
+	block := resolveRiverWith("westwego", pgtype.Text{String: "07374525", Valid: true},
+		func(id string) (*riverSite, error) {
+			if id != "07374525" {
+				t.Errorf("fetched site %q, want 07374525", id)
+			}
+			return &riverSite{ID: id, Name: "Mississippi River at Belle Chasse", StageFt: 9.4, ObservedAt: "2026-09-27T12:00:00Z"}, nil
+		},
+		func() (riverSite, bool) {
+			t.Fatal("nearest lookup must not run when an override is set")
+			return riverSite{}, false
+		},
+	)
+	if block == nil {
+		t.Fatal("expected a river block")
+	}
+	if block.Source != "override" {
+		t.Errorf("source = %q, want override", block.Source)
+	}
+	if block.SiteName != "Mississippi River at Belle Chasse" {
+		t.Errorf("site name = %q, want the overridden site's name", block.SiteName)
+	}
+}
+
+func TestResolveRiverOverrideFetchFailureReturnsNil(t *testing.T) {
+	block := resolveRiverWith("westwego", pgtype.Text{String: "07374525", Valid: true},
+		func(id string) (*riverSite, error) { return nil, fmt.Errorf("usgs unavailable") },
+		func() (riverSite, bool) {
+			t.Fatal("nearest lookup must not run when an override is set")
+			return riverSite{}, false
+		},
+	)
+	if block != nil {
+		t.Errorf("expected nil river block on override fetch failure, got %+v", block)
+	}
+}
+
+func TestResolveRiverNoneDisablesRiver(t *testing.T) {
+	block := resolveRiverWith("gym", pgtype.Text{String: "none", Valid: true},
+		func(id string) (*riverSite, error) {
+			t.Fatal("fetch must not run when the source is disabled")
+			return nil, nil
+		},
+		func() (riverSite, bool) {
+			t.Fatal("nearest lookup must not run when the source is disabled")
+			return riverSite{}, false
+		},
+	)
+	if block != nil {
+		t.Errorf("expected nil river for \"none\", got %+v", block)
+	}
+}
+
+func TestResolveRiverFallsBackToNearestSite(t *testing.T) {
+	var resp usgsIVResponse
+	loadFixture(t, "usgs_sites.json", &resp)
+	sites := flattenUSGS(resp)
+
+	block := resolveRiverWith("westwego", pgtype.Text{},
+		func(id string) (*riverSite, error) {
+			t.Fatal("fetch-by-id must not run without an override")
+			return nil, nil
+		},
+		func() (riverSite, bool) {
+			return nearestRiverSite(sites, 29.9, -90.14, riverSiteRadiusKm)
+		},
+	)
+	if block == nil {
+		t.Fatal("expected a fallback river block")
+	}
+	if block.Source != "nearest" {
+		t.Errorf("source = %q, want nearest", block.Source)
+	}
+	if block.SiteName == "" {
+		t.Errorf("expected the nearest fixture site's name to be used")
 	}
 }
