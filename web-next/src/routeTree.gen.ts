@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EventsRouteImport } from './routes/events'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
@@ -58,6 +59,11 @@ const ContactRoute = ContactRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/callback': typeof CallbackRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/events': typeof EventsRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/callback': typeof CallbackRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/events': typeof EventsRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/callback': typeof CallbackRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/events': typeof EventsRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/callback'
     | '/contact'
     | '/dashboard'
+    | '/events'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/callback'
     | '/contact'
     | '/dashboard'
+    | '/events'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/callback'
     | '/contact'
     | '/dashboard'
+    | '/events'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -278,6 +290,7 @@ export interface RootRouteChildren {
   CallbackRoute: typeof CallbackRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
+  EventsRoute: typeof EventsRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -446,6 +466,7 @@ const rootRouteChildren: RootRouteChildren = {
   CallbackRoute: CallbackRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
+  EventsRoute: EventsRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,

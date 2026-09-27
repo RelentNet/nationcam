@@ -6,6 +6,7 @@ import {
   fetchRelatedPosts,
   fetchSublocationBySlug,
   fetchSublocationsByState,
+  fetchUpcomingEventsFor,
   fetchVideosBySublocation,
   fetchWeather,
 } from '@/lib/api'
@@ -31,15 +32,23 @@ export const Route = createFileRoute(
 
     // The page is the sublocation hub with this camera selected, so it needs
     // the sublocation, every camera here, the state's other spots and weather.
-    const [sublocation, videos, siblings, weather, relatedPosts, todayFrames] =
-      await Promise.all([
-        fetchSublocationBySlug(params.sublocationSlug),
-        fetchVideosBySublocation(detail.camera.sublocation_id ?? 0),
-        fetchSublocationsByState(params.slug),
-        fetchWeather(params.sublocationSlug),
-        fetchRelatedPosts({ videoId: detail.camera.video_id }),
-        fetchFrames(params.slug, params.sublocationSlug, params.cameraSlug),
-      ])
+    const [
+      sublocation,
+      videos,
+      siblings,
+      weather,
+      relatedPosts,
+      todayFrames,
+      events,
+    ] = await Promise.all([
+      fetchSublocationBySlug(params.sublocationSlug),
+      fetchVideosBySublocation(detail.camera.sublocation_id ?? 0),
+      fetchSublocationsByState(params.slug),
+      fetchWeather(params.sublocationSlug),
+      fetchRelatedPosts({ videoId: detail.camera.video_id }),
+      fetchFrames(params.slug, params.sublocationSlug, params.cameraSlug),
+      fetchUpcomingEventsFor({ videoId: detail.camera.video_id }),
+    ])
     return {
       ...detail,
       sublocation,
@@ -48,6 +57,7 @@ export const Route = createFileRoute(
       weather,
       relatedPosts,
       frames: todayFrames.frames,
+      events,
     }
   },
   head: ({ loaderData, params }) => {
@@ -174,6 +184,7 @@ function CameraPage() {
     weather,
     relatedPosts,
     frames,
+    events,
   } = Route.useLoaderData()
   return (
     <SublocationPage
@@ -186,6 +197,7 @@ function CameraPage() {
       weather={weather}
       relatedPosts={relatedPosts}
       frames={frames}
+      events={events}
     />
   )
 }

@@ -6,9 +6,10 @@ import {
   MapPin,
   Video as VideoIcon,
 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type {
   Camera,
+  EventItem,
   Frame,
   RelatedPost,
   Sublocation,
@@ -52,6 +53,9 @@ interface SublocationPageProps {
   /** Today's archived stills for `camera` — fetched by the camera route's
    *  loader. Empty (or no camera) renders no "Today at" section. */
   frames?: Array<Frame>
+  /** Up to 3 upcoming events for this camera (or, on the hub page, this
+   *  sublocation) — fetched by the route loader. Empty renders no block. */
+  events?: Array<EventItem>
 }
 
 /**
@@ -69,6 +73,7 @@ export default function SublocationPage({
   weather,
   relatedPosts = [],
   frames = [],
+  events = [],
 }: SublocationPageProps) {
   const tick = usePosterTick()
   const { search, setSearch, sort, setSort, filtered } = useCameraFilter(videos)
@@ -307,6 +312,15 @@ export default function SublocationPage({
           </aside>
         </div>
 
+        {/* ── Upcoming events ── */}
+        {events.length > 0 && (
+          <UpcomingSection
+            events={events}
+            stateSlug={stateSlug}
+            currentVideoId={camera?.video_id}
+          />
+        )}
+
         {/* ── Field notes ── */}
         {relatedPosts.length > 0 && <FieldNotesSection posts={relatedPosts} />}
 
@@ -462,6 +476,96 @@ export function FeaturedBlock({
       </div>
       {panel && <NowPanel weather={weather} sublocation={sublocation} />}
     </div>
+  )
+}
+
+/** "2026-09-27T18:00:00Z" -> "Sep 27, 6:00 PM" in the given zone, or the
+ *  viewer's own zone when none is passed. */
+function eventWhenText(iso: string, timeZone?: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * An event's date/time, in the viewer's own local time zone — not the
+ * camera's. The server has no idea what zone the browser is in, so it renders
+ * UTC first (deterministic, identical to the client's first paint) and a
+ * post-mount effect swaps to the browser's real zone — the same
+ * render-then-correct pattern `LocalClock` uses for the location's clock.
+ */
+export function EventWhen({ iso }: { iso: string }) {
+  const [text, setText] = useState(() => eventWhenText(iso, 'UTC'))
+  useEffect(() => setText(eventWhenText(iso)), [iso])
+  return <span className="tabular-nums">{text}</span>
+}
+
+/**
+ * Up to 3 upcoming events, shown on a camera or sublocation page. Renders
+ * nothing when there are none — the caller already guards this, but the
+ * guard lives here too since the component is exported nowhere else.
+ */
+export function UpcomingSection({
+  events,
+  stateSlug,
+  currentVideoId,
+}: {
+  events: Array<EventItem>
+  stateSlug: string
+  /** The camera already being watched — its own "Watch here" link is hidden. */
+  currentVideoId?: number
+}) {
+  if (events.length === 0) return null
+  return (
+    <section className="mt-12">
+      <h2 className="mb-4 text-xl">Upcoming</h2>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {events.map((e) => (
+          <div
+            key={e.event_id}
+            className="rounded-xl border border-overlay0/60 bg-surface0 p-4"
+          >
+            <p className="mb-1 font-mono text-[11px] text-subtext0">
+              <EventWhen iso={e.starts_at} />
+            </p>
+            <h4 className="mb-2 line-clamp-2 text-sm font-semibold text-text">
+              {e.title}
+            </h4>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {e.video_id != null &&
+                e.video_slug &&
+                e.video_id !== currentVideoId && (
+                  <Link
+                    to="/locations/$slug/$sublocationSlug/$cameraSlug"
+                    params={{
+                      slug: stateSlug,
+                      sublocationSlug: e.sublocation_slug,
+                      cameraSlug: e.video_slug,
+                    }}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    Watch here &rarr;
+                  </Link>
+                )}
+              {e.url && (
+                <a
+                  href={e.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  Event site ↗
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
