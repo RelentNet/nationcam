@@ -79,8 +79,9 @@ function NewCamerasPage() {
                     key={video.video_id}
                     title={video.title}
                     meta={addedLabel(video.created_at)}
-                    poster={streamPoster(video.src, true)}
-                    live
+                    poster={streamPoster(video.src, video.status === 'active')}
+                    live={video.status === 'active'}
+                    paused={video.status === 'paused'}
                     tick={tick}
                     link={
                       stateSlug && sublocationSlug

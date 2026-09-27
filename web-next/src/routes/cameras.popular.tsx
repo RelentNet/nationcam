@@ -78,8 +78,12 @@ function PopularCamerasPage() {
                     <PosterTile
                       title={video.title}
                       meta={video.sublocation_name || video.state_name}
-                      poster={streamPoster(video.src, true)}
-                      live
+                      poster={streamPoster(
+                        video.src,
+                        video.status === 'active',
+                      )}
+                      live={video.status === 'active'}
+                      paused={video.status === 'paused'}
                       tick={tick}
                       link={
                         stateSlug && sublocationSlug
