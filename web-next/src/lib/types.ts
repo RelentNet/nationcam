@@ -82,7 +82,20 @@ export interface Sublocation
   first_src: string
 }
 
-/** Current conditions from `GET /sublocations/{slug}/weather` (Open-Meteo). */
+/** `heat_stress.level` on `Weather` — a WBGT-style flag-condition estimate. */
+export type HeatStressLevel = 'low' | 'moderate' | 'high' | 'extreme'
+
+/** `storm_potential.level` on `Weather` — CAPE/lightning-potential estimate,
+ *  forecast-model only, never live strike detection. */
+export type StormPotentialLevel = 'low' | 'moderate' | 'high'
+
+/**
+ * Current conditions from `GET /sublocations/{slug}/weather` (Open-Meteo).
+ * The outdoor-activity fields below (DAN-32) are all best-effort estimates
+ * from forecast models, never on-site sensors or live lightning detection —
+ * each is omitted from the response when Open-Meteo didn't offer it or its
+ * upstream call failed, so every one of them is optional here too.
+ */
 export interface Weather {
   temp_f: number
   feels_f: number
@@ -101,6 +114,26 @@ export interface Weather {
   timezone_abbr: string
   marine: { wave_ft: number; period_s: number; water_f: number } | null
   fetched_at: string
+
+  dew_point_f?: number
+  uv_index?: number
+  /** Today's forecast peak UV index. */
+  uv_index_max?: number
+  wet_bulb_f?: number
+  /** Estimated from wet-bulb temperature when available, else apparent
+   *  temperature — see `label` for the "(estimate)" disclaimer text. */
+  heat_stress?: { level: HeatStressLevel; label: string }
+  cloud_cover_pct?: number
+  visibility_mi?: number
+  pressure_inhg?: number
+  /** vs. the pressure reading ~3 hours ago. */
+  pressure_trend?: 'rising' | 'steady' | 'falling'
+  precip_last_hour_in?: number
+  rain_next_hour_pct?: number
+  /** From CAPE and forecast-model lightning potential — not real strike
+   *  detection. */
+  storm_potential?: { level: StormPotentialLevel }
+  us_aqi?: { value: number; category: string }
 }
 
 /** One day of `Conditions.forecast`. */
@@ -121,15 +154,26 @@ export interface TidePrediction {
   type: 'high' | 'low'
 }
 
+/** One hour of `Conditions.hourly` — the 12-hour strip (DAN-32). */
+export interface HourlyPoint {
+  hour: string
+  temp_f: number
+  rain_pct: number
+  wind_mph: number
+  uv_index: number
+}
+
 /** `GET /sublocations/{slug}/conditions` — the "is it worth going today"
  *  page: a 3-day forecast plus, where public data exists nearby, NOAA tide
  *  predictions and USGS river stage. `tides`/`river` are null when no
  *  station/gauge is within range, or when the sublocation's override turns
  *  that source off. `source` is `'override'` when a sublocation's
  *  `noaa_station_id`/`usgs_site_id` pinned it, `'nearest'` when it was
- *  picked by distance. */
+ *  picked by distance. `hourly` is up to the next 12 hours from now, empty
+ *  when the forecast fetch failed. */
 export interface Conditions {
   forecast: Array<ForecastDay>
+  hourly: Array<HourlyPoint>
   tides: {
     station_name: string
     predictions: Array<TidePrediction>

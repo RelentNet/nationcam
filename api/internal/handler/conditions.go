@@ -75,8 +75,20 @@ type riverBlock struct {
 
 type conditionsResponse struct {
 	Forecast []forecastDay `json:"forecast"`
-	Tides    *tideBlock    `json:"tides"`
-	River    *riverBlock   `json:"river"`
+	// Hourly is up to the next 12 hours from now, for the conditions page's
+	// hour-by-hour strip (DAN-32). Empty when the forecast fetch failed.
+	Hourly []hourlyPoint `json:"hourly"`
+	Tides  *tideBlock    `json:"tides"`
+	River  *riverBlock   `json:"river"`
+}
+
+// hourlyPoint is one hour of the conditions page's 12-hour strip.
+type hourlyPoint struct {
+	Hour    string  `json:"hour"`
+	TempF   float64 `json:"temp_f"`
+	RainPct float64 `json:"rain_pct"`
+	WindMph float64 `json:"wind_mph"`
+	UvIndex float64 `json:"uv_index"`
 }
 
 /* ──── Distance ──── */
@@ -104,6 +116,18 @@ func bboxAround(lat, lng, radiusKm float64) (west, south, east, north float64) {
 /* ──── Forecast (Open-Meteo) ──── */
 
 type openMeteoDailyResponse struct {
+	// Current only asks for one cheap field — its purpose here is purely to
+	// get "now" in the location's local time, to anchor the hourly strip.
+	Current struct {
+		Time string `json:"time"`
+	} `json:"current"`
+	Hourly struct {
+		Time    []string  `json:"time"`
+		Temp    []float64 `json:"temperature_2m"`
+		RainPct []float64 `json:"precipitation_probability"`
+		WindMph []float64 `json:"wind_speed_10m"`
+		UvIndex []float64 `json:"uv_index"`
+	} `json:"hourly"`
 	Daily struct {
 		Time    []string  `json:"time"`
 		High    []float64 `json:"temperature_2m_max"`
@@ -115,10 +139,60 @@ type openMeteoDailyResponse struct {
 	} `json:"daily"`
 }
 
-// fetchForecast asks Open-Meteo for the next 3 days of daily fields, same
-// base endpoint as weather.go, imperial units, timezone auto-detected from
-// the coordinates.
-func fetchForecast(ctx context.Context, lat, lng float64) ([]forecastDay, error) {
+// hourlyStrip returns up to the next 12 hourly points starting at (or just
+// after) now — the conditions page's hour-by-hour strip (DAN-32). Pure and
+// deterministic so it can be unit tested against fixture arrays. nil if now
+// doesn't parse, the arrays are short, or now is past the last hour offered.
+func hourlyStrip(times []string, tempF, rainPct, windMph, uvIndex []float64, nowISO string) []hourlyPoint {
+	now, ok := parseOpenMeteoTime(nowISO)
+	if !ok {
+		return nil
+	}
+	n := len(times)
+	if len(tempF) < n || len(rainPct) < n || len(windMph) < n || len(uvIndex) < n {
+		return nil
+	}
+
+	start := -1
+	for i, iso := range times {
+		t, ok := parseOpenMeteoTime(iso)
+		if !ok {
+			continue
+		}
+		if !t.Before(now) {
+			start = i
+			break
+		}
+	}
+	if start == -1 {
+		return nil
+	}
+
+	end := start + 12
+	if end > n {
+		end = n
+	}
+	out := make([]hourlyPoint, 0, end-start)
+	for i := start; i < end; i++ {
+		t, ok := parseOpenMeteoTime(times[i])
+		if !ok {
+			continue
+		}
+		out = append(out, hourlyPoint{
+			Hour:    t.Format("3 PM"),
+			TempF:   tempF[i],
+			RainPct: rainPct[i],
+			WindMph: windMph[i],
+			UvIndex: uvIndex[i],
+		})
+	}
+	return out
+}
+
+// fetchForecast asks Open-Meteo for the next 3 days of daily fields plus
+// hourly fields for the 12-hour strip, same base endpoint as weather.go,
+// imperial units, timezone auto-detected from the coordinates.
+func fetchForecast(ctx context.Context, lat, lng float64) ([]forecastDay, []hourlyPoint, error) {
 	q := url.Values{
 		"latitude":         {fmt.Sprintf("%.4f", lat)},
 		"longitude":        {fmt.Sprintf("%.4f", lng)},
@@ -126,11 +200,13 @@ func fetchForecast(ctx context.Context, lat, lng float64) ([]forecastDay, error)
 		"temperature_unit": {"fahrenheit"},
 		"wind_speed_unit":  {"mph"},
 		"forecast_days":    {"3"},
+		"current":          {"temperature_2m"},
+		"hourly":           {"temperature_2m,precipitation_probability,wind_speed_10m,uv_index"},
 		"daily":            {"temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset"},
 	}
 	var f openMeteoDailyResponse
 	if err := fetchJSON(ctx, "https://api.open-meteo.com/v1/forecast?"+q.Encode(), &f); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	days := make([]forecastDay, 0, len(f.Daily.Time))
@@ -156,7 +232,9 @@ func fetchForecast(ctx context.Context, lat, lng float64) ([]forecastDay, error)
 		}
 		days = append(days, day)
 	}
-	return days, nil
+
+	hourly := hourlyStrip(f.Hourly.Time, f.Hourly.Temp, f.Hourly.RainPct, f.Hourly.WindMph, f.Hourly.UvIndex, f.Current.Time)
+	return days, hourly, nil
 }
 
 /* ──── Tides (NOAA CO-OPS) ──── */
@@ -592,13 +670,16 @@ func GetConditions(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 		}
 
 		lat, lng := sub.Lat.Float64, sub.Lng.Float64
-		out := conditionsResponse{Forecast: []forecastDay{}}
+		out := conditionsResponse{Forecast: []forecastDay{}, Hourly: []hourlyPoint{}}
 
-		forecast, err := fetchForecast(r.Context(), lat, lng)
+		forecast, hourly, err := fetchForecast(r.Context(), lat, lng)
 		if err != nil {
 			slog.Warn("forecast fetch failed", "slug", sub.Slug, "error", err)
 		} else {
 			out.Forecast = forecast
+			if hourly != nil {
+				out.Hourly = hourly
+			}
 		}
 
 		out.Tides = resolveTides(r.Context(), c, sub, lat, lng)

@@ -307,8 +307,8 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/states`                        | Create state                   | Admin (Logto) |
 | GET    | `/states/{slug}/sublocations`    | Sublocations for a state       | None          |
 | GET    | `/sublocations/{slug}`           | Single sublocation by slug     | None          |
-| GET    | `/sublocations/{slug}/weather`   | Current conditions (Open-Meteo, 10-min Redis cache); 404 without lat/lng | None |
-| GET    | `/sublocations/{slug}/conditions` | 3-day forecast plus NOAA tide predictions and USGS river stage from the nearest station/gauge (30-min Redis cache), or from the sublocation's `noaa_station_id`/`usgs_site_id` when set (`none` disables that source); 404 without lat/lng | None |
+| GET    | `/sublocations/{slug}/weather`   | Current conditions plus outdoor-activity estimates — dew point, UV, wet-bulb, heat stress, cloud cover, visibility, pressure + trend, precip, rain next hour, storm potential, US AQI (Open-Meteo, 10-min Redis cache; every added field is nullable and best-effort — see "Outdoor-activity stats" below); 404 without lat/lng | None |
+| GET    | `/sublocations/{slug}/conditions` | 3-day forecast, a 12-hour hourly strip (temp/rain/wind/UV), plus NOAA tide predictions and USGS river stage from the nearest station/gauge (30-min Redis cache), or from the sublocation's `noaa_station_id`/`usgs_site_id` when set (`none` disables that source); 404 without lat/lng | None |
 | POST   | `/sublocations`                  | Create sublocation             | Admin (Logto) |
 | GET    | `/videos`                        | All active videos              | None          |
 | GET    | `/videos?state_id=N`             | Videos by state                | None          |
@@ -405,6 +405,48 @@ An event counts as "upcoming" until it ends (or, with no end time, until it
 starts) — `GET /events?upcoming=1` backs the sitewide page (limit 50, soonest
 first) and the two scoped listings back the "Upcoming" block on a
 camera/sublocation page (limit 3); writes flush `events:*`.
+
+### Outdoor-activity stats
+
+`GET /sublocations/{slug}/weather` answers "is it safe and pleasant to be
+outside here right now" alongside the existing temp/wind/humidity fields, all
+from Open-Meteo and cached the same 10 minutes. Every added field is a
+`*float64`/pointer type in Go (nullable JSON, omitted when unavailable) —
+each is independent best-effort: a source Open-Meteo doesn't offer for that
+model/region, or an upstream call that fails, only nulls that one field and
+never fails the response.
+
+- **Fields**: `dew_point_f`, `uv_index` (current, falling back to the nearest
+  hourly reading when the model doesn't offer it in `current`), `uv_index_max`
+  (today), `wet_bulb_f`, `heat_stress` (`{level, label}`), `cloud_cover_pct`,
+  `visibility_mi`, `pressure_inhg`, `pressure_trend` (`rising`/`steady`/
+  `falling` vs. the hourly reading ~3h ago), `precip_last_hour_in`,
+  `rain_next_hour_pct` (from the 15-minutely forecast where Open-Meteo offers
+  it, else the next hourly reading), `storm_potential` (`{level}`), `us_aqi`
+  (`{value, category}`).
+- **Sources**: the same Open-Meteo forecast call's `current`/`hourly`/`daily`/
+  `minutely_15` blocks, plus one extra call to the Air Quality API
+  (`air-quality-api.open-meteo.com`) for `us_aqi` — the only new upstream
+  request DAN-32 adds.
+- **Heat stress** is a standard WBGT flag-condition estimate from wet-bulb
+  temperature when the forecast offers it, else apparent ("feels like")
+  temperature as a stand-in: low < 80°F, moderate 80–84.9°F, high 85–87.9°F,
+  extreme ≥ 88°F. Every label says "(estimate)" — this is a forecast reading,
+  not a measured globe-thermometer WBGT.
+- **Storm potential** is CAPE-based: low < 500 J/kg, moderate 500–1500 J/kg
+  (or any 15-minutely lightning potential > 0), high > 1500 J/kg. This is a
+  forecast-model signal, not real strike detection — Open-Meteo has no
+  lightning sensor network, so the wording (API and frontend both) must never
+  imply live lightning detection or an on-site station.
+- **US AQI category** follows the standard EPA bands (Good/Moderate/Unhealthy
+  for Sensitive Groups/Unhealthy/Very Unhealthy/Hazardous).
+- **NowPanel** shows these as a second row of color-coded tiles (Heat stress,
+  UV, Air quality, Rain next hour, Storm potential — tiles with a null value
+  are omitted, the whole row is omitted when every one is) with a one-line
+  legend, plus dew point/pressure+trend/visibility/cloud cover added to the
+  existing detail stats. The conditions page's 12-hour strip (hour, temp,
+  rain %, wind, UV) is server-rendered from `GET .../conditions`'s `hourly`
+  array, which reuses the same forecast call as the 3-day forecast.
 
 ### Stream Management
 

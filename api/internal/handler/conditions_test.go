@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -316,5 +317,57 @@ func TestResolveRiverFallsBackToNearestSite(t *testing.T) {
 	}
 	if block.SiteName == "" {
 		t.Errorf("expected the nearest fixture site's name to be used")
+	}
+}
+
+/* ──── Hourly strip (DAN-32) ──── */
+
+func TestHourlyStripStartsAtNow(t *testing.T) {
+	times := []string{
+		"2026-09-14T10:00", "2026-09-14T11:00", "2026-09-14T12:00",
+		"2026-09-14T13:00", "2026-09-14T14:00",
+	}
+	temp := []float64{70, 72, 75, 78, 80}
+	rain := []float64{0, 5, 10, 20, 30}
+	wind := []float64{5, 6, 7, 8, 9}
+	uv := []float64{1, 2, 4, 6, 7}
+
+	got := hourlyStrip(times, temp, rain, wind, uv, "2026-09-14T11:45")
+	if len(got) != 3 {
+		t.Fatalf("hourlyStrip length = %d, want 3 (starting at 12:00)", len(got))
+	}
+	if got[0].TempF != 75 || got[0].RainPct != 10 || got[0].WindMph != 7 || got[0].UvIndex != 4 {
+		t.Errorf("first point = %+v, want the 12:00 entry", got[0])
+	}
+	if got[0].Hour == "" {
+		t.Error("expected a non-empty hour label")
+	}
+}
+
+func TestHourlyStripCapsAt12Hours(t *testing.T) {
+	times := make([]string, 24)
+	vals := make([]float64, 24)
+	base := time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)
+	for i := range times {
+		times[i] = base.Add(time.Duration(i) * time.Hour).Format("2006-01-02T15:04")
+		vals[i] = float64(i)
+	}
+	got := hourlyStrip(times, vals, vals, vals, vals, times[0])
+	if len(got) != 12 {
+		t.Fatalf("hourlyStrip length = %d, want 12", len(got))
+	}
+}
+
+func TestHourlyStripNilOnBadInput(t *testing.T) {
+	if got := hourlyStrip(nil, nil, nil, nil, nil, "garbage"); got != nil {
+		t.Errorf("hourlyStrip with unparseable now = %v, want nil", got)
+	}
+	times := []string{"2026-09-14T10:00"}
+	if got := hourlyStrip(times, nil, nil, nil, nil, "2026-09-14T10:00"); got != nil {
+		t.Errorf("hourlyStrip with mismatched slice lengths = %v, want nil", got)
+	}
+	// now is after every offered hour.
+	if got := hourlyStrip(times, []float64{1}, []float64{1}, []float64{1}, []float64{1}, "2026-09-14T23:00"); got != nil {
+		t.Errorf("hourlyStrip with now past the last hour = %v, want nil", got)
 	}
 }

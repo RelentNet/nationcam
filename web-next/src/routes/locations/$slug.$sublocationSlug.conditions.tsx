@@ -1,6 +1,6 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
-import { ChevronRight, CloudSun, Gauge, Waves } from 'lucide-react'
-import type { Conditions, TidePrediction } from '@/lib/types'
+import { ChevronRight, Clock, CloudSun, Gauge, Waves } from 'lucide-react'
+import type { Conditions, HourlyPoint, TidePrediction } from '@/lib/types'
 import { fetchConditions, fetchSublocationBySlug } from '@/lib/api'
 import { SITE_URL, seo } from '@/lib/seo'
 
@@ -156,6 +156,27 @@ function TideCurve({ predictions }: { predictions: Array<TidePrediction> }) {
   )
 }
 
+/** One hour of the 12-hour strip. */
+function HourCard({ hour, temp_f, rain_pct, wind_mph, uv_index }: HourlyPoint) {
+  return (
+    <div className="flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-xl border border-overlay0 bg-surface1 px-2 py-3">
+      <span className="font-mono text-[11px] text-subtext0">{hour}</span>
+      <span className="font-display text-xl font-semibold text-text">
+        {r(temp_f)}°
+      </span>
+      <span className="font-mono text-[11px] text-subtext1">
+        {r(rain_pct)}% rain
+      </span>
+      <span className="font-mono text-[11px] text-subtext1">
+        {r(wind_mph)} mph
+      </span>
+      <span className="font-mono text-[11px] text-subtext1">
+        UV {r(uv_index)}
+      </span>
+    </div>
+  )
+}
+
 function ForecastCard({
   date,
   high_f,
@@ -231,6 +252,20 @@ function ConditionsRoute() {
         Forecast, tides and river stage from public data — is it worth going
         today?
       </p>
+
+      {conditions && conditions.hourly.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 flex items-center gap-2 text-lg">
+            <Clock size={18} className="text-accent" />
+            Next 12 hours
+          </h2>
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+            {conditions.hourly.map((hour, i) => (
+              <HourCard key={i} {...hour} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {conditions && conditions.forecast.length > 0 && (
         <section className="mb-10">
