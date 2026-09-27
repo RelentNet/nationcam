@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/brandon-relentnet/nationcam/api/internal/archive"
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
 	"github.com/brandon-relentnet/nationcam/api/internal/config"
+	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/brandon-relentnet/nationcam/api/internal/handler"
 	"github.com/brandon-relentnet/nationcam/api/internal/middleware"
 	"github.com/brandon-relentnet/nationcam/api/internal/restreamer"
@@ -94,7 +96,37 @@ func run() error {
 	}
 	uploadsDir := handler.ResolveUploadsDir(cfg.UploadsDir)
 	slog.Info("uploads dir ready", "dir", uploadsDir)
-	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir)
+	snapshots := &archive.Store{Dir: archive.ResolveDir(cfg.SnapshotsDir)}
+	slog.Info("snapshots dir ready", "dir", snapshots.Dir)
+	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir, snapshots)
+
+	// ── Snapshot archive job ───────────────────────────────────────
+	// One watermarked still per active camera every 15 minutes, plus hourly
+	// retention. Runs on the server's root context, so cancelling it below is
+	// what stops the job; jobDone lets shutdown wait for in-flight captures.
+	snapshotClient := handler.NewSnapshotClient()
+	job := &archive.Job{
+		Store: snapshots,
+		ListSources: func(ctx context.Context) ([]archive.Source, error) {
+			rows, err := db.New(pool).ListVideos(ctx)
+			if err != nil {
+				return nil, err
+			}
+			sources := make([]archive.Source, 0, len(rows))
+			for _, v := range rows {
+				sources = append(sources, archive.Source{VideoID: v.VideoID, Src: v.Src})
+			}
+			return sources, nil
+		},
+		Capture: func(ctx context.Context, src string) ([]byte, error) {
+			return handler.SnapshotForSource(ctx, snapshotClient, src)
+		},
+	}
+	jobDone := make(chan struct{})
+	go func() {
+		defer close(jobDone)
+		job.Run(ctx)
+	}()
 
 	// ── HTTP server ────────────────────────────────────────────────
 	srv := &http.Server{
@@ -138,5 +170,15 @@ func run() error {
 	defer shutdownCancel()
 
 	slog.Info("shutting down server")
-	return srv.Shutdown(shutdownCtx)
+	err = srv.Shutdown(shutdownCtx)
+
+	// Stop the archive job and wait for in-flight captures (each bounded by
+	// its own timeout) so a still is never left half-written on the volume.
+	cancel()
+	select {
+	case <-jobDone:
+	case <-shutdownCtx.Done():
+		slog.Warn("snapshot archive did not stop in time")
+	}
+	return err
 }

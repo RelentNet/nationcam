@@ -92,6 +92,9 @@ RESTREAMER_URL=https://streamer.nationcam.com
 RESTREAMER_USER=admin
 RESTREAMER_PASS=<Restreamer password>
 STREAMER_API_KEY=<secret key for /api/streams/* endpoints>
+
+# Optional — snapshot archive location (docker-compose mounts the `snapshots` volume here)
+SNAPSHOTS_DIR=/app/data/snapshots
 ```
 
 **First deploy steps:**
@@ -307,6 +310,9 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos/{state}/{sub}/{slug}`   | Single camera + related cameras | None         |
 | GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky | None |
 | GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 to the camera's current HLS manifest | None |
+| GET    | `/videos/{state}/{sub}/{slug}/frames?day=YYYY-MM-DD` | Archived stills for one local day (default today), sorted by time | None |
+| GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
+| GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header) | None |
 | POST   | `/videos`                        | Create video                   | Admin (Logto) |
 | GET    | `/streams`                       | List all active streams        | API Key       |
 | POST   | `/streams`                       | Create RTSP-to-HLS stream      | API Key       |
@@ -361,6 +367,29 @@ header (not Logto). Stream creation is rate-limited to 10 requests per minute.
 - **Codec**: Passthrough (`-codec:v copy -codec:a copy`) by default — no re-encoding
 - **Reconnect**: Auto-reconnect on failure with 15-second delay
 - **Token management**: The Go API manages Restreamer JWT tokens internally (auto-refresh)
+
+### Snapshot archive
+
+`api/internal/archive` keeps a browsable history of every camera's watermarked
+stills on the `snapshots` Docker volume (`SNAPSHOTS_DIR`, default
+`/app/data/snapshots`, `./snapshots` outside Docker). A background job started
+from `main.go` runs on the server's root context and stops with it:
+
+- **Capture**: every 15 minutes, aligned to :00/:15/:30/:45, one still per active
+  video via the same `SnapshotForSource` pipeline as `snapshot.jpg` (Restreamer
+  `memfs/{id}.jpg` + watermark; non-Restreamer sources are skipped). Written to
+  `{video_id}/{YYYY-MM-DD}/{HHMM}.jpg` with day and time in **America/Chicago**,
+  atomically (temp file + rename). Four captures run at once, each with a 20s
+  timeout; one camera failing is logged and never stops the rest.
+- **Retention** runs hourly: frames older than 14 days are deleted except the
+  frame closest to 12:00 local per day, which is kept for 365 days. Empty day and
+  camera directories are removed.
+- **Reads**: the directory tree is the only index — no table backs it. The two
+  `/frames` listings are cached under `videos:*` (today's frame list for 60s,
+  everything else the usual 5 min); frame URLs in the JSON are `/api/snapshots/...`,
+  the same browser-facing form as `/api/uploads/...`. `/snapshots/*` only serves a
+  path that matches `{digits}/{YYYY-MM-DD}/{HHMM}.jpg` exactly, so traversal never
+  reaches the filesystem.
 
 ### Caching
 

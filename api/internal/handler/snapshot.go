@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/brandon-relentnet/nationcam/api/internal/archive"
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
 	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -48,7 +49,7 @@ var watermark = func() image.Image {
 // such as Windy and Ventusky to poll. Unlike the Restreamer URL behind it, this one
 // survives the stream being recreated under a new ID.
 func CameraSnapshot(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := NewSnapshotClient()
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		params := cameraParams(r)
@@ -58,12 +59,11 @@ func CameraSnapshot(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 		img, _ := c.Get(ctx, key)
 		if img == "" {
 			camera, err := db.New(pool).GetVideoBySlug(ctx, params)
-			m := memfsHLS.FindStringSubmatch(camera.Src)
-			if err != nil || m == nil {
+			if err != nil || !memfsHLS.MatchString(camera.Src) {
 				writeJSON(w, http.StatusNotFound, map[string]string{"error": "no snapshot for this camera"})
 				return
 			}
-			b, err := brandedSnapshot(ctx, client, m[1]+".jpg")
+			b, err := SnapshotForSource(ctx, client, camera.Src)
 			if err != nil {
 				slog.Warn("snapshot fetch failed", "key", key, "error", err)
 				writeJSON(w, http.StatusBadGateway, map[string]string{"error": "snapshot unavailable"})
@@ -91,6 +91,24 @@ func CameraStream(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		http.Redirect(w, r, camera.Src, http.StatusFound)
 	}
+}
+
+// SnapshotForSource returns the watermarked latest still for a camera source
+// URL, or archive.ErrSkip when the source is not a Restreamer HLS stream (no
+// still exists to fetch). Shared by the on-demand snapshot.jpg endpoint and the
+// snapshot archive job.
+func SnapshotForSource(ctx context.Context, client *http.Client, src string) ([]byte, error) {
+	m := memfsHLS.FindStringSubmatch(src)
+	if m == nil {
+		return nil, archive.ErrSkip
+	}
+	return brandedSnapshot(ctx, client, m[1]+".jpg")
+}
+
+// NewSnapshotClient is the HTTP client the snapshot fetchers use: a hard
+// timeout so a stalled Restreamer never pins a request or an archive worker.
+func NewSnapshotClient() *http.Client {
+	return &http.Client{Timeout: 10 * time.Second}
 }
 
 // brandedSnapshot fetches a JPEG and stamps the watermark on it.

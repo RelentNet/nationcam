@@ -26,6 +26,10 @@ type Config struct {
 
 	// UploadsDir is where uploaded branding assets are written and served from.
 	UploadsDir string
+
+	// SnapshotsDir is where the snapshot archive (one still per camera every
+	// 15 minutes) is written and served from.
+	SnapshotsDir string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -58,7 +62,8 @@ func Load() (*Config, error) {
 
 		AzuracastURL: os.Getenv("AZURACAST_URL"),
 
-		UploadsDir: envOr("UPLOADS_DIR", "/app/data/uploads"),
+		UploadsDir:   envOr("UPLOADS_DIR", "/app/data/uploads"),
+		SnapshotsDir: envOr("SNAPSHOTS_DIR", "/app/data/snapshots"),
 	}, nil
 }
 
