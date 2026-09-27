@@ -55,7 +55,33 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			return
 		}
 
-		// No filter — return all active videos.
+		// No filter — return all active videos, optionally ranked by `sort`.
+		// The cache key includes the sort so the three orderings never collide;
+		// any value other than "views"/"newest" is ignored (falls through to the
+		// default title order).
+		switch q.Get("sort") {
+		case "views":
+			cachedHandler(c, "videos:all:views", func(w http.ResponseWriter, r *http.Request) {
+				rows, err := db.New(pool).ListVideosByViews(r.Context())
+				if err != nil {
+					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+					return
+				}
+				writeJSON(w, http.StatusOK, rows)
+			})(w, r)
+			return
+		case "newest":
+			cachedHandler(c, "videos:all:newest", func(w http.ResponseWriter, r *http.Request) {
+				rows, err := db.New(pool).ListVideosByCreated(r.Context())
+				if err != nil {
+					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+					return
+				}
+				writeJSON(w, http.StatusOK, rows)
+			})(w, r)
+			return
+		}
+
 		cachedHandler(c, "videos:all", func(w http.ResponseWriter, r *http.Request) {
 			rows, err := db.New(pool).ListVideos(r.Context())
 			if err != nil {

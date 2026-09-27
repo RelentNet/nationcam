@@ -19,6 +19,8 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
+import { Route as CamerasNewRouteImport } from './routes/cameras.new'
+import { Route as CamerasPopularRouteImport } from './routes/cameras.popular'
 import { Route as LocationsIndexRouteImport } from './routes/locations/index'
 import { Route as NotesIndexRouteImport } from './routes/notes.index'
 import { Route as NotesSlugRouteImport } from './routes/notes.$slug'
@@ -78,6 +80,16 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CamerasNewRoute = CamerasNewRouteImport.update({
+  id: '/cameras/new',
+  path: '/cameras/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CamerasPopularRoute = CamerasPopularRouteImport.update({
+  id: '/cameras/popular',
+  path: '/cameras/popular',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LocationsIndexRoute = LocationsIndexRouteImport.update({
   id: '/locations/',
   path: '/locations/',
@@ -134,6 +146,8 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/$': typeof ApiSplatRoute
+  '/cameras/new': typeof CamerasNewRoute
+  '/cameras/popular': typeof CamerasPopularRoute
   '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
@@ -154,6 +168,8 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/$': typeof ApiSplatRoute
+  '/cameras/new': typeof CamerasNewRoute
+  '/cameras/popular': typeof CamerasPopularRoute
   '/notes/$slug': typeof NotesSlugRoute
   '/locations': typeof LocationsIndexRoute
   '/notes': typeof NotesIndexRoute
@@ -175,6 +191,8 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/api/$': typeof ApiSplatRoute
+  '/cameras/new': typeof CamerasNewRoute
+  '/cameras/popular': typeof CamerasPopularRoute
   '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
@@ -197,6 +215,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/api/$'
+    | '/cameras/new'
+    | '/cameras/popular'
     | '/notes/$slug'
     | '/locations/'
     | '/notes/'
@@ -217,6 +237,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/api/$'
+    | '/cameras/new'
+    | '/cameras/popular'
     | '/notes/$slug'
     | '/locations'
     | '/notes'
@@ -237,6 +259,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/api/$'
+    | '/cameras/new'
+    | '/cameras/popular'
     | '/notes/$slug'
     | '/locations/'
     | '/notes/'
@@ -258,6 +282,8 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  CamerasNewRoute: typeof CamerasNewRoute
+  CamerasPopularRoute: typeof CamerasPopularRoute
   NotesSlugRoute: typeof NotesSlugRoute
   LocationsIndexRoute: typeof LocationsIndexRoute
   NotesIndexRoute: typeof NotesIndexRoute
@@ -340,6 +366,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cameras/new': {
+      id: '/cameras/new'
+      path: '/cameras/new'
+      fullPath: '/cameras/new'
+      preLoaderRoute: typeof CamerasNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cameras/popular': {
+      id: '/cameras/popular'
+      path: '/cameras/popular'
+      fullPath: '/cameras/popular'
+      preLoaderRoute: typeof CamerasPopularRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/locations/': {
       id: '/locations/'
       path: '/locations'
@@ -410,6 +450,8 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   ApiSplatRoute: ApiSplatRoute,
+  CamerasNewRoute: CamerasNewRoute,
+  CamerasPopularRoute: CamerasPopularRoute,
   NotesSlugRoute: NotesSlugRoute,
   LocationsIndexRoute: LocationsIndexRoute,
   NotesIndexRoute: NotesIndexRoute,
@@ -426,12 +468,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

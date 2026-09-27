@@ -15,6 +15,8 @@ const STATIC_PATHS = [
   '/contact',
   '/privacy',
   '/terms',
+  '/cameras/popular',
+  '/cameras/new',
 ]
 
 // The public listing is paginated (max 100/page), so every published slug is

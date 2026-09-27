@@ -8,31 +8,45 @@ import {
   Map,
   MonitorPlay,
   Radio,
+  Sparkles,
+  Trophy,
 } from 'lucide-react'
-import type { Video } from '@/lib/types'
+import type { State, Sublocation, Video } from '@/lib/types'
 import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import StreamPlayer from '@/components/StreamPlayer'
 import PrerollGate from '@/components/PrerollGate'
 import LiveNowSection from '@/components/LiveNowSection'
-import PosterTile from '@/components/PosterTile'
+import PosterTile, { usePosterTick } from '@/components/PosterTile'
+import { CTA_CLASS } from '@/components/SublocationPage'
 import { pickFeatured } from '@/lib/featured'
 import ContactCTA from '@/components/ContactCTA'
 import Reveal from '@/components/Reveal'
-import { seo } from '@/lib/seo'
+import { seo, streamPoster } from '@/lib/seo'
 import { useRecentCameras } from '@/hooks/useRecentCameras'
+
+/** Home rows show a handful of tiles, not the full catalog — see /cameras/popular and /cameras/new for the rest. */
+const HOME_ROW_SIZE = 6
+
+/** Gate for the "Newest" row: only shown when something was added recently. */
+const NEWEST_ROW_WINDOW_DAYS = 60
 
 export const Route = createFileRoute('/')({
   loader: async () => {
     // Feature a real camera so the "Watch Now" hero can run a targeted pre-roll,
     // picked server-side so the client hydrates the same one. Tolerant: if the
     // API is unreachable the homepage still renders (falls back to no pre-roll).
-    const [videos, states] = await Promise.all([
+    const [videos, states, popularVideos, newestVideos] = await Promise.all([
       fetchVideos().catch(() => []),
       fetchStates().catch(() => []),
+      fetchVideos({ sort: 'views' }).catch(() => []),
+      fetchVideos({ sort: 'newest' }).catch(() => []),
     ])
     // Sublocation slugs aren't on the video rows themselves, so fetch them for
-    // every state with a live camera — that's what the "Live now" grid needs
-    // to build the same camera links as routes/locations/$slug.index.tsx.
+    // every state with a live camera — that's what the "Live now", "Most
+    // watched" and "Newest" grids need to build the same camera links as
+    // routes/locations/$slug.index.tsx. popularVideos/newestVideos are the
+    // same active-video universe as videos, just reordered by the API, so no
+    // extra states are ever referenced here.
     const liveStateIds = new Set(
       videos.filter((v) => v.status === 'active').map((v) => v.state_id),
     )
@@ -46,7 +60,14 @@ export const Route = createFileRoute('/')({
         ),
       )
     ).flat()
-    return { featured: pickFeatured(videos), videos, states, sublocations }
+    return {
+      featured: pickFeatured(videos),
+      videos,
+      states,
+      sublocations,
+      popularVideos,
+      newestVideos,
+    }
   },
   head: () =>
     seo({
@@ -59,7 +80,14 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
-  const { featured, videos, states, sublocations } = Route.useLoaderData()
+  const {
+    featured,
+    videos,
+    states,
+    sublocations,
+    popularVideos,
+    newestVideos,
+  } = Route.useLoaderData()
   return (
     <div>
       <HomeHeroSection />
@@ -67,6 +95,16 @@ function HomePage() {
       <RecentlyWatchedSection />
       <LiveNowSection
         videos={videos}
+        states={states}
+        sublocations={sublocations}
+      />
+      <MostWatchedSection
+        videos={popularVideos}
+        states={states}
+        sublocations={sublocations}
+      />
+      <NewestSection
+        videos={newestVideos}
         states={states}
         sublocations={sublocations}
       />
@@ -284,6 +322,149 @@ function RecentlyWatchedSection() {
                 link={cameraLink(entry.path)}
               />
             ))}
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  )
+}
+
+/* ──────────────────── Most watched / Newest ──────────────────── */
+
+/** Builds the same camera link LiveNowSection does, or undefined for a camera with no page of its own. */
+function buildCameraLink(
+  video: Video,
+  stateSlugById: Map<number, string>,
+  sublocationSlugById: Map<number, string>,
+) {
+  const stateSlug = stateSlugById.get(video.state_id)
+  const sublocationSlug = video.sublocation_id
+    ? sublocationSlugById.get(video.sublocation_id)
+    : undefined
+  if (!stateSlug || !sublocationSlug) return undefined
+  return {
+    to: '/locations/$slug/$sublocationSlug/$cameraSlug' as const,
+    params: { slug: stateSlug, sublocationSlug, cameraSlug: video.slug },
+  }
+}
+
+interface RankedRowProps {
+  videos: Array<Video>
+  states: Array<State>
+  sublocations: Array<Sublocation>
+}
+
+/** "Most watched" — top cameras by total views, linking to the full ranking. */
+function MostWatchedSection({ videos, states, sublocations }: RankedRowProps) {
+  const tick = usePosterTick()
+  if (videos.length === 0) return null
+
+  const stateSlugById = new Map(states.map((s) => [s.state_id, s.slug]))
+  const sublocationSlugById = new Map(
+    sublocations.map((s) => [s.sublocation_id, s.slug]),
+  )
+  const top = videos.slice(0, HOME_ROW_SIZE)
+
+  return (
+    <section className="py-20">
+      <Reveal variant="blur">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
+              <Trophy size={14} className="text-accent" />
+              <span className="font-mono text-xs font-medium text-accent">
+                Most watched
+              </span>
+            </div>
+            <h2>Fan Favorites</h2>
+            <p className="mx-auto max-w-lg">
+              The cameras our viewers keep coming back to.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {top.map((video, index) => (
+              <div key={video.video_id} className="relative">
+                <span className="absolute top-2 right-2 z-10 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-xs font-bold text-crust">
+                  #{index + 1}
+                </span>
+                <PosterTile
+                  title={video.title}
+                  meta={video.sublocation_name || video.state_name}
+                  poster={streamPoster(video.src, true)}
+                  live
+                  tick={tick}
+                  link={buildCameraLink(
+                    video,
+                    stateSlugById,
+                    sublocationSlugById,
+                  )}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Link to="/cameras/popular" className={CTA_CLASS}>
+              See the full ranking &rarr;
+            </Link>
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  )
+}
+
+/** "Newest" — recently added cameras, only shown when one exists. */
+function NewestSection({ videos, states, sublocations }: RankedRowProps) {
+  const tick = usePosterTick()
+  const cutoff = Date.now() - NEWEST_ROW_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  const hasRecent = videos.some(
+    (v) => new Date(v.created_at).getTime() >= cutoff,
+  )
+  if (!hasRecent) return null
+
+  const stateSlugById = new Map(states.map((s) => [s.state_id, s.slug]))
+  const sublocationSlugById = new Map(
+    sublocations.map((s) => [s.sublocation_id, s.slug]),
+  )
+  const top = videos.slice(0, HOME_ROW_SIZE)
+
+  return (
+    <section className="py-20">
+      <Reveal variant="blur">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
+              <Sparkles size={14} className="text-accent" />
+              <span className="font-mono text-xs font-medium text-accent">
+                Newest
+              </span>
+            </div>
+            <h2>Just Added</h2>
+            <p className="mx-auto max-w-lg">
+              The latest cameras to join our network.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {top.map((video) => (
+              <PosterTile
+                key={video.video_id}
+                title={video.title}
+                meta={video.sublocation_name || video.state_name}
+                poster={streamPoster(video.src, true)}
+                live
+                tick={tick}
+                link={buildCameraLink(
+                  video,
+                  stateSlugById,
+                  sublocationSlugById,
+                )}
+              />
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Link to="/cameras/new" className={CTA_CLASS}>
+              See all new cameras &rarr;
+            </Link>
           </div>
         </div>
       </Reveal>
