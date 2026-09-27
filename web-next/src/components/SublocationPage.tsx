@@ -2,6 +2,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import {
   ChevronLeft,
   ChevronRight,
+  Code,
   Eye,
   MapPin,
   Video as VideoIcon,
@@ -28,6 +29,7 @@ import SnapshotStrip from '@/components/SnapshotStrip'
 import BannerSlot from '@/components/BannerSlot'
 import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
+import EmbedSnippet from '@/components/EmbedSnippet'
 import { useCameraFilter } from '@/hooks/useCameraFilter'
 import { useArrowKeyNav } from '@/hooks/useArrowKeyNav'
 import { recordRecentCamera } from '@/hooks/useRecentCameras'
@@ -488,6 +490,21 @@ export function FeaturedBlock({
             </Link>
           )}
         </div>
+        {camera && sublocation && (
+          <details className="group mt-2">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 font-mono text-xs text-subtext0 transition-colors hover:text-accent">
+              <Code size={13} />
+              Embed this camera
+            </summary>
+            <EmbedSnippet
+              className="mt-2"
+              stateSlug={stateSlug}
+              sublocationSlug={sublocation.slug}
+              cameraSlug={camera.slug}
+              title={camera.title}
+            />
+          </details>
+        )}
         {children}
       </div>
       {panel && (

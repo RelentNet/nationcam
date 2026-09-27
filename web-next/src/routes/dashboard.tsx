@@ -91,6 +91,7 @@ import {
   uploadAsset,
 } from '@/lib/api'
 import { SITE_URL, streamPoster } from '@/lib/seo'
+import EmbedSnippet from '@/components/EmbedSnippet'
 
 /* ──── Constants ──── */
 
@@ -862,6 +863,8 @@ function CamerasPanel({
                   key={v.video_id}
                   video={v}
                   index={i}
+                  states={states}
+                  sublocations={sublocations}
                   onEdit={() => setEditing(v)}
                   onDelete={() =>
                     setConfirmDelete({ id: v.video_id, name: v.title })
@@ -4179,56 +4182,85 @@ function FormFooter({
 function VideoRow({
   video,
   index,
+  states,
+  sublocations,
   onEdit,
   onDelete,
 }: {
   video: Video
   index: number
+  states: Array<State>
+  sublocations: Array<Sublocation>
   onEdit: () => void
   onDelete: () => void
 }) {
   const typeLabel = VIDEO_TYPE_LABELS[video.type] ?? video.type
   const isActive = video.status === 'active'
+  const [showEmbed, setShowEmbed] = useState(false)
+
+  const stateSlug = states.find((s) => s.state_id === video.state_id)?.slug
+  const subSlug = sublocations.find(
+    (s) => s.sublocation_id === video.sublocation_id,
+  )?.slug
+  const canEmbed = Boolean(stateSlug && subSlug)
 
   return (
-    <div
-      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5"
-      style={staggerStyle(index)}
-    >
-      {/* Icon */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <Film size={18} className="text-accent" />
-      </div>
+    <div style={staggerStyle(index)}>
+      <div className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5">
+        {/* Icon */}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+          <Film size={18} className="text-accent" />
+        </div>
 
-      {/* Info */}
-      <div className="min-w-0 flex-1">
-        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
-          {video.title}
-        </p>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span className="truncate text-xs text-subtext0">
-            {video.state_name}
-            {video.sublocation_name ? ` \u00B7 ${video.sublocation_name}` : ''}
-          </span>
-          <span className="shrink-0 rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext0">
-            {typeLabel}
-          </span>
+        {/* Info */}
+        <div className="min-w-0 flex-1">
+          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+            {video.title}
+          </p>
+          <div className="mt-0.5 flex items-center gap-2">
+            <span className="truncate text-xs text-subtext0">
+              {video.state_name}
+              {video.sublocation_name
+                ? ` \u00B7 ${video.sublocation_name}`
+                : ''}
+            </span>
+            <span className="shrink-0 rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext0">
+              {typeLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Status */}
+        <StatusDot active={isActive} label={isActive ? 'Live' : 'Off'} />
+
+        {/* Actions */}
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          {canEmbed && (
+            <ActionBtn
+              icon={Code}
+              onClick={() => setShowEmbed((v) => !v)}
+              label="Embed code"
+            />
+          )}
+          <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
+          <ActionBtn
+            icon={Trash2}
+            onClick={onDelete}
+            label="Delete"
+            variant="danger"
+          />
         </div>
       </div>
-
-      {/* Status */}
-      <StatusDot active={isActive} label={isActive ? 'Live' : 'Off'} />
-
-      {/* Actions */}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-        <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
-        <ActionBtn
-          icon={Trash2}
-          onClick={onDelete}
-          label="Delete"
-          variant="danger"
-        />
-      </div>
+      {showEmbed && stateSlug && subSlug && (
+        <div className="px-4 pb-4 sm:px-5">
+          <EmbedSnippet
+            stateSlug={stateSlug}
+            sublocationSlug={subSlug}
+            cameraSlug={video.slug}
+            title={video.title}
+          />
+        </div>
+      )}
     </div>
   )
 }

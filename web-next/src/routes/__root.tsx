@@ -68,6 +68,17 @@ export function isAppSurface(pathname: string): boolean {
 }
 
 /**
+ * The embeddable host widget (DAN-33): a self-contained card meant to sit
+ * inside another site's `<iframe>`. It renders through the same root route
+ * as everything else (TanStack Start has one shell per app), so `RootDocument`
+ * strips the navbar/footer/ad slots/AdSense loader/PostHog/devtools for it
+ * instead of standing up a second document shell.
+ */
+export function isEmbedSurface(pathname: string): boolean {
+  return /^\/embed(\/|$)/.test(pathname)
+}
+
+/**
  * Loads the AdSense library once, from an effect, on the first public page
  * the visitor reaches. Deliberately NOT a server-rendered `<script async src>`:
  * when the library runs it inserts its own script before the first <script>
@@ -81,7 +92,7 @@ export function isAppSurface(pathname: string): boolean {
 function AdSenseLoader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   useEffect(() => {
-    if (isAppSurface(pathname)) return
+    if (isAppSurface(pathname) || isEmbedSurface(pathname)) return
     if (document.querySelector('script[src*="adsbygoogle.js"]')) return
     const s = document.createElement('script')
     s.async = true
@@ -92,7 +103,46 @@ function AdSenseLoader() {
   return null
 }
 
+/** `?theme=` on an `/embed/*` URL — anything but `light` is dark (the widget's
+ *  default). Read from the raw query string, not the child route's parsed
+ *  search, so this has no dependency on that route's `validateSearch` shape. */
+function embedTheme(searchStr: string): 'dark' | 'light' {
+  return new URLSearchParams(searchStr).get('theme') === 'light'
+    ? 'light'
+    : 'dark'
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const searchStr = useRouterState({ select: (s) => s.location.searchStr })
+
+  // The embed widget (DAN-33) renders through a bare document: no navbar,
+  // footer, ad slots/AdSense, PostHog or devtools, and its theme comes from
+  // the `?theme=` query param rather than localStorage — a host's page must
+  // render the same for every visitor, not whatever the visitor last picked
+  // on nationcam.com. `html.dark` is what the Observatory theme's CSS
+  // variables key off (see styles.css), so it's set directly here instead of
+  // going through `themeInitScript`/`ThemeProvider`, both of which read
+  // localStorage.
+  if (isEmbedSurface(pathname)) {
+    const theme = embedTheme(searchStr)
+    return (
+      <html
+        lang="en"
+        className={theme === 'dark' ? 'dark' : ''}
+        suppressHydrationWarning
+      >
+        <head>
+          <HeadContent />
+        </head>
+        <body>
+          {children}
+          <Scripts />
+        </body>
+      </html>
+    )
+  }
+
   return (
     // The theme class is rewritten by themeInitScript before first paint, so
     // the server-rendered value is only a default — don't warn about the diff.
