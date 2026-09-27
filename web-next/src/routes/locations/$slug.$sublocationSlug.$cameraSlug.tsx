@@ -2,6 +2,7 @@ import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import type { StripFrame } from '@/components/SnapshotStrip'
 import type { Camera } from '@/lib/types'
 import {
+  fetchAlerts,
   fetchCamera,
   fetchFrames,
   fetchLightning,
@@ -91,6 +92,7 @@ export const Route = createFileRoute(
       siblings,
       weather,
       lightning,
+      alerts,
       relatedPosts,
       todayFrames,
       yesterdayFrames,
@@ -101,6 +103,7 @@ export const Route = createFileRoute(
       fetchSublocationsByState(params.slug),
       fetchWeather(params.sublocationSlug),
       fetchLightning(params.sublocationSlug),
+      fetchAlerts(params.sublocationSlug),
       fetchRelatedPosts({ videoId: detail.camera.video_id }),
       fetchFrames(params.slug, params.sublocationSlug, params.cameraSlug),
       fetchFrames(
@@ -118,6 +121,7 @@ export const Route = createFileRoute(
       siblings,
       weather,
       lightning,
+      alerts,
       relatedPosts,
       frames: last24HoursOfFrames(
         todayFrames.frames,
@@ -250,6 +254,7 @@ function CameraPage() {
     siblings,
     weather,
     lightning,
+    alerts,
     relatedPosts,
     frames,
     events,
@@ -264,6 +269,7 @@ function CameraPage() {
       siblings={siblings}
       weather={weather}
       lightning={lightning}
+      alerts={alerts}
       relatedPosts={relatedPosts}
       frames={frames}
       events={events}

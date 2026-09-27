@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type {
+  Alert,
   Camera,
   EventItem,
   Frame,
@@ -51,6 +52,9 @@ interface SublocationPageProps {
   /** Satellite lightning status from the route loader — the "Right now"
    *  panel's lightning card. `null`/omitted renders no card. */
   lightning?: LightningResult
+  /** Active NWS watches/warnings from the route loader — the "Right now"
+   *  panel's alert banners. Empty/omitted renders nothing. */
+  alerts?: Array<Alert>
   /** Up to 3 published Field notes for this camera (or, on the hub page, this
    *  sublocation) — fetched by the route loader. Empty renders no block. */
   relatedPosts?: Array<RelatedPost>
@@ -76,6 +80,7 @@ export default function SublocationPage({
   siblings,
   weather,
   lightning = null,
+  alerts = [],
   relatedPosts = [],
   frames = [],
   events = [],
@@ -221,6 +226,7 @@ export default function SublocationPage({
             camera={camera}
             weather={weather}
             lightning={lightning}
+            alerts={alerts}
             prevVideo={prevVideo}
             nextVideo={nextVideo}
           >
@@ -389,6 +395,7 @@ export function FeaturedBlock({
   camera,
   weather = null,
   lightning = null,
+  alerts = [],
   prevVideo = null,
   nextVideo = null,
   children,
@@ -400,6 +407,7 @@ export function FeaturedBlock({
   camera?: Camera
   weather?: Weather | null
   lightning?: LightningResult
+  alerts?: Array<Alert>
   /** The previous/next camera in the sublocation's poster-strip order. */
   prevVideo?: Video | null
   nextVideo?: Video | null
@@ -487,6 +495,7 @@ export function FeaturedBlock({
           weather={weather}
           sublocation={sublocation}
           lightning={lightning}
+          alerts={alerts}
         />
       )}
     </div>

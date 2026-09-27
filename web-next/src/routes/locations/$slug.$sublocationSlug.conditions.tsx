@@ -2,12 +2,13 @@ import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { ChevronRight, Clock, CloudSun, Gauge, Waves, Zap } from 'lucide-react'
 import type { Conditions, HourlyPoint, TidePrediction } from '@/lib/types'
 import {
+  fetchAlerts,
   fetchConditions,
   fetchLightning,
   fetchSublocationBySlug,
 } from '@/lib/api'
 import { SITE_URL, seo } from '@/lib/seo'
-import { LightningCard } from '@/components/NowPanel'
+import { AlertsBanner, LightningCard } from '@/components/NowPanel'
 
 export const Route = createFileRoute(
   '/locations/$slug/$sublocationSlug/conditions',
@@ -20,11 +21,12 @@ export const Route = createFileRoute(
     // Same coordinate gate as the API: no lat/lng, no page.
     if (sublocation.lat == null || sublocation.lng == null) throw notFound()
 
-    const [conditions, lightning] = await Promise.all([
+    const [conditions, lightning, alerts] = await Promise.all([
       fetchConditions(params.sublocationSlug),
       fetchLightning(params.sublocationSlug),
+      fetchAlerts(params.sublocationSlug),
     ])
-    return { sublocation, conditions, lightning }
+    return { sublocation, conditions, lightning, alerts }
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return {}
@@ -217,11 +219,13 @@ function ForecastCard({
 
 function ConditionsRoute() {
   const { slug } = Route.useParams()
-  const { sublocation, conditions, lightning } = Route.useLoaderData()
+  const { sublocation, conditions, lightning, alerts } = Route.useLoaderData()
   const crumbLink = 'transition-colors hover:text-accent'
 
   return (
     <div className="page-container page-enter">
+      <AlertsBanner slug={sublocation.slug} initial={alerts} standalone />
+
       <nav
         aria-label="Breadcrumb"
         className="mb-6 flex items-center gap-1.5 font-mono text-xs text-subtext0"

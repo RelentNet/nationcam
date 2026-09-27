@@ -162,5 +162,13 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// already in memory. 404 without coordinates, 503 when the feed is stale.
 	r.Get("/sublocations/{slug}/lightning", GetLightning(LightningSiteFromDB(pool), lightningStore))
 
+	// ── NWS active alerts (DAN-35) ─────────────────────────────────
+	// Active National Weather Service watches/warnings for a sublocation's
+	// coordinates (api.weather.gov, no auth — a User-Agent with contact info
+	// is required instead), most severe first. 404 without coordinates; an
+	// upstream failure or timeout answers { alerts: [] } rather than an
+	// error. Cached 5 min in Redis (alerts:{slug}).
+	r.Get("/sublocations/{slug}/alerts", GetAlerts(AlertsSiteFromDB(pool), c))
+
 	return r
 }
