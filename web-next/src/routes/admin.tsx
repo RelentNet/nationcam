@@ -10,6 +10,7 @@ import {
   LogIn,
   MapPin,
   Megaphone,
+  Music2,
   Newspaper,
   Radio,
   Users,
@@ -17,6 +18,7 @@ import {
 import type {
   Ad,
   AdminPost,
+  AudioStation,
   EventItem,
   State,
   StreamDetail,
@@ -29,6 +31,7 @@ import {
   fetchAds,
   fetchAllEvents,
   fetchAllPosts,
+  fetchAudioStations,
   fetchStates,
   fetchStreams,
   fetchSublocationsByState,
@@ -41,6 +44,7 @@ import StreamsPanel from '@/components/admin/StreamsPanel'
 import AdsPanel from '@/components/admin/AdsPanel'
 import NotesPanel from '@/components/admin/NotesPanel'
 import EventsPanel from '@/components/admin/EventsPanel'
+import AudioPanel from '@/components/admin/AudioPanel'
 import ReviewQueuePanel from '@/components/admin/ReviewQueuePanel'
 import UsersPanel from '@/components/admin/UsersPanel'
 import SubmissionsInbox from '@/components/SubmissionsInbox'
@@ -57,6 +61,7 @@ type Tab =
   | 'ads'
   | 'notes'
   | 'events'
+  | 'audio'
   | 'submissions'
   | 'review'
   | 'users'
@@ -69,6 +74,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Film }> = [
   { id: 'ads', label: 'Ads', icon: Megaphone },
   { id: 'notes', label: 'Notes', icon: Newspaper },
   { id: 'events', label: 'Events', icon: CalendarDays },
+  { id: 'audio', label: 'Audio', icon: Music2 },
   { id: 'submissions', label: 'Inbox', icon: Inbox },
   { id: 'review', label: 'Review', icon: ClipboardCheck },
   { id: 'users', label: 'Users', icon: Users },
@@ -195,6 +201,9 @@ function AdminConsole({ userName }: { userName: string | null }) {
   const [allAds, setAllAds] = useState<Array<Ad>>([])
   const [allPosts, setAllPosts] = useState<Array<AdminPost>>([])
   const [allEvents, setAllEvents] = useState<Array<EventItem>>([])
+  const [allAudioStations, setAllAudioStations] = useState<Array<AudioStation>>(
+    [],
+  )
   const [dataLoading, setDataLoading] = useState(true)
   const [dataError, setDataError] = useState(false)
 
@@ -242,6 +251,13 @@ function AdminConsole({ userName }: { userName: string | null }) {
         setAllEvents(Array.isArray(eventsData) ? eventsData : [])
       } catch {
         setAllEvents([])
+      }
+
+      try {
+        const audioData = await fetchAudioStations(token)
+        setAllAudioStations(Array.isArray(audioData) ? audioData : [])
+      } catch {
+        setAllAudioStations([])
       }
     } catch {
       setDataError(true)
@@ -293,6 +309,13 @@ function AdminConsole({ userName }: { userName: string | null }) {
       } catch {
         setAllEvents([])
       }
+
+      try {
+        const audioData = await fetchAudioStations(token)
+        setAllAudioStations(Array.isArray(audioData) ? audioData : [])
+      } catch {
+        setAllAudioStations([])
+      }
     } catch {
       // Silent refresh — don't crash the page on failure
     }
@@ -314,6 +337,7 @@ function AdminConsole({ userName }: { userName: string | null }) {
     ads: allAds.length,
     notes: allPosts.length,
     events: allEvents.length,
+    audio: allAudioStations.length,
   }
 
   // Error state — failed initial load
@@ -512,6 +536,16 @@ function AdminConsole({ userName }: { userName: string | null }) {
             states={allStates}
             sublocations={allSublocations}
             videos={allVideos}
+            getToken={getToken}
+            onSuccess={refreshAll}
+            loading={dataLoading}
+          />
+        )}
+        {activeTab === 'audio' && (
+          <AudioPanel
+            stations={allAudioStations}
+            states={allStates}
+            sublocations={allSublocations}
             getToken={getToken}
             onSuccess={refreshAll}
             loading={dataLoading}

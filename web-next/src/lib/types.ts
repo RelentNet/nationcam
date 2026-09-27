@@ -779,3 +779,33 @@ export interface AdminRole {
 export interface AdminRolesResponse {
   roles: Array<AdminRole>
 }
+
+/* ──── Audio stations (DAN-47) ──── */
+
+/**
+ * A DB-backed radio station as returned by `GET /audio/stations/all` (admin).
+ * Scope is optional and single-level: state_id or sublocation_id, never both,
+ * and there is no per-camera scope. `*_name` are join columns for display.
+ */
+export interface AudioStation {
+  audio_station_id: number
+  name: string
+  stream_url: string
+  enabled: boolean
+  sort_order: number
+  state_id: number | null
+  sublocation_id: number | null
+  created_at: string
+  updated_at: string
+  state_name: string
+  sublocation_name: string
+}
+
+export interface AudioStationInput {
+  name: string
+  stream_url: string
+  enabled: boolean
+  sort_order: number
+  state_id: number | null
+  sublocation_id: number | null
+}

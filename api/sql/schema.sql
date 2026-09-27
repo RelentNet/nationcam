@@ -448,6 +448,40 @@ CREATE OR REPLACE TRIGGER trg_events_updated
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ────────────────────────────────────────────────
+-- Audio stations — DAN-47
+--
+-- Admin-managed radio stations for the player's Audio picker, merged with the
+-- AzuraCast station list (DB rows first, then AzuraCast) at GET /audio/stations.
+-- Unlike AzuraCast stations, any http(s) stream URL is allowed. Scope is
+-- optional and single-level (state OR sublocation, never a specific camera) —
+-- NULL/NULL is sitewide. sort_order is admin-controlled manual ordering within
+-- a scope. Self-contained (table + index + trigger) so it drops in without
+-- interleaving with the sections above; everything here is
+-- CREATE ... IF NOT EXISTS / OR REPLACE, so a restart against a database that
+-- already has it is a no-op.
+-- ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS audio_stations (
+  audio_station_id SERIAL PRIMARY KEY,
+  name              TEXT NOT NULL,
+  stream_url        TEXT NOT NULL,
+  enabled           BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  state_id          INTEGER REFERENCES states(state_id) ON DELETE CASCADE,
+  sublocation_id    INTEGER REFERENCES sublocations(sublocation_id) ON DELETE CASCADE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT audio_stations_single_scope CHECK (num_nonnulls(state_id, sublocation_id) <= 1)
+);
+
+CREATE INDEX IF NOT EXISTS idx_audio_stations_state_id ON audio_stations(state_id);
+CREATE INDEX IF NOT EXISTS idx_audio_stations_sublocation_id ON audio_stations(sublocation_id);
+
+CREATE OR REPLACE TRIGGER trg_audio_stations_updated
+  BEFORE UPDATE ON audio_stations
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────
 -- Triggers
 -- ────────────────────────────────────────────────
 

@@ -69,9 +69,16 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// Stream proxy — proxies known HLS manifests/segments to bypass CORS.
 	r.Get("/stream-proxy", StreamProxy(pool, proxyExtraHosts))
 
-	// Audio channels — public AzuraCast station list for the player's audio
-	// picker. Returns [] (never an error) when AzuraCast is unset/unreachable.
-	r.Get("/audio/stations", cachedHandler(c, "audio:stations", AudioStations(azuracastURL)))
+	// Audio channels — DB-backed stations (DAN-47) merged with the AzuraCast
+	// station list for the player's audio picker. Returns [] (never an error)
+	// when both are unset/unreachable. AudioStations does its own Redis
+	// caching (keyed by ?video_id, unlike cachedHandler's fixed key) so a
+	// scoped result never leaks into another camera's request.
+	r.Get("/audio/stations", AudioStations(pool, c, azuracastURL))
+	r.With(mw.RequireAdmin).Get("/audio/stations/all", ListAudioStations(pool))
+	r.With(mw.RequireAdmin).Post("/audio/stations", CreateAudioStation(pool, c))
+	r.With(mw.RequireAdmin).Put("/audio/stations/{id}", UpdateAudioStation(pool, c))
+	r.With(mw.RequireAdmin).Delete("/audio/stations/{id}", DeleteAudioStation(pool, c))
 
 	// Streams (Restreamer proxy) — only mounted if configured.
 	// Accepts both X-API-Key (external tools) and Logto JWT (dashboard).
