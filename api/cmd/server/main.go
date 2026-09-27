@@ -16,6 +16,7 @@ import (
 	"github.com/brandon-relentnet/nationcam/api/internal/config"
 	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/brandon-relentnet/nationcam/api/internal/handler"
+	"github.com/brandon-relentnet/nationcam/api/internal/logtoadmin"
 	"github.com/brandon-relentnet/nationcam/api/internal/middleware"
 	"github.com/brandon-relentnet/nationcam/api/internal/restreamer"
 	dbschema "github.com/brandon-relentnet/nationcam/api/sql"
@@ -98,7 +99,19 @@ func run() error {
 	slog.Info("uploads dir ready", "dir", uploadsDir)
 	snapshots := &archive.Store{Dir: archive.ResolveDir(cfg.SnapshotsDir)}
 	slog.Info("snapshots dir ready", "dir", snapshots.Dir)
-	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir, snapshots)
+
+	// ── Logto management (M2M) client (optional) ───────────────────
+	// Backs the /admin/users and /admin/roles endpoints. Disabled — and
+	// those routes not mounted — unless both the app id and secret are set.
+	// Never logs the secret.
+	logtoAdminClient := logtoadmin.NewClient(cfg.LogtoEndpoint, cfg.LogtoM2MAppID, cfg.LogtoM2MAppSecret)
+	if logtoAdminClient.Configured() {
+		slog.Info("logto management API configured")
+	} else {
+		slog.Info("logto management API not configured (set LOGTO_M2M_APP_ID and LOGTO_M2M_APP_SECRET to enable /admin/* routes)")
+	}
+
+	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir, snapshots, logtoAdminClient, cfg.OpsAPIKey)
 
 	// ── Snapshot archive job ───────────────────────────────────────
 	// One watermarked still per active camera every 15 minutes, plus hourly

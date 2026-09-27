@@ -95,6 +95,11 @@ STREAMER_API_KEY=<secret key for /api/streams/* endpoints>
 
 # Optional — snapshot archive location (docker-compose mounts the `snapshots` volume here)
 SNAPSHOTS_DIR=/app/data/snapshots
+
+# Optional — Logto management connection (admin console Users panel + Home)
+LOGTO_M2M_APP_ID=<Logto machine-to-machine app ID>
+LOGTO_M2M_APP_SECRET=<Logto machine-to-machine app secret>
+OPS_API_KEY=<32+ random chars — X-API-Key for /api/admin/* endpoints>
 ```
 
 **First deploy steps:**
@@ -201,6 +206,8 @@ new-nationcam/                        # Repo root
         client.go                     # Restreamer API client + JWT token lifecycle
         types.go                      # Request/response types for Restreamer Core API
         validate.go                   # Stream name + RTSP URL validation
+      logtoadmin/
+        client.go                     # Logto Management API client (M2M token lifecycle)
       handler/
         router.go                     # Chi router wiring all routes
         health.go                     # GET /health
@@ -209,6 +216,7 @@ new-nationcam/                        # Repo root
         video.go                      # GET/POST /videos
         ad.go                         # /ads/next, impression + click tracking, admin CRUD
         stream.go                     # CRUD handlers for /streams (Restreamer proxy)
+        admin_users.go                # GET /admin/users, /admin/users/stats, /admin/roles (Logto management)
         json.go                       # JSON read/write helpers
         cached.go                     # Response caching wrapper
   web/                                # React SPA
@@ -345,6 +353,9 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/events`                        | Create event                   | Admin (Logto) |
 | PUT    | `/events/{id}`                   | Update event                   | Admin (Logto) |
 | DELETE | `/events/{id}`                   | Delete event                   | Admin (Logto) |
+| GET    | `/admin/users?page=&page_size=`  | Logto users, newest role data resolved per user | Admin (Logto) or Ops key |
+| GET    | `/admin/users/stats`             | `{ total, new_7d, new_30d, admins }` | Admin (Logto) or Ops key |
+| GET    | `/admin/roles`                   | Every Logto role + user count + scopes | Admin (Logto) or Ops key |
 
 ### Ads
 
@@ -447,6 +458,39 @@ never fails the response.
   existing detail stats. The conditions page's 12-hour strip (hour, temp,
   rain %, wind, UV) is server-rendered from `GET .../conditions`'s `hourly`
   array, which reuses the same forecast call as the 3-day forecast.
+
+### Logto management connection
+
+`api/internal/logtoadmin` reads Logto's user/role data server-side through a
+Logto **machine-to-machine (M2M) app**, so the admin console's Users panel
+(and Home) can answer "how many users, who is admin, is any role a default"
+without console access. It is entirely optional: unset `LOGTO_M2M_APP_ID`/
+`LOGTO_M2M_APP_SECRET` and the `/admin/*` routes below are not mounted at
+all (a request 404s, same as any undefined route) — the API logs one info
+line at startup either way, and never logs the app secret or an issued token.
+
+- **Token lifecycle**: `logtoadmin.Client` exchanges the M2M app's
+  credentials for a Management API access token via the `client_credentials`
+  grant (`POST {LOGTO_ENDPOINT}/oidc/token`, HTTP Basic auth = app ID/secret,
+  `resource=https://default.logto.app/api`, `scope=all`), caches it, and
+  refreshes 60s before expiry. A request that still gets a 401 (revoked
+  token, clock skew) invalidates the cache and retries once. Every request —
+  token exchange and each Management API call — has its own 10s timeout.
+- **Endpoints**: `GET /admin/users`, `/admin/users/stats`, and `/admin/roles`
+  (see API Endpoints above) are guarded by `RequireAPIKeyOrAdmin(OPS_API_KEY)`
+  — the same pattern as `/streams` — so either a signed-in Logto user or the
+  `X-API-Key: $OPS_API_KEY` header gets in; with `OPS_API_KEY` unset, only a
+  signed-in Logto user does. Per-user and per-role role/scope lookups run
+  with bounded concurrency (5 at a time) since Logto has no batch endpoint
+  for "roles for these users". Responses are cached 60s in Redis
+  (`admin:users:*`, `admin:roles`), shorter than the usual 5 minutes since
+  this backs a live admin console.
+- **Console setup**: Logto admin console → Applications → Create application
+  → **Machine-to-machine** → name it (e.g. "NationCam API") → in the new
+  app's **Roles** tab, assign the built-in **"Logto Management API access"**
+  role → copy the **App ID** and **App Secret** → set `LOGTO_M2M_APP_ID` /
+  `LOGTO_M2M_APP_SECRET` in Coolify → generate an `OPS_API_KEY` (32+ random
+  chars) and set it too → redeploy the `api` service.
 
 ### Stream Management
 
