@@ -539,8 +539,23 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 .stream-player:hover .stream-controls,
-.stream-player:focus-within .stream-controls {
+.stream-player:focus-within .stream-controls,
+.stream-player.is-zoomed .stream-controls {
   opacity: 1;
+}
+
+/* Fullscreen shows the whole frame letterboxed instead of cropping — the
+   in-page layout keeps object-cover above. */
+.stream-player:fullscreen video,
+.stream-player:fullscreen img {
+  object-fit: contain;
+}
+
+.stream-controls .zoom-readout {
+  width: auto;
+  padding: 0 0.375rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
 }
 
 .stream-controls button {
