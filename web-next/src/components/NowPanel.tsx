@@ -123,11 +123,11 @@ function StatusTile({
   tone: Tone
 }) {
   return (
-    <div className={`rounded-lg px-2.5 py-1.5 ${toneClasses[tone]}`}>
+    <div className={`min-w-0 rounded-lg px-2.5 py-1.5 ${toneClasses[tone]}`}>
       <b className="block font-mono text-[13px] leading-tight font-semibold tabular-nums">
         {value}
       </b>
-      <span className="text-[11px] tracking-[0.05em] uppercase opacity-80">
+      <span className="block text-[11px] tracking-[0.05em] break-words uppercase opacity-80">
         {label}
       </span>
     </div>
@@ -686,7 +686,7 @@ export default function NowPanel({
           <p className="mb-1.5 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
             Outdoor conditions
           </p>
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2">
             {tiles.map(({ id, ...tile }) => (
               <StatusTile key={id} {...tile} />
             ))}
