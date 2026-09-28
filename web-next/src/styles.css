@@ -3,26 +3,34 @@
 /* ═══════════════════════════════════════════════
    Observatory Theme — Light Mode (default)
    ═══════════════════════════════════════════════ */
+/* Brand palette (brand board, DAN-58): navy #0a2f50 is the primary color for
+   text, the logo and UI; orange #f97316 is the accent for highlights and
+   headings only; slate blue #647a96 supports icons and secondary UI; light
+   gray #e5e7eb is for backgrounds, dividers and subtle elements. LIVE stays
+   red on purpose: it is the one signal that must not blend into the accent. */
 :root {
-  --color-accent: #b45309;
-  --color-accent-hover: #92400e;
-  --color-accent-glow: rgba(180, 83, 9, 0.12);
+  --color-accent: #f97316;
+  --color-accent-hover: #ea580c;
+  --color-accent-glow: rgba(249, 115, 22, 0.14);
   --color-live: #dc2626;
   --color-live-glow: rgba(220, 38, 38, 0.25);
-  --color-teal: #0e7490;
+  --color-slate: #647a96;
+  /* `teal` is the informational/"calm" tone used across panels; it now maps
+     to the brand's slate blue so the name stays and the palette changes. */
+  --color-teal: var(--color-slate);
 
-  --color-text: #1a1a2e;
-  --color-subtext1: #4a5568;
-  --color-subtext0: #718096;
-  --color-overlay2: #a0aec0;
-  --color-overlay1: #cbd5e0;
-  --color-overlay0: #e2e8f0;
-  --color-surface2: #eae6de;
-  --color-surface1: #f5f1eb;
+  --color-text: #0a2f50;
+  --color-subtext1: #3d5573;
+  --color-subtext0: #647a96;
+  --color-overlay2: #9fb0c4;
+  --color-overlay1: #c9d2dd;
+  --color-overlay0: #e5e7eb;
+  --color-surface2: #e5e7eb;
+  --color-surface1: #f3f4f6;
   --color-surface0: #ffffff;
-  --color-base: #faf8f5;
-  --color-mantle: #f0ece4;
-  --color-crust: #e5e0d8;
+  --color-base: #ffffff;
+  --color-mantle: #f8fafc;
+  --color-crust: #eef1f5;
 
   /* Spring easings from Motion MCP */
   --spring-snappy: linear(
@@ -122,25 +130,35 @@
    Observatory Theme — Dark Mode
    ═══════════════════════════════════════════════ */
 html.dark {
-  --color-accent: #f59e0b;
-  --color-accent-hover: #d97706;
-  --color-accent-glow: rgba(245, 158, 11, 0.15);
+  --color-accent: #f97316;
+  --color-accent-hover: #fb923c;
+  --color-accent-glow: rgba(249, 115, 22, 0.2);
   --color-live: #ef4444;
   --color-live-glow: rgba(239, 68, 68, 0.3);
-  --color-teal: #06b6d4;
+  --color-slate: #8fa6c2;
+  --color-teal: var(--color-slate);
 
-  --color-text: #e8e4dc;
-  --color-subtext1: #94a3b8;
-  --color-subtext0: #64748b;
-  --color-overlay2: #475569;
-  --color-overlay1: #334155;
-  --color-overlay0: #1e293b;
-  --color-surface2: #2d3a50;
-  --color-surface1: #243044;
-  --color-surface0: #1a2233;
-  --color-base: #0a0e17;
-  --color-mantle: #0f1520;
-  --color-crust: #080c14;
+  --color-text: #f1f5f9;
+  --color-subtext1: #b4c2d3;
+  --color-subtext0: #8497b0;
+  --color-overlay2: #4b6383;
+  --color-overlay1: #2e4667;
+  --color-overlay0: #1d3556;
+  --color-surface2: #17395f;
+  --color-surface1: #122f52;
+  --color-surface0: #0d2646;
+  --color-base: #071c34;
+  --color-mantle: #0a2f50;
+  --color-crust: #04142a;
+}
+
+/* The inline brand shield (BrandMark.tsx): white face in light mode, open in
+   dark mode — the reverse artwork in public/brand/*-reverse.svg. */
+.brand-shield-fill {
+  fill: #ffffff;
+}
+html.dark .brand-shield-fill {
+  fill: transparent;
 }
 
 /* ═══════════════════════════════════════════════
@@ -153,6 +171,7 @@ html.dark {
   --color-live: var(--color-live);
   --color-live-glow: var(--color-live-glow);
   --color-teal: var(--color-teal);
+  --color-slate: var(--color-slate);
 
   --color-text: var(--color-text);
   --color-subtext1: var(--color-subtext1);
@@ -167,7 +186,7 @@ html.dark {
   --color-mantle: var(--color-mantle);
   --color-crust: var(--color-crust);
 
-  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Saira', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }

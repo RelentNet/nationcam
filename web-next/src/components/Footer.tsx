@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import { Camera, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 const footerSections = [
   {
@@ -30,12 +31,10 @@ export default function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2.5">
-              <Camera size={20} className="text-accent" />
-              <span className="font-display text-lg font-bold tracking-tight text-text">
-                Nation<span className="text-accent">Cam</span>
-              </span>
-            </div>
+            <Logo />
+            <p className="mt-3 mb-0 font-display text-xs font-semibold tracking-[0.3em] text-subtext0 uppercase">
+              Live views. Anywhere.
+            </p>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-subtext0">
               Live cameras from across the United States. Explore cities,
               landmarks, and communities through real-time video feeds.
