@@ -6,6 +6,7 @@ import { SITE_URL, streamPoster } from '@/lib/seo'
 import { LightningCard } from '@/components/NowPanel'
 import LiveBadge from '@/components/LiveBadge'
 import StreamPlayer from '@/components/StreamPlayer'
+import { Wordmark } from '@/components/BrandMark'
 
 /**
  * Only the non-default values are ever present — same convention as
@@ -294,10 +295,10 @@ function EmbedPage() {
           href={SITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 font-display text-[11px] font-bold text-subtext0"
+          className="shrink-0 text-subtext0"
           aria-label="NationCam"
         >
-          Nation<span className="text-accent">Cam</span>
+          <Wordmark className="h-2.5 w-auto" />
         </a>
       </div>
     </div>

@@ -1,7 +1,7 @@
 /** Canonical public origin — used for absolute URLs in meta tags and sitemap. */
 export const SITE_URL = 'https://nationcam.com'
 
-const OG_IMAGE = `${SITE_URL}/logo512.png`
+const OG_IMAGE = `${SITE_URL}/og.png`
 
 interface SeoOptions {
   title: string
