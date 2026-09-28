@@ -3,11 +3,12 @@
 /* ═══════════════════════════════════════════════
    Observatory Theme — Light Mode (default)
    ═══════════════════════════════════════════════ */
-/* Brand palette (brand board, DAN-58): navy #0a2f50 is the primary color for
-   text, the logo and UI; orange #f97316 is the accent for highlights and
-   headings only; slate blue #647a96 supports icons and secondary UI; light
-   gray #e5e7eb is for backgrounds, dividers and subtle elements. LIVE stays
-   red on purpose: it is the one signal that must not blend into the accent. */
+/* Brand accents (brand board, DAN-58): orange #f97316 is the accent for
+   highlights and headings; slate blue #647a96 supports icons and secondary
+   UI; the logo carries the navy. Page surfaces and the neutral text scale are
+   the original Observatory palette on purpose — the navy/white surfaces were
+   tried and rejected (Daniel, 2026-09-27). LIVE stays red: it is the one
+   signal that must not blend into the accent. */
 :root {
   --color-accent: #f97316;
   --color-accent-hover: #ea580c;
@@ -19,18 +20,18 @@
      to the brand's slate blue so the name stays and the palette changes. */
   --color-teal: var(--color-slate);
 
-  --color-text: #0a2f50;
-  --color-subtext1: #3d5573;
-  --color-subtext0: #647a96;
-  --color-overlay2: #9fb0c4;
-  --color-overlay1: #c9d2dd;
-  --color-overlay0: #e5e7eb;
-  --color-surface2: #e5e7eb;
-  --color-surface1: #f3f4f6;
+  --color-text: #1a1a2e;
+  --color-subtext1: #4a5568;
+  --color-subtext0: #718096;
+  --color-overlay2: #a0aec0;
+  --color-overlay1: #cbd5e0;
+  --color-overlay0: #e2e8f0;
+  --color-surface2: #eae6de;
+  --color-surface1: #f5f1eb;
   --color-surface0: #ffffff;
-  --color-base: #ffffff;
-  --color-mantle: #f8fafc;
-  --color-crust: #eef1f5;
+  --color-base: #faf8f5;
+  --color-mantle: #f0ece4;
+  --color-crust: #e5e0d8;
 
   /* Spring easings from Motion MCP */
   --spring-snappy: linear(
@@ -138,18 +139,18 @@ html.dark {
   --color-slate: #8fa6c2;
   --color-teal: var(--color-slate);
 
-  --color-text: #f1f5f9;
-  --color-subtext1: #b4c2d3;
-  --color-subtext0: #8497b0;
-  --color-overlay2: #4b6383;
-  --color-overlay1: #2e4667;
-  --color-overlay0: #1d3556;
-  --color-surface2: #17395f;
-  --color-surface1: #122f52;
-  --color-surface0: #0d2646;
-  --color-base: #071c34;
-  --color-mantle: #0a2f50;
-  --color-crust: #04142a;
+  --color-text: #e8e4dc;
+  --color-subtext1: #94a3b8;
+  --color-subtext0: #64748b;
+  --color-overlay2: #475569;
+  --color-overlay1: #334155;
+  --color-overlay0: #1e293b;
+  --color-surface2: #2d3a50;
+  --color-surface1: #243044;
+  --color-surface0: #1a2233;
+  --color-base: #0a0e17;
+  --color-mantle: #0f1520;
+  --color-crust: #080c14;
 }
 
 /* The inline brand shield (BrandMark.tsx): white face in light mode, open in
