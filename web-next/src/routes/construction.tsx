@@ -61,6 +61,45 @@ const includedItems = [
   },
 ]
 
+type CameraKind = 'fixed' | 'fixed4k' | 'panoramic' | 'ptz'
+
+const cameraTypes: Array<{
+  kind: CameraKind
+  title: string
+  sees: string
+  bestFor: string
+  goodToKnow: string
+}> = [
+  {
+    kind: 'fixed',
+    title: 'Fixed',
+    sees: 'One fixed view of your site, day and night.',
+    bestFor: 'A single elevation, a gate or a laydown yard.',
+    goodToKnow: 'The simplest and lowest-cost option.',
+  },
+  {
+    kind: 'fixed4k',
+    title: 'Fixed 4K',
+    sees: 'The same fixed view with a 4K sensor for finer detail.',
+    bestFor: 'Sites where you need to read detail at a distance.',
+    goodToKnow: 'Streaming at full resolution needs a faster connection.',
+  },
+  {
+    kind: 'panoramic',
+    title: 'Panoramic',
+    sees: 'A 180° view from one camera, stitched into a single image.',
+    bestFor: 'Seeing the whole site from one pole or rooftop.',
+    goodToKnow: 'One camera replaces several fixed ones.',
+  },
+  {
+    kind: 'ptz',
+    title: 'PTZ',
+    sees: 'Pans, tilts and zooms optically up to 30x, moving between preset views of the site.',
+    bestFor: 'Large sites with several areas to watch.',
+    goodToKnow: 'Preset views are set up with you at install.',
+  },
+]
+
 const cameraChoices = [
   {
     title: 'Buy',
@@ -159,7 +198,40 @@ function ConstructionPage() {
         </Reveal>
       </section>
 
-      {/* 3. Choose your setup */}
+      {/* 3. Choose your camera */}
+      <section>
+        <Reveal>
+          <h2 className="text-center">Choose your camera</h2>
+          <p className="mx-auto max-w-2xl text-center">
+            All four are Axis network cameras. We help you pick on the quote
+            call.
+          </p>
+        </Reveal>
+        <Reveal stagger>
+          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {cameraTypes.map((c) => (
+              <li
+                key={c.kind}
+                className="section-container reveal-scale flex flex-col"
+              >
+                <FieldOfView kind={c.kind} />
+                <h3 className="!mt-4 !mb-1 !text-lg">{c.title}</h3>
+                <p className="!mb-3 !text-sm text-subtext0">{c.sees}</p>
+                <p className="!mb-2 !text-sm text-subtext0">
+                  <span className="font-medium text-text">Best for:</span>{' '}
+                  {c.bestFor}
+                </p>
+                <p className="!mb-0 !text-sm text-subtext0">
+                  <span className="font-medium text-text">Good to know:</span>{' '}
+                  {c.goodToKnow}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+      </section>
+
+      {/* 4. Choose your setup */}
       <section>
         <Reveal>
           <h2 className="text-center">Choose your setup</h2>
@@ -173,7 +245,7 @@ function ConstructionPage() {
         </div>
       </section>
 
-      {/* 4. Add-ons */}
+      {/* 5. Add-ons */}
       <section>
         <Reveal>
           <h2 className="text-center">Add-ons</h2>
@@ -196,7 +268,7 @@ function ConstructionPage() {
         </Reveal>
       </section>
 
-      {/* 5. How it works */}
+      {/* 6. How it works */}
       <section>
         <Reveal>
           <h2 className="text-center">How it works</h2>
@@ -216,7 +288,7 @@ function ConstructionPage() {
         </Reveal>
       </section>
 
-      {/* 6. Quote form */}
+      {/* 7. Quote form */}
       <section id="quote" className="mx-auto max-w-3xl scroll-mt-24">
         <Reveal>
           <div className="mb-6 text-center">
@@ -233,6 +305,72 @@ function ConstructionPage() {
         <QuoteForm />
       </section>
     </div>
+  )
+}
+
+// Top-down field-of-view sketch: the camera is the dot, the shaded shape is
+// what it covers. Purely decorative, so it is hidden from assistive tech.
+function FieldOfView({ kind }: { kind: CameraKind }) {
+  const wedge = 'M60 68 L42 18 L78 18 Z'
+  return (
+    <svg
+      viewBox="0 0 120 80"
+      aria-hidden="true"
+      focusable="false"
+      className="mx-auto aspect-[3/2] w-full max-w-[9rem] text-text"
+    >
+      {kind === 'fixed4k' && (
+        <defs>
+          <pattern
+            id="fov-fine-grid"
+            width="5"
+            height="5"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M5 0H0V5"
+              fill="none"
+              className="stroke-accent"
+              strokeWidth="0.6"
+            />
+          </pattern>
+        </defs>
+      )}
+      {kind === 'ptz' && (
+        <defs>
+          <marker
+            id="fov-sweep-head"
+            viewBox="0 0 6 6"
+            refX="5"
+            refY="3"
+            markerWidth="5"
+            markerHeight="5"
+            orient="auto-start-reverse"
+          >
+            <path d="M0 0L6 3L0 6z" fill="currentColor" />
+          </marker>
+        </defs>
+      )}
+      <path
+        d={kind === 'panoramic' ? 'M60 68 L10 68 A50 50 0 0 1 110 68 Z' : wedge}
+        className="fill-accent/20 stroke-accent"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {kind === 'fixed4k' && <path d={wedge} fill="url(#fov-fine-grid)" />}
+      {kind === 'ptz' && (
+        <path
+          d="M27 40 A44 44 0 0 1 93 40"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          markerStart="url(#fov-sweep-head)"
+          markerEnd="url(#fov-sweep-head)"
+        />
+      )}
+      <circle cx="60" cy="68" r="4" fill="currentColor" />
+    </svg>
   )
 }
 
@@ -270,6 +408,8 @@ const cameraOptions = [
   { value: 'unsure', label: 'Not sure' },
 ]
 
+const cameraTypeOptions = [...cameraTypes.map((c) => c.title), 'Not sure']
+
 const internetOptions = [
   { value: 'nationcam', label: 'NationCam provides it' },
   { value: 'onsite', label: 'We have internet on site' },
@@ -296,12 +436,16 @@ interface FormData {
   city: string
   state: string
   cameras: string
+  cameraTypes: Array<string>
   camera: string
   internet: string
   length: string
   addOns: Array<string>
   notes: string
 }
+
+type ListField = 'addOns' | 'cameraTypes'
+type TextField = Exclude<keyof FormData, ListField>
 
 const emptyForm: FormData = {
   name: '',
@@ -311,6 +455,7 @@ const emptyForm: FormData = {
   city: '',
   state: '',
   cameras: '',
+  cameraTypes: [],
   camera: '',
   internet: '',
   length: '',
@@ -335,6 +480,7 @@ function buildMessage(form: FormData): string {
       `Phone: ${form.phone.trim() || 'Not given'}`,
       `Project location: ${form.city.trim()}, ${form.state.trim()}`,
       `Number of cameras: ${form.cameras.trim()}`,
+      `Camera types: ${form.cameraTypes.length > 0 ? form.cameraTypes.join(', ') : 'Not specified'}`,
       `Camera: ${labelFor(cameraOptions, form.camera)}`,
       `Internet: ${labelFor(internetOptions, form.internet)}`,
       `Project length: ${labelFor(lengthOptions, form.length)}`,
@@ -359,23 +505,23 @@ function QuoteForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const update = (field: Exclude<keyof FormData, 'addOns'>, value: string) => {
+  const update = (field: TextField, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const toggleAddOn = (value: string) => {
+  const toggleChoice = (field: ListField, value: string) => {
     setForm((prev) => ({
       ...prev,
-      addOns: prev.addOns.includes(value)
-        ? prev.addOns.filter((a) => a !== value)
-        : [...prev.addOns, value],
+      [field]: prev[field].includes(value)
+        ? prev[field].filter((v) => v !== value)
+        : [...prev[field], value],
     }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const required: Array<Exclude<keyof FormData, 'addOns'>> = [
+    const required: Array<TextField> = [
       'name',
       'company',
       'email',
@@ -514,6 +660,28 @@ function QuoteForm() {
 
       <fieldset>
         <legend className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
+          Camera types of interest
+        </legend>
+        <div className="space-y-2">
+          {cameraTypeOptions.map((name) => (
+            <label
+              key={name}
+              className="flex cursor-pointer items-center gap-3 text-sm text-text"
+            >
+              <input
+                type="checkbox"
+                checked={form.cameraTypes.includes(name)}
+                onChange={() => toggleChoice('cameraTypes', name)}
+                className="h-4 w-4 shrink-0 accent-accent"
+              />
+              {name}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
           Add-ons of interest
         </legend>
         <div className="space-y-2">
@@ -525,7 +693,7 @@ function QuoteForm() {
               <input
                 type="checkbox"
                 checked={form.addOns.includes(a.value)}
-                onChange={() => toggleAddOn(a.value)}
+                onChange={() => toggleChoice('addOns', a.value)}
                 className="h-4 w-4 shrink-0 accent-accent"
               />
               {a.value}
