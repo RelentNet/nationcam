@@ -11,6 +11,7 @@ const footerSections = [
       { label: 'Field Notes', to: '/notes' },
       { label: 'Events', to: '/events' },
       { label: 'Construction', to: '/construction' },
+      { label: 'Free Camera', to: '/free-camera' },
     ],
   },
   {

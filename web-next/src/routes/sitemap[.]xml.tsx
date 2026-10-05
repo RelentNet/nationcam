@@ -15,6 +15,7 @@ const STATIC_PATHS = [
   '/about',
   '/contact',
   '/construction',
+  '/free-camera',
   '/privacy',
   '/terms',
   '/cameras/popular',
