@@ -122,18 +122,46 @@ const internetChoices = [
   },
 ]
 
-const addOns = [
+const plans = [
   {
-    value: '1-minute time-lapse',
-    text: 'Capture a still every minute instead of every 15.',
+    value: 'essential',
+    name: 'Essential',
+    price: '$129',
+    featured: false,
+    lead: null as string | null,
+    features: [
+      'Private live view and command center',
+      'Unlimited team users',
+      'Site conditions: weather, satellite-detected lightning, NWS alerts',
+      'Time-lapse photo every 15 minutes',
+      '7 days of recorded video',
+      'Photos kept 1 year after the project',
+    ],
   },
   {
-    value: 'Recorded video playback',
-    text: 'Play back recorded video stored on the camera.',
+    value: 'pro',
+    name: 'Pro',
+    price: '$229',
+    featured: true,
+    lead: 'Everything in Essential, plus:',
+    features: [
+      'Time-lapse photo every minute',
+      '30 days of recorded video',
+      'Photos kept 3 years',
+    ],
   },
   {
-    value: 'On-site weather station',
-    text: 'Measure the weather at your site instead of relying on a forecast.',
+    value: 'premium',
+    name: 'Premium',
+    price: '$349',
+    featured: false,
+    lead: 'Everything in Pro, plus:',
+    features: [
+      '90 days of recorded video',
+      'Photos kept permanently',
+      'On-site weather station service included',
+      'Edited time-lapse film at project end',
+    ],
   },
 ]
 
@@ -245,26 +273,64 @@ function ConstructionPage() {
         </div>
       </section>
 
-      {/* 5. Add-ons */}
+      {/* 5. Plans */}
       <section>
         <Reveal>
-          <h2 className="text-center">Add-ons</h2>
+          <h2 className="text-center">Plans</h2>
+          <p className="mx-auto max-w-2xl text-center">
+            Priced per camera, per month.
+          </p>
         </Reveal>
-        <Reveal>
-          <ul className="section-container mx-auto mt-8 max-w-3xl space-y-4">
-            {addOns.map((a) => (
-              <li key={a.value} className="flex items-start gap-3">
-                <CheckCircle
-                  size={18}
-                  className="mt-0.5 shrink-0 text-accent"
-                />
-                <p className="!mb-0 !text-sm text-subtext0">
-                  <span className="font-medium text-text">{a.value}.</span>{' '}
-                  {a.text}
-                </p>
+        <Reveal stagger>
+          <ul className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {plans.map((p) => (
+              <li
+                key={p.value}
+                className={`section-container reveal-scale flex flex-col ${
+                  p.featured ? '!border-accent ring-2 ring-accent' : ''
+                }`}
+              >
+                <h3 className="!mb-2 !text-lg">{p.name}</h3>
+                <div className="mb-4 flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-display text-5xl leading-none font-extrabold text-text">
+                    {p.price}
+                  </span>
+                  <span className="text-sm text-subtext0">
+                    per camera / month
+                  </span>
+                </div>
+                {p.lead && (
+                  <p className="!mb-3 !text-sm font-medium text-text">
+                    {p.lead}
+                  </p>
+                )}
+                <ul className="mb-6 space-y-3">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-3">
+                      <CheckCircle
+                        size={18}
+                        className="mt-0.5 shrink-0 text-accent"
+                      />
+                      <p className="!mb-0 !text-sm text-subtext0">{f}</p>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="#quote"
+                  className="mt-auto inline-flex items-center justify-center rounded-lg bg-accent px-6 py-2.5 font-sans text-sm font-semibold text-crust shadow-md transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
+                >
+                  Request a quote
+                </a>
               </li>
             ))}
           </ul>
+        </Reveal>
+        <Reveal>
+          <p className="mx-auto mt-6 max-w-3xl text-center !text-xs text-overlay2">
+            Camera hardware, internet and installation are quoted for your site.
+            The on-site weather station is available as an add-on on Essential
+            and Pro; the station hardware is separate on every plan.
+          </p>
         </Reveal>
       </section>
 
@@ -423,6 +489,11 @@ const lengthOptions = [
   { value: 'over-12', label: 'Over a year' },
 ]
 
+const planOptions = [
+  ...plans.map((p) => ({ value: p.value, label: p.name })),
+  { value: 'unsure', label: 'Not sure' },
+]
+
 const NOTES_MAX_CHARS = 1500
 // The API caps the message at 5000 bytes, so the notes are trimmed to fit even
 // when they contain multi-byte characters.
@@ -440,12 +511,13 @@ interface FormData {
   camera: string
   internet: string
   length: string
-  addOns: Array<string>
+  plan: string
+  weatherStation: boolean
   notes: string
 }
 
-type ListField = 'addOns' | 'cameraTypes'
-type TextField = Exclude<keyof FormData, ListField>
+type ListField = 'cameraTypes'
+type TextField = Exclude<keyof FormData, ListField | 'weatherStation'>
 
 const emptyForm: FormData = {
   name: '',
@@ -459,7 +531,8 @@ const emptyForm: FormData = {
   camera: '',
   internet: '',
   length: '',
-  addOns: [],
+  plan: '',
+  weatherStation: false,
   notes: '',
 }
 
@@ -484,7 +557,8 @@ function buildMessage(form: FormData): string {
       `Camera: ${labelFor(cameraOptions, form.camera)}`,
       `Internet: ${labelFor(internetOptions, form.internet)}`,
       `Project length: ${labelFor(lengthOptions, form.length)}`,
-      `Add-ons: ${form.addOns.length > 0 ? form.addOns.join(', ') : 'None'}`,
+      `Plan: ${form.plan ? labelFor(planOptions, form.plan) : 'Not specified'}`,
+      `Weather station: ${form.weatherStation ? 'Yes' : 'No'}`,
       '',
       'Notes:',
       notes || 'None',
@@ -657,6 +731,12 @@ function QuoteForm() {
         selectedValue={form.length}
         onSelect={(v) => update('length', String(v))}
       />
+      <Dropdown
+        label="Plan"
+        options={planOptions}
+        selectedValue={form.plan}
+        onSelect={(v) => update('plan', String(v))}
+      />
 
       <fieldset>
         <legend className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
@@ -680,27 +760,17 @@ function QuoteForm() {
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
-          Add-ons of interest
-        </legend>
-        <div className="space-y-2">
-          {addOns.map((a) => (
-            <label
-              key={a.value}
-              className="flex cursor-pointer items-center gap-3 text-sm text-text"
-            >
-              <input
-                type="checkbox"
-                checked={form.addOns.includes(a.value)}
-                onChange={() => toggleChoice('addOns', a.value)}
-                className="h-4 w-4 shrink-0 accent-accent"
-              />
-              {a.value}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <label className="flex cursor-pointer items-center gap-3 text-sm text-text">
+        <input
+          type="checkbox"
+          checked={form.weatherStation}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, weatherStation: e.target.checked }))
+          }
+          className="h-4 w-4 shrink-0 accent-accent"
+        />
+        Interested in an on-site weather station
+      </label>
 
       <div>
         <label
