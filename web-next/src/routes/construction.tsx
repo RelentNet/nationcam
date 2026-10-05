@@ -1,0 +1,610 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import {
+  Building2,
+  CheckCircle,
+  CloudSun,
+  Globe,
+  HardHat,
+  LayoutGrid,
+  Lock,
+  Timer,
+  Users,
+} from 'lucide-react'
+import Dropdown from '@/components/Dropdown'
+import Button from '@/components/Button'
+import Reveal from '@/components/Reveal'
+import { seo } from '@/lib/seo'
+import { submitContact } from '@/lib/api'
+
+export const Route = createFileRoute('/construction')({
+  head: () =>
+    seo({
+      title: 'Construction Cameras | NationCam',
+      description:
+        'Live view, time-lapse and a private dashboard for your job site. Buy or rent the camera, bring your own internet or let us provide it, and request a quote.',
+      path: '/construction',
+    }),
+  component: ConstructionPage,
+})
+
+const includedItems = [
+  {
+    icon: Lock,
+    title: 'Private live view',
+    text: 'Only your team can see the stream.',
+  },
+  {
+    icon: LayoutGrid,
+    title: 'Command center',
+    text: 'Every one of your cameras on one screen.',
+  },
+  {
+    icon: Timer,
+    title: 'Time-lapse every 15 minutes',
+    text: 'A still is captured every 15 minutes, with an archive you can browse by day.',
+  },
+  {
+    icon: CloudSun,
+    title: 'Site conditions',
+    text: 'Weather, satellite-detected lightning and NWS alerts for your site. The lightning data is informational only.',
+  },
+  {
+    icon: Users,
+    title: 'Invite your team',
+    text: 'Add the people who need to watch the site.',
+  },
+  {
+    icon: Globe,
+    title: 'Optional public page',
+    text: 'If you want the exposure, your camera can also get a public page on NationCam.',
+  },
+]
+
+const cameraChoices = [
+  {
+    title: 'Buy',
+    text: 'You own the hardware.',
+  },
+  {
+    title: 'Rent',
+    text: 'Pay monthly. If the camera fails, we swap it.',
+  },
+]
+
+const internetChoices = [
+  {
+    title: 'We provide it',
+    text: 'Cellular or satellite internet, managed and remotely supported by us.',
+  },
+  {
+    title: 'You provide it',
+    text: 'Use your site connection and pay only for the streaming service.',
+  },
+]
+
+const addOns = [
+  {
+    value: '1-minute time-lapse',
+    text: 'Capture a still every minute instead of every 15.',
+  },
+  {
+    value: 'Recorded video playback',
+    text: 'Play back recorded video stored on the camera.',
+  },
+  {
+    value: 'On-site weather station',
+    text: 'Measure the weather at your site instead of relying on a forecast.',
+  },
+]
+
+const steps = [
+  {
+    title: 'Tell us about the site',
+    text: 'Send the quote request with where the job is, how many cameras you need and how long it runs.',
+  },
+  {
+    title: 'We set up the camera',
+    text: 'We agree the setup with you and get the camera streaming from your site.',
+  },
+  {
+    title: 'Your team watches from anywhere',
+    text: 'Open the private live view or the command center from any browser.',
+  },
+]
+
+function ConstructionPage() {
+  return (
+    <div className="page-container space-y-20">
+      {/* 1. Hero */}
+      <Reveal>
+        <section className="mx-auto max-w-3xl text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
+            <HardHat size={14} className="text-accent" />
+            <span className="font-mono text-xs font-medium text-accent">
+              Construction cameras
+            </span>
+          </div>
+          <h1>See your job site from anywhere</h1>
+          <p>Live view, time-lapse and a private dashboard for your team.</p>
+          <a
+            href="#quote"
+            className="mt-2 inline-flex items-center justify-center rounded-lg bg-accent px-8 py-3 font-sans text-base font-semibold text-crust shadow-md transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
+          >
+            Request a quote
+          </a>
+        </section>
+      </Reveal>
+
+      {/* 2. Every camera includes */}
+      <section>
+        <Reveal>
+          <h2 className="text-center">Every camera includes</h2>
+        </Reveal>
+        <Reveal stagger>
+          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {includedItems.map(({ icon: Icon, title, text }) => (
+              <li
+                key={title}
+                className="section-container reveal-scale flex items-start gap-3"
+              >
+                <Icon size={20} className="mt-0.5 shrink-0 text-accent" />
+                <div className="min-w-0">
+                  <h3 className="mb-1 text-base">{title}</h3>
+                  <p className="mb-0 text-sm text-subtext0">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+      </section>
+
+      {/* 3. Choose your setup */}
+      <section>
+        <Reveal>
+          <h2 className="text-center">Choose your setup</h2>
+          <p className="mx-auto max-w-2xl text-center">
+            Two independent choices. Pick any combination.
+          </p>
+        </Reveal>
+        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-2">
+          <ChoiceGroup heading="Camera" choices={cameraChoices} />
+          <ChoiceGroup heading="Internet" choices={internetChoices} />
+        </div>
+      </section>
+
+      {/* 4. Add-ons */}
+      <section>
+        <Reveal>
+          <h2 className="text-center">Add-ons</h2>
+        </Reveal>
+        <Reveal>
+          <ul className="section-container mx-auto mt-8 max-w-3xl space-y-4">
+            {addOns.map((a) => (
+              <li key={a.value} className="flex items-start gap-3">
+                <CheckCircle
+                  size={18}
+                  className="mt-0.5 shrink-0 text-accent"
+                />
+                <p className="mb-0 text-sm text-subtext0">
+                  <span className="font-medium text-text">{a.value}.</span>{' '}
+                  {a.text}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+      </section>
+
+      {/* 5. How it works */}
+      <section>
+        <Reveal>
+          <h2 className="text-center">How it works</h2>
+        </Reveal>
+        <Reveal stagger>
+          <ol className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {steps.map((step, i) => (
+              <li key={step.title} className="section-container reveal-scale">
+                <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 font-mono text-sm font-semibold text-accent">
+                  {i + 1}
+                </span>
+                <h3 className="mb-1 text-base">{step.title}</h3>
+                <p className="mb-0 text-sm text-subtext0">{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </Reveal>
+      </section>
+
+      {/* 6. Quote form */}
+      <section id="quote" className="mx-auto max-w-3xl scroll-mt-24">
+        <Reveal>
+          <div className="mb-6 text-center">
+            <div className="mb-3 inline-flex items-center gap-2 text-accent">
+              <Building2 size={18} />
+            </div>
+            <h2>Request a quote</h2>
+            <p className="mb-0">
+              Tell us about your project and we will get back to you with a
+              quote.
+            </p>
+          </div>
+        </Reveal>
+        <QuoteForm />
+      </section>
+    </div>
+  )
+}
+
+function ChoiceGroup({
+  heading,
+  choices,
+}: {
+  heading: string
+  choices: Array<{ title: string; text: string }>
+}) {
+  return (
+    <Reveal>
+      <div>
+        <h3 className="mb-4 text-center font-mono text-xs font-semibold tracking-widest text-subtext0 uppercase">
+          {heading}
+        </h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {choices.map((c) => (
+            <div key={c.title} className="section-container">
+              <h4 className="mb-1 text-lg">{c.title}</h4>
+              <p className="mb-0 text-sm text-subtext0">{c.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Reveal>
+  )
+}
+
+/* ──── Quote form ──── */
+
+const cameraOptions = [
+  { value: 'buy', label: 'Buy' },
+  { value: 'rent', label: 'Rent' },
+  { value: 'unsure', label: 'Not sure' },
+]
+
+const internetOptions = [
+  { value: 'nationcam', label: 'NationCam provides it' },
+  { value: 'onsite', label: 'We have internet on site' },
+  { value: 'unsure', label: 'Not sure' },
+]
+
+const lengthOptions = [
+  { value: 'under-3', label: 'Under 3 months' },
+  { value: '3-6', label: '3-6 months' },
+  { value: '6-12', label: '6-12 months' },
+  { value: 'over-12', label: 'Over a year' },
+]
+
+const NOTES_MAX_CHARS = 1500
+// The API caps the message at 5000 bytes, so the notes are trimmed to fit even
+// when they contain multi-byte characters.
+const MESSAGE_MAX_BYTES = 4800
+
+interface FormData {
+  name: string
+  company: string
+  email: string
+  phone: string
+  city: string
+  state: string
+  cameras: string
+  camera: string
+  internet: string
+  length: string
+  addOns: Array<string>
+  notes: string
+}
+
+const emptyForm: FormData = {
+  name: '',
+  company: '',
+  email: '',
+  phone: '',
+  city: '',
+  state: '',
+  cameras: '',
+  camera: '',
+  internet: '',
+  length: '',
+  addOns: [],
+  notes: '',
+}
+
+const labelFor = (
+  options: Array<{ value: string; label: string }>,
+  value: string,
+) => options.find((o) => o.value === value)?.label ?? value
+
+const byteLength = (s: string) => new TextEncoder().encode(s).length
+
+// Pack the structured quote fields into one readable message body so the
+// backend stays a generic name/email/message contact store. Rendered as plain
+// text in the dashboard.
+function buildMessage(form: FormData): string {
+  const pack = (notes: string) =>
+    [
+      `Company: ${form.company.trim()}`,
+      `Phone: ${form.phone.trim() || 'Not given'}`,
+      `Project location: ${form.city.trim()}, ${form.state.trim()}`,
+      `Number of cameras: ${form.cameras.trim()}`,
+      `Camera: ${labelFor(cameraOptions, form.camera)}`,
+      `Internet: ${labelFor(internetOptions, form.internet)}`,
+      `Project length: ${labelFor(lengthOptions, form.length)}`,
+      `Add-ons: ${form.addOns.length > 0 ? form.addOns.join(', ') : 'None'}`,
+      '',
+      'Notes:',
+      notes || 'None',
+    ].join('\n')
+
+  let notes = form.notes.trim().slice(0, NOTES_MAX_CHARS)
+  let message = pack(notes)
+  while (byteLength(message) > MESSAGE_MAX_BYTES && notes.length > 0) {
+    notes = notes.slice(0, Math.floor(notes.length * 0.8))
+    message = pack(notes)
+  }
+  return message
+}
+
+function QuoteForm() {
+  const [form, setForm] = useState<FormData>(emptyForm)
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const update = (field: Exclude<keyof FormData, 'addOns'>, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const toggleAddOn = (value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      addOns: prev.addOns.includes(value)
+        ? prev.addOns.filter((a) => a !== value)
+        : [...prev.addOns, value],
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const required: Array<Exclude<keyof FormData, 'addOns'>> = [
+      'name',
+      'company',
+      'email',
+      'city',
+      'state',
+      'cameras',
+      'camera',
+      'internet',
+      'length',
+    ]
+    const missing = required.filter((f) => !form[f].trim())
+    if (missing.length > 0) {
+      setError('Please fill out all required fields.')
+      return
+    }
+    const count = Number(form.cameras)
+    if (!Number.isInteger(count) || count < 1) {
+      setError('Number of cameras must be a whole number, 1 or more.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+    try {
+      await submitContact({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        message: buildMessage(form),
+        kind: 'construction',
+      })
+      setSubmitted(true)
+    } catch {
+      setError('Something went wrong sending your request. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div
+        className="section-container flex flex-col items-center py-12 text-center"
+        style={{
+          animation: 'scale-fade-in 500ms var(--spring-poppy) forwards',
+        }}
+      >
+        <CheckCircle size={48} className="mb-4 text-accent" />
+        <h3>Thank you!</h3>
+        <p className="mb-0 max-w-sm">
+          We have received your quote request. Our team will review it and get
+          back to you soon.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="section-container space-y-5"
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Input
+          label="Name"
+          required
+          value={form.name}
+          maxLength={100}
+          onChange={(v) => update('name', v)}
+        />
+        <Input
+          label="Company"
+          required
+          value={form.company}
+          maxLength={120}
+          onChange={(v) => update('company', v)}
+        />
+        <Input
+          label="Email"
+          required
+          type="email"
+          value={form.email}
+          maxLength={200}
+          onChange={(v) => update('email', v)}
+        />
+        <Input
+          label="Phone"
+          type="tel"
+          value={form.phone}
+          maxLength={40}
+          onChange={(v) => update('phone', v)}
+        />
+        <Input
+          label="Project city"
+          required
+          value={form.city}
+          maxLength={100}
+          onChange={(v) => update('city', v)}
+        />
+        <Input
+          label="Project state"
+          required
+          value={form.state}
+          maxLength={60}
+          onChange={(v) => update('state', v)}
+        />
+      </div>
+
+      <Input
+        label="Number of cameras"
+        required
+        type="number"
+        min={1}
+        value={form.cameras}
+        onChange={(v) => update('cameras', v)}
+      />
+
+      <Dropdown
+        label="Camera *"
+        options={cameraOptions}
+        selectedValue={form.camera}
+        onSelect={(v) => update('camera', String(v))}
+      />
+      <Dropdown
+        label="Internet *"
+        options={internetOptions}
+        selectedValue={form.internet}
+        onSelect={(v) => update('internet', String(v))}
+      />
+      <Dropdown
+        label="Project length *"
+        options={lengthOptions}
+        selectedValue={form.length}
+        onSelect={(v) => update('length', String(v))}
+      />
+
+      <fieldset>
+        <legend className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
+          Add-ons of interest
+        </legend>
+        <div className="space-y-2">
+          {addOns.map((a) => (
+            <label
+              key={a.value}
+              className="flex cursor-pointer items-center gap-3 text-sm text-text"
+            >
+              <input
+                type="checkbox"
+                checked={form.addOns.includes(a.value)}
+                onChange={() => toggleAddOn(a.value)}
+                className="h-4 w-4 shrink-0 accent-accent"
+              />
+              {a.value}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div>
+        <label
+          htmlFor="construction-notes"
+          className="mb-1.5 block font-sans text-sm font-medium text-subtext1"
+        >
+          Notes
+        </label>
+        <textarea
+          id="construction-notes"
+          rows={4}
+          maxLength={NOTES_MAX_CHARS}
+          value={form.notes}
+          onChange={(e) => update('notes', e.target.value)}
+          className="w-full rounded-lg border border-overlay0 bg-base px-4 py-3 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
+        />
+      </div>
+
+      {error && (
+        <p role="alert" className="mb-0 text-sm font-medium text-live">
+          {error}
+        </p>
+      )}
+
+      <Button
+        text={submitting ? 'Sending...' : 'Request a quote'}
+        type="submit"
+        className="w-full"
+        size="lg"
+        disabled={submitting}
+      />
+
+      <p className="mb-0 text-center text-xs text-overlay2">
+        Your information is kept private and never shared with third parties.
+      </p>
+    </form>
+  )
+}
+
+/* ──── Styled text input ──── */
+
+function Input({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  required = false,
+  maxLength,
+  min,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: string
+  required?: boolean
+  maxLength?: number
+  min?: number
+}) {
+  return (
+    <div className="min-w-0">
+      <label className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
+        {label}
+        {required && <span className="ml-0.5 text-accent">*</span>}
+        <input
+          type={type}
+          value={value}
+          maxLength={maxLength}
+          min={min}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-1.5 w-full rounded-lg border border-overlay0 bg-base px-4 py-3 font-sans text-sm font-normal text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
+        />
+      </label>
+    </div>
+  )
+}
