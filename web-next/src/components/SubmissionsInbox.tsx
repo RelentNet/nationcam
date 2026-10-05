@@ -69,6 +69,26 @@ function storeTab(id: TabId) {
   }
 }
 
+const SHOW_HANDLED_KEY = 'nationcam.submissions.showHandled'
+const UNDO_MS = 6000
+
+function readShowHandled(): boolean {
+  try {
+    return window.localStorage.getItem(SHOW_HANDLED_KEY) === '1'
+  } catch {
+    /* storage unavailable: handled entries stay hidden */
+    return false
+  }
+}
+
+function storeShowHandled(on: boolean) {
+  try {
+    window.localStorage.setItem(SHOW_HANDLED_KEY, on ? '1' : '0')
+  } catch {
+    /* storage unavailable: the choice just is not remembered */
+  }
+}
+
 const KIND_LABELS: Record<string, string> = {
   construction: 'Construction',
   'free-camera': 'Free camera',
@@ -257,11 +277,22 @@ export default function SubmissionsInbox() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState('newest')
   const [page, setPage] = useState(1)
+  const [showHandled, setShowHandled] = useState(false)
+  // The "Marked handled" notice with its Undo (only when handled rows are hidden).
+  const [undo, setUndo] = useState<number | null>(null)
 
-  // Restore the remembered tab after mount (storage only exists in the browser).
+  // Restore the remembered tab and toggle after mount (storage only exists in
+  // the browser).
   useEffect(() => {
     setTab(readStoredTab())
+    setShowHandled(readShowHandled())
   }, [])
+
+  useEffect(() => {
+    if (undo === null) return
+    const t = setTimeout(() => setUndo(null), UNDO_MS)
+    return () => clearTimeout(t)
+  }, [undo])
 
   // Every tab fetches its own kinds, so each gets its own latest 200 and the tab
   // badges can count unhandled entries without visiting the tab. `loading` is
@@ -299,9 +330,10 @@ export default function SubmissionsInbox() {
   }
 
   const current = data[tab] ?? []
+  const handledCount = current.filter((s) => s.handled).length
 
   const filtered = useMemo(() => {
-    let result = [...current]
+    let result = showHandled ? [...current] : current.filter((s) => !s.handled)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter((s) => {
@@ -338,7 +370,7 @@ export default function SubmissionsInbox() {
         break
     }
     return result
-  }, [current, search, sortKey])
+  }, [current, search, sortKey, showHandled])
 
   const total = filtered.length
   const totalPages = Math.ceil(total / PER_PAGE)
@@ -354,16 +386,62 @@ export default function SubmissionsInbox() {
     setPage(1)
   }
 
+  const handleShowHandled = (on: boolean) => {
+    setShowHandled(on)
+    storeShowHandled(on)
+    setUndo(null)
+    setPage(1)
+  }
+
+  // Flip `handled` on one row in every tab's list, without a refetch.
+  const patchHandled = (id: number, handled: boolean) =>
+    setData((d) => {
+      const next: TabData = {}
+      for (const t of TABS) {
+        next[t.id] = (d[t.id] ?? []).map((x) =>
+          x.submission_id === id ? { ...x, handled } : x,
+        )
+      }
+      return next
+    })
+
   const handleToggle = async (s: Submission) => {
     setToggling(s.submission_id)
     try {
       const token = await getToken()
-      await markSubmissionHandled(s.submission_id, !s.handled, token)
-      await load()
+      if (showHandled || s.handled) {
+        await markSubmissionHandled(s.submission_id, !s.handled, token)
+        await load()
+      } else {
+        // Handled rows are hidden: drop the row at once, roll back on failure.
+        patchHandled(s.submission_id, true)
+        setUndo(s.submission_id)
+        try {
+          await markSubmissionHandled(s.submission_id, true, token)
+        } catch (err) {
+          patchHandled(s.submission_id, false)
+          setUndo(null)
+          throw err
+        }
+      }
     } catch {
       setMsg({ text: 'Failed to update submission.', ok: false })
     } finally {
       setToggling(null)
+    }
+  }
+
+  const handleUndo = async () => {
+    const id = undo
+    if (id === null) return
+    setUndo(null)
+    patchHandled(id, false)
+    try {
+      const token = await getToken()
+      await markSubmissionHandled(id, false, token)
+    } catch {
+      patchHandled(id, true)
+      setMsg({ text: 'Failed to update submission.', ok: false })
     }
   }
 
@@ -420,15 +498,28 @@ export default function SubmissionsInbox() {
         emptyText="No submissions yet"
         toolbar={
           !loading && current.length > 0 ? (
-            <ListToolbar
-              search={search}
-              onSearchChange={handleSearch}
-              sortKey={sortKey}
-              onSortChange={handleSort}
-              resultCount={total}
-              label="submissions"
-              sortOptions={ENTITY_SORT_OPTIONS}
-            />
+            <div className="flex items-center border-b border-overlay0/30">
+              <div className="min-w-0 flex-1 [&>div]:border-b-0">
+                <ListToolbar
+                  search={search}
+                  onSearchChange={handleSearch}
+                  sortKey={sortKey}
+                  onSortChange={handleSort}
+                  resultCount={total}
+                  label="submissions"
+                  sortOptions={ENTITY_SORT_OPTIONS}
+                />
+              </div>
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 pr-4 text-xs whitespace-nowrap text-subtext0 sm:pr-5">
+                <input
+                  type="checkbox"
+                  checked={showHandled}
+                  onChange={(e) => handleShowHandled(e.target.checked)}
+                  className="accent-accent"
+                />
+                Show handled
+              </label>
+            </div>
           ) : undefined
         }
       >
@@ -437,6 +528,15 @@ export default function SubmissionsInbox() {
             <p className="mb-0 text-sm text-subtext0">
               No submissions matching &ldquo;{search}&rdquo;
             </p>
+          </div>
+        ) : total === 0 ? (
+          <div className="py-10 text-center">
+            <p className="mb-0 text-sm text-subtext0">Nothing waiting here.</p>
+            {handledCount > 0 && (
+              <p className="mt-1 mb-0 text-xs text-overlay2">
+                {handledCount} handled — turn on Show handled to see them.
+              </p>
+            )}
           </div>
         ) : (
           <>
@@ -488,6 +588,24 @@ export default function SubmissionsInbox() {
         )}
       </DataList>
 
+      {undo !== null && (
+        <div
+          role="status"
+          className="inline-flex items-center gap-3 rounded-lg bg-teal/10 px-3 py-2 text-sm font-medium text-teal"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Check size={15} />
+            Marked handled
+          </span>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="rounded px-1 underline underline-offset-2 hover:text-accent"
+          >
+            Undo
+          </button>
+        </div>
+      )}
       {msg && <StatusBanner msg={msg} />}
     </div>
   )
