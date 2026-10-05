@@ -1,6 +1,16 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Home, Mail, MapPin, Menu, Moon, Search, Sun, X } from 'lucide-react'
+import {
+  HardHat,
+  Home,
+  Mail,
+  MapPin,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  X,
+} from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 import CameraSearch from '@/components/CameraSearch'
 import Logo from '@/components/Logo'
@@ -17,6 +27,7 @@ function isEditableElement(node: Element | null): boolean {
 const navLinks = [
   { to: '/' as const, label: 'Home', icon: Home },
   { to: '/locations' as const, label: 'Locations', icon: MapPin },
+  { to: '/construction' as const, label: 'Construction', icon: HardHat },
   { to: '/contact' as const, label: 'Contact', icon: Mail },
 ]
 
@@ -67,7 +78,7 @@ export default function Navbar() {
               <li key={to}>
                 <Link
                   to={to}
-                  className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-300 ease-[var(--spring-smooth)] ${
+                  className={`relative rounded-lg px-3 py-2 text-sm lg:px-4 font-medium transition-colors duration-300 ease-[var(--spring-smooth)] ${
                     isActive
                       ? 'bg-accent/10 text-accent'
                       : 'text-subtext1 hover:text-text hover:bg-surface0/50'
@@ -96,7 +107,7 @@ export default function Navbar() {
             aria-label="Search cameras"
           >
             <Search size={18} />
-            <span className="hidden md:inline">Search</span>
+            <span className="hidden lg:inline">Search</span>
           </button>
 
           <button
@@ -130,7 +141,7 @@ export default function Navbar() {
       <div
         className={`overflow-hidden border-t transition-[max-height,opacity] duration-500 ease-[var(--spring-smooth)] md:hidden ${
           menuOpen
-            ? 'max-h-96 border-overlay0/30 opacity-100'
+            ? 'max-h-[28rem] border-overlay0/30 opacity-100'
             : 'max-h-0 border-transparent opacity-0'
         }`}
       >

@@ -65,10 +65,21 @@ export const ADSENSE_CLIENT = 'ca-pub-7286243668972753'
 
 /**
  * Dashboard, admin and the sign-in callback are app surfaces, not content:
- * they render full-width with no ad slots and no AdSense loader.
+ * they render full-width with no ad slots and no AdSense loader. (The
+ * construction page is ad-free too, see `isAdFreeSurface`.)
  */
 export function isAppSurface(pathname: string): boolean {
   return /^\/(dashboard|admin|callback)(\/|$)/.test(pathname)
+}
+
+/**
+ * The construction sales page (DAN-204) is a public page with the normal
+ * navbar, footer and analytics, but no ads: a network ad for a competing
+ * camera company must not sit beside the quote form. It renders full-width
+ * with no ad slots and no AdSense loader, like an app surface.
+ */
+export function isAdFreeSurface(pathname: string): boolean {
+  return /^\/construction(\/|$)/.test(pathname)
 }
 
 /**
@@ -96,7 +107,12 @@ export function isEmbedSurface(pathname: string): boolean {
 function AdSenseLoader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   useEffect(() => {
-    if (isAppSurface(pathname) || isEmbedSurface(pathname)) return
+    if (
+      isAppSurface(pathname) ||
+      isEmbedSurface(pathname) ||
+      isAdFreeSurface(pathname)
+    )
+      return
     if (document.querySelector('script[src*="adsbygoogle.js"]')) return
     const s = document.createElement('script')
     s.async = true
@@ -222,14 +238,14 @@ function adScopeFromMatches(matches: ReturnType<typeof useMatches>): AdScope {
  * and on wide screens they stick just below the navbar so a sold banner stays on
  * screen while the page scrolls (the same treatment the state and sublocation
  * sidebars already use). Each `BannerSlot` renders nothing until an ad is sold,
- * so empty gutters just stay empty. Dashboard/admin/auth surfaces render
- * full-width with no ad slots.
+ * so empty gutters just stay empty. Dashboard/admin/auth surfaces and the
+ * ad-free construction page render full-width with no ad slots.
  */
 function PageBody({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const matches = useMatches()
 
-  if (isAppSurface(pathname)) {
+  if (isAppSurface(pathname) || isAdFreeSurface(pathname)) {
     return <main className="pt-14">{children}</main>
   }
 

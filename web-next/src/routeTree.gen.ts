@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CallbackRouteImport } from './routes/callback'
+import { Route as ConstructionRouteImport } from './routes/construction'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EventsRouteImport } from './routes/events'
@@ -50,6 +51,11 @@ const AdminRoute = AdminRouteImport.update({
 const CallbackRoute = CallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConstructionRoute = ConstructionRouteImport.update({
+  id: '/construction',
+  path: '/construction',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
+  '/construction': typeof ConstructionRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
+  '/construction': typeof ConstructionRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
+  '/construction': typeof ConstructionRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/callback'
+    | '/construction'
     | '/contact'
     | '/dashboard'
     | '/events'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/callback'
+    | '/construction'
     | '/contact'
     | '/dashboard'
     | '/events'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/callback'
+    | '/construction'
     | '/contact'
     | '/dashboard'
     | '/events'
@@ -301,6 +313,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   CallbackRoute: typeof CallbackRoute
+  ConstructionRoute: typeof ConstructionRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   EventsRoute: typeof EventsRoute
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/callback'
       fullPath: '/callback'
       preLoaderRoute: typeof CallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/construction': {
+      id: '/construction'
+      path: '/construction'
+      fullPath: '/construction'
+      preLoaderRoute: typeof ConstructionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -485,6 +505,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   CallbackRoute: CallbackRoute,
+  ConstructionRoute: ConstructionRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   EventsRoute: EventsRoute,
