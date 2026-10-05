@@ -158,14 +158,7 @@ function PlanStep({ config, set }: StepProps) {
             checked={config.plan === p.id}
             onChange={() => set({ plan: p.id })}
           >
-            <span className="flex flex-wrap items-center gap-2">
-              <Title>{p.name}</Title>
-              {p.featured && (
-                <span className="rounded-full bg-accent/10 px-2 py-0.5 font-mono text-[0.65rem] font-semibold tracking-wider text-accent uppercase">
-                  Most popular
-                </span>
-              )}
-            </span>
+            <Title>{p.name}</Title>
             <span className="mt-2 mb-4 flex flex-wrap items-baseline gap-x-1.5">
               <span className="text-sm text-subtext0">from</span>
               <span className="font-display text-4xl leading-none font-extrabold text-text">

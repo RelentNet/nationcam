@@ -32,7 +32,6 @@ export interface Plan {
   name: string
   /** Per camera, per month. */
   monthly: number
-  featured: boolean
   lead: string | null
   features: Array<string>
 }
@@ -42,7 +41,6 @@ export const plans: Array<Plan> = [
     id: 'essential',
     name: 'Essential',
     monthly: 79,
-    featured: false,
     lead: null,
     features: [
       'Private live view and command center',
@@ -57,7 +55,6 @@ export const plans: Array<Plan> = [
     id: 'pro',
     name: 'Pro',
     monthly: 229,
-    featured: true,
     lead: 'Everything in Essential, plus:',
     features: [
       'Time-lapse photo every minute',
@@ -69,7 +66,6 @@ export const plans: Array<Plan> = [
     id: 'premium',
     name: 'Premium',
     monthly: 349,
-    featured: false,
     lead: 'Everything in Pro, plus:',
     features: [
       '90 days of recorded video',
