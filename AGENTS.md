@@ -316,6 +316,8 @@ new-nationcam/                        # Repo root
 - **events**: `event_id`, `title`, `description_md`, `starts_at` (`TIMESTAMPTZ NOT NULL`), `ends_at` (nullable), `url` (nullable), `sublocation_id` (FK, `NOT NULL ON DELETE CASCADE` — an event always belongs to one place), `video_id` (nullable FK, `ON DELETE SET NULL` — an optional "watch here" pointer to a camera in that sublocation), `created_by`, `created_at`, `updated_at`
 - **audio_stations**: `audio_station_id`, `name`, `stream_url` (https only), `enabled`, `sort_order`, `state_id` / `sublocation_id` (both nullable FKs, `ON DELETE CASCADE` — at most one set, optional single-level scope; no per-camera scope), `created_at`, `updated_at`
 
+- **submissions**: `submission_id`, `name`, `email`, `message` (readable summary, always kept), `kind` (`construction` | `free-camera` | `camera` from /contact | default `contact`), `handled`, `company`, `phone`, `site_city`, `site_state` (all `TEXT NOT NULL DEFAULT ''`), `details` (`JSONB NOT NULL DEFAULT '{}'` — a flat object of readable per-form answers, DAN-226), `created_at`; index on `(kind, created_at DESC)`. The DAN-226 `ALTER ... ADD COLUMN IF NOT EXISTS` statements sit right after the table in its own schema.sql section (the "Column additions" section runs before the table exists on a fresh DB). Old rows keep the empty defaults.
+
 Video slugs are generated from `title` and are unique per `(state_id, sublocation_id)`;
 duplicate titles get a `-2`, `-3`, … suffix. Columns added after the first production
 deploy live in the "Column additions" section of `schema.sql` as
@@ -367,6 +369,9 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/videos/{id}/reject`            | `{ note? }` — `pending`/`active`/`paused → rejected`; Restreamer process stopped (not deleted) | Admin (Logto) |
 | POST   | `/sublocations/{id}/approve`     | `pending → approved`; its cameras stay pending | Admin (Logto) |
 | POST   | `/sublocations/{id}/reject`      | `{ note? }` — `pending → rejected`; its pending cameras are rejected too and their processes stopped | Admin (Logto) |
+| POST   | `/submissions`                   | Public form submit (rate-limited, 16 KB cap): `{ name, email, message, kind?, company?, phone?, site_city?, site_state?, details? }`. Caps: company 200, phone 40, city 100, state 60 chars; `details` = flat object, ≤30 keys matching `^[a-z0-9_]{1,40}$`, values string (≤500) / number / boolean / array of ≤20 strings (≤100 each), else 400 | None |
+| GET    | `/submissions?kind=a,b`          | Latest 200 submissions, newest first, with the structured fields; optional comma-separated `kind` filter (each ≤40 chars) | Admin (Logto) |
+| PATCH  | `/submissions/{id}`              | `{ handled }`                  | Admin (Logto) |
 | GET    | `/streams`                       | List all active streams        | API Key       |
 | POST   | `/streams`                       | Create RTSP-to-HLS stream      | API Key       |
 | GET    | `/streams/{id}`                  | Get stream status              | API Key       |

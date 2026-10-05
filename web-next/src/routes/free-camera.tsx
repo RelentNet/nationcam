@@ -334,6 +334,17 @@ function ApplyForm() {
         email: form.email.trim(),
         message: buildMessage(form),
         kind: 'free-camera',
+        company: form.company.trim(),
+        phone: form.phone.trim(),
+        site_city: form.city.trim(),
+        site_state: form.state.trim(),
+        details: {
+          view: form.views.trim(),
+          site_type: labelFor(siteTypeOptions, form.siteType),
+          power: labelFor(yesNoOptions, form.power),
+          internet: labelFor(yesNoOptions, form.internet),
+          installer: labelFor(installOptions, form.install),
+        },
       })
       setSubmitted(true)
     } catch {

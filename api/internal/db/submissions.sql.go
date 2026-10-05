@@ -7,18 +7,24 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 )
 
 const createSubmission = `-- name: CreateSubmission :exec
-INSERT INTO submissions (name, email, message, kind)
-VALUES ($1, $2, $3, $4)
+INSERT INTO submissions (name, email, message, kind, company, phone, site_city, site_state, details)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateSubmissionParams struct {
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	Message string `json:"message"`
-	Kind    string `json:"kind"`
+	Name      string          `json:"name"`
+	Email     string          `json:"email"`
+	Message   string          `json:"message"`
+	Kind      string          `json:"kind"`
+	Company   string          `json:"company"`
+	Phone     string          `json:"phone"`
+	SiteCity  string          `json:"site_city"`
+	SiteState string          `json:"site_state"`
+	Details   json.RawMessage `json:"details"`
 }
 
 func (q *Queries) CreateSubmission(ctx context.Context, arg CreateSubmissionParams) error {
@@ -27,12 +33,18 @@ func (q *Queries) CreateSubmission(ctx context.Context, arg CreateSubmissionPara
 		arg.Email,
 		arg.Message,
 		arg.Kind,
+		arg.Company,
+		arg.Phone,
+		arg.SiteCity,
+		arg.SiteState,
+		arg.Details,
 	)
 	return err
 }
 
 const listSubmissions = `-- name: ListSubmissions :many
-SELECT submission_id, name, email, message, kind, handled, created_at
+SELECT submission_id, name, email, message, kind, handled, created_at,
+       company, phone, site_city, site_state, details
 FROM submissions
 ORDER BY created_at DESC
 LIMIT 200
@@ -55,6 +67,53 @@ func (q *Queries) ListSubmissions(ctx context.Context) ([]Submission, error) {
 			&i.Kind,
 			&i.Handled,
 			&i.CreatedAt,
+			&i.Company,
+			&i.Phone,
+			&i.SiteCity,
+			&i.SiteState,
+			&i.Details,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSubmissionsByKind = `-- name: ListSubmissionsByKind :many
+SELECT submission_id, name, email, message, kind, handled, created_at,
+       company, phone, site_city, site_state, details
+FROM submissions
+WHERE kind = ANY($1::text[])
+ORDER BY created_at DESC
+LIMIT 200
+`
+
+func (q *Queries) ListSubmissionsByKind(ctx context.Context, kinds []string) ([]Submission, error) {
+	rows, err := q.db.Query(ctx, listSubmissionsByKind, kinds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Submission{}
+	for rows.Next() {
+		var i Submission
+		if err := rows.Scan(
+			&i.SubmissionID,
+			&i.Name,
+			&i.Email,
+			&i.Message,
+			&i.Kind,
+			&i.Handled,
+			&i.CreatedAt,
+			&i.Company,
+			&i.Phone,
+			&i.SiteCity,
+			&i.SiteState,
+			&i.Details,
 		); err != nil {
 			return nil, err
 		}
@@ -69,7 +128,8 @@ func (q *Queries) ListSubmissions(ctx context.Context) ([]Submission, error) {
 const setSubmissionHandled = `-- name: SetSubmissionHandled :one
 UPDATE submissions SET handled = $2
 WHERE submission_id = $1
-RETURNING submission_id, name, email, message, kind, handled, created_at
+RETURNING submission_id, name, email, message, kind, handled, created_at,
+          company, phone, site_city, site_state, details
 `
 
 type SetSubmissionHandledParams struct {
@@ -88,6 +148,11 @@ func (q *Queries) SetSubmissionHandled(ctx context.Context, arg SetSubmissionHan
 		&i.Kind,
 		&i.Handled,
 		&i.CreatedAt,
+		&i.Company,
+		&i.Phone,
+		&i.SiteCity,
+		&i.SiteState,
+		&i.Details,
 	)
 	return i, err
 }

@@ -5,6 +5,7 @@
 package db
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -132,13 +133,18 @@ type Sublocation struct {
 }
 
 type Submission struct {
-	SubmissionID int64     `json:"submission_id"`
-	Name         string    `json:"name"`
-	Email        string    `json:"email"`
-	Message      string    `json:"message"`
-	Kind         string    `json:"kind"`
-	Handled      bool      `json:"handled"`
-	CreatedAt    time.Time `json:"created_at"`
+	SubmissionID int64           `json:"submission_id"`
+	Name         string          `json:"name"`
+	Email        string          `json:"email"`
+	Message      string          `json:"message"`
+	Kind         string          `json:"kind"`
+	Handled      bool            `json:"handled"`
+	CreatedAt    time.Time       `json:"created_at"`
+	Company      string          `json:"company"`
+	Phone        string          `json:"phone"`
+	SiteCity     string          `json:"site_city"`
+	SiteState    string          `json:"site_state"`
+	Details      json.RawMessage `json:"details"`
 }
 
 type Video struct {

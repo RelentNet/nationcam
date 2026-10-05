@@ -680,8 +680,10 @@ export async function submitContact(
 /** List the latest submissions, newest first (admin). */
 export async function fetchSubmissions(
   token?: string | null,
+  kinds?: Array<string>,
 ): Promise<Array<Submission>> {
-  return authedGet<Array<Submission>>('/submissions', token)
+  const q = kinds?.length ? `?kind=${encodeURIComponent(kinds.join(','))}` : ''
+  return authedGet<Array<Submission>>(`/submissions${q}`, token)
 }
 
 /** Mark a submission handled/unhandled (admin). Returns the updated row. */

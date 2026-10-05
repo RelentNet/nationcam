@@ -572,14 +572,31 @@ export interface Submission {
   kind: string
   handled: boolean
   created_at: string
+  /** Structured answers (DAN-226). Rows from before it carry empty values. */
+  company?: string
+  phone?: string
+  site_city?: string
+  site_state?: string
+  details?: SubmissionDetails | null
 }
 
-/** The public payload sent by the contact form to `POST /api/submissions`. */
+/** Flat answers stored beside the message: readable labels, numbers, flags. */
+export type SubmissionDetails = Record<
+  string,
+  string | number | boolean | Array<string>
+>
+
+/** The public payload sent by the public forms to `POST /api/submissions`. */
 export interface SubmitContactInput {
   name: string
   email: string
   message: string
   kind: string
+  company?: string
+  phone?: string
+  site_city?: string
+  site_state?: string
+  details?: SubmissionDetails
 }
 
 export interface PaginatedResponse<T> {
