@@ -129,7 +129,7 @@ function ConstructionPage() {
           <p>Live view, time-lapse and a private dashboard for your team.</p>
           <a
             href="#quote"
-            className="mt-2 inline-flex items-center justify-center rounded-lg bg-accent px-8 py-3 font-sans text-base font-semibold text-crust shadow-md transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
+            className="mt-2 inline-flex items-center justify-center rounded-lg bg-accent px-8 py-3 font-sans text-[1rem] font-semibold text-crust shadow-md transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
           >
             Request a quote
           </a>
@@ -142,7 +142,7 @@ function ConstructionPage() {
           <h2 className="text-center">Every camera includes</h2>
         </Reveal>
         <Reveal stagger>
-          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {includedItems.map(({ icon: Icon, title, text }) => (
               <li
                 key={title}
@@ -150,8 +150,8 @@ function ConstructionPage() {
               >
                 <Icon size={20} className="mt-0.5 shrink-0 text-accent" />
                 <div className="min-w-0">
-                  <h3 className="mb-1 text-base">{title}</h3>
-                  <p className="mb-0 text-sm text-subtext0">{text}</p>
+                  <h3 className="!mb-1 !text-[1rem]">{title}</h3>
+                  <p className="!mb-0 !text-sm text-subtext0">{text}</p>
                 </div>
               </li>
             ))}
@@ -167,7 +167,7 @@ function ConstructionPage() {
             Two independent choices. Pick any combination.
           </p>
         </Reveal>
-        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-2">
+        <div className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-10">
           <ChoiceGroup heading="Camera" choices={cameraChoices} />
           <ChoiceGroup heading="Internet" choices={internetChoices} />
         </div>
@@ -186,7 +186,7 @@ function ConstructionPage() {
                   size={18}
                   className="mt-0.5 shrink-0 text-accent"
                 />
-                <p className="mb-0 text-sm text-subtext0">
+                <p className="!mb-0 !text-sm text-subtext0">
                   <span className="font-medium text-text">{a.value}.</span>{' '}
                   {a.text}
                 </p>
@@ -202,14 +202,14 @@ function ConstructionPage() {
           <h2 className="text-center">How it works</h2>
         </Reveal>
         <Reveal stagger>
-          <ol className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <ol className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
             {steps.map((step, i) => (
               <li key={step.title} className="section-container reveal-scale">
                 <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 font-mono text-sm font-semibold text-accent">
                   {i + 1}
                 </span>
-                <h3 className="mb-1 text-base">{step.title}</h3>
-                <p className="mb-0 text-sm text-subtext0">{step.text}</p>
+                <h3 className="!mb-1 !text-[1rem]">{step.title}</h3>
+                <p className="!mb-0 !text-sm text-subtext0">{step.text}</p>
               </li>
             ))}
           </ol>
@@ -246,14 +246,14 @@ function ChoiceGroup({
   return (
     <Reveal>
       <div>
-        <h3 className="mb-4 text-center font-mono text-xs font-semibold tracking-widest text-subtext0 uppercase">
+        <h3 className="!mb-4 text-center font-mono !text-xs font-semibold tracking-widest text-subtext0 uppercase">
           {heading}
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {choices.map((c) => (
             <div key={c.title} className="section-container">
-              <h4 className="mb-1 text-lg">{c.title}</h4>
-              <p className="mb-0 text-sm text-subtext0">{c.text}</p>
+              <h4 className="!mb-1 !text-lg">{c.title}</h4>
+              <p className="!mb-0 !text-sm text-subtext0">{c.text}</p>
             </div>
           ))}
         </div>
@@ -552,7 +552,7 @@ function QuoteForm() {
       </div>
 
       {error && (
-        <p role="alert" className="mb-0 text-sm font-medium text-live">
+        <p role="alert" className="!mb-0 !text-sm font-medium text-live">
           {error}
         </p>
       )}
@@ -565,7 +565,7 @@ function QuoteForm() {
         disabled={submitting}
       />
 
-      <p className="mb-0 text-center text-xs text-overlay2">
+      <p className="!mb-0 text-center !text-xs text-overlay2">
         Your information is kept private and never shared with third parties.
       </p>
     </form>
