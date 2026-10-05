@@ -2,10 +2,15 @@ import { useState } from 'react'
 import { CheckCircle } from 'lucide-react'
 import type { QuoteConfig } from '@/lib/constructionPricing'
 import {
+  clampCameras,
   describeConfig,
   estimateMonthly,
   estimateUpfront,
   formatUSD,
+  getInternet,
+  getPlan,
+  getResolution,
+  getStyle,
 } from '@/lib/constructionPricing'
 import Dropdown from '@/components/Dropdown'
 import Button from '@/components/Button'
@@ -78,6 +83,35 @@ function buildMessage(form: FormData, config: QuoteConfig): string {
   return message
 }
 
+// The same answers as separate fields, stored beside the message so the admin
+// view can show them as columns. Values are the readable labels, not ids.
+function buildDetails(
+  form: FormData,
+  config: QuoteConfig,
+): Record<string, string | number | boolean> {
+  const own = config.acquisition === 'own'
+  const resolution = getResolution(config.style, config.resolution)
+  return {
+    plan: getPlan(config.plan).name,
+    camera: own
+      ? 'Bring your own'
+      : config.acquisition === 'buy'
+        ? 'Buy'
+        : 'Rent',
+    ...(own
+      ? {}
+      : { style: getStyle(config.style).title, resolution: resolution.label }),
+    internet: getInternet(config.internet).title,
+    cameras: clampCameras(config.cameras),
+    forever_video: config.foreverVideo,
+    weather_station: config.weatherStation,
+    start:
+      startOptions.find((o) => o.value === form.start)?.label ?? form.start,
+    est_monthly: estimateMonthly(config),
+    est_upfront: estimateUpfront(config),
+  }
+}
+
 type TextField = keyof FormData
 
 export default function QuoteForm({ config }: { config: QuoteConfig }) {
@@ -114,6 +148,11 @@ export default function QuoteForm({ config }: { config: QuoteConfig }) {
         email: form.email.trim(),
         message: buildMessage(form, config),
         kind: 'construction',
+        company: form.company.trim(),
+        phone: form.phone.trim(),
+        site_city: form.city.trim(),
+        site_state: form.state.trim(),
+        details: buildDetails(form, config),
       })
       setSubmitted(true)
     } catch {

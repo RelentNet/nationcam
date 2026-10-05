@@ -331,6 +331,20 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at DESC);
 
+-- DAN-226: every answer from the three public forms (construction quote, free
+-- camera, contact) is stored as its own field. The common ones are typed
+-- columns; the per-form answers live in `details`, a flat JSON object of
+-- human-readable labels. `message` still carries the readable summary. Old rows
+-- keep the empty defaults. (These sit here rather than in "Column additions"
+-- because that section runs before this table exists on a fresh database.)
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS company    TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS phone      TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS site_city  TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS site_state TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS details    JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_submissions_kind_created_at ON submissions(kind, created_at DESC);
+
 -- ────────────────────────────────────────────────
 -- Field notes (posts) — DAN-25
 --

@@ -209,10 +209,27 @@ function ContactForm() {
         email: form.email,
         message: buildMessage(form),
         kind: 'camera',
+        // Structured copies of the answers; trimmed to the API's caps so a long
+        // entry can never turn a submission that used to work into a 400.
+        site_city: form.city.trim().slice(0, 100),
+        site_state: form.state.trim().slice(0, 60),
+        details: {
+          cameras: Number.isFinite(Number(form.cameras))
+            ? Number(form.cameras)
+            : form.cameras.trim().slice(0, 500),
+          internet: labelFor(internetOptions, form.internet),
+          timeline: labelFor(timelineOptions, form.timeline),
+          street: form.street.trim().slice(0, 500),
+          street2: form.street2.trim().slice(0, 500),
+          postal_code: form.postalCode.trim().slice(0, 500),
+          country: form.country.trim().slice(0, 500),
+        },
       })
       setSubmitted(true)
     } catch {
-      setError('Something went wrong submitting your application. Please try again.')
+      setError(
+        'Something went wrong submitting your application. Please try again.',
+      )
     } finally {
       setSubmitting(false)
     }
