@@ -1,6 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
+  Camera,
   HardHat,
   Home,
   Mail,
@@ -28,6 +29,7 @@ const navLinks = [
   { to: '/' as const, label: 'Home', icon: Home },
   { to: '/locations' as const, label: 'Locations', icon: MapPin },
   { to: '/construction' as const, label: 'Construction', icon: HardHat },
+  { to: '/free-camera' as const, label: 'Free Camera', icon: Camera },
   { to: '/contact' as const, label: 'Contact', icon: Mail },
 ]
 
@@ -70,7 +72,7 @@ export default function Navbar() {
         <Logo />
 
         {/* Center: Desktop nav links with hover pill effect */}
-        <ul className="hidden items-center gap-1 md:flex">
+        <ul className="hidden items-center gap-1 lg:flex">
           {navLinks.map(({ to, label }) => {
             const isActive =
               to === '/' ? currentPath === '/' : currentPath.startsWith(to)
@@ -78,7 +80,7 @@ export default function Navbar() {
               <li key={to}>
                 <Link
                   to={to}
-                  className={`relative rounded-lg px-3 py-2 text-sm lg:px-4 font-medium transition-colors duration-300 ease-[var(--spring-smooth)] ${
+                  className={`relative rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap lg:px-4 transition-colors duration-300 ease-[var(--spring-smooth)] ${
                     isActive
                       ? 'bg-accent/10 text-accent'
                       : 'text-subtext1 hover:text-text hover:bg-surface0/50'
@@ -119,14 +121,14 @@ export default function Navbar() {
           </button>
 
           {/* User avatar / sign-in — desktop */}
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <UserMenu />
           </div>
 
           {/* Mobile menu toggle */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="rounded-lg p-2 text-subtext0 transition-[scale,color,background-color] duration-200 ease-[var(--spring-gentle)] hover:scale-110 hover:text-text hover:bg-surface0/50 md:hidden"
+            className="rounded-lg p-2 text-subtext0 transition-[scale,color,background-color] duration-200 ease-[var(--spring-gentle)] hover:scale-110 hover:text-text hover:bg-surface0/50 lg:hidden"
             aria-label="Toggle menu"
           >
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -139,7 +141,7 @@ export default function Navbar() {
           just the top bar; clip-path only hid the paint, leaving a tall layout
           box that painted the scrolled glass background over the page. */}
       <div
-        className={`overflow-hidden border-t transition-[max-height,opacity] duration-500 ease-[var(--spring-smooth)] md:hidden ${
+        className={`overflow-hidden border-t transition-[max-height,opacity] duration-500 ease-[var(--spring-smooth)] lg:hidden ${
           menuOpen
             ? 'max-h-[28rem] border-overlay0/30 opacity-100'
             : 'max-h-0 border-transparent opacity-0'

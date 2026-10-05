@@ -66,20 +66,21 @@ export const ADSENSE_CLIENT = 'ca-pub-7286243668972753'
 /**
  * Dashboard, admin and the sign-in callback are app surfaces, not content:
  * they render full-width with no ad slots and no AdSense loader. (The
- * construction page is ad-free too, see `isAdFreeSurface`.)
+ * construction and free-camera pages are ad-free too, see `isAdFreeSurface`.)
  */
 export function isAppSurface(pathname: string): boolean {
   return /^\/(dashboard|admin|callback)(\/|$)/.test(pathname)
 }
 
 /**
- * The construction sales page (DAN-204) is a public page with the normal
- * navbar, footer and analytics, but no ads: a network ad for a competing
- * camera company must not sit beside the quote form. It renders full-width
- * with no ad slots and no AdSense loader, like an app surface.
+ * The construction sales page (DAN-204) and the free-camera application page
+ * (DAN-223) are public pages with the normal navbar, footer and analytics,
+ * but no ads: a network ad for a competing camera company must not sit beside
+ * their forms. They render full-width with no ad slots and no AdSense loader,
+ * like an app surface.
  */
 export function isAdFreeSurface(pathname: string): boolean {
-  return /^\/construction(\/|$)/.test(pathname)
+  return /^\/(construction|free-camera)(\/|$)/.test(pathname)
 }
 
 /**
