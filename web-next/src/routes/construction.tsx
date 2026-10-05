@@ -69,6 +69,8 @@ const cameraTypes: Array<{
   sees: string
   bestFor: string
   goodToKnow: string
+  buyFrom: string
+  rentFrom: string
 }> = [
   {
     kind: 'fixed',
@@ -76,6 +78,8 @@ const cameraTypes: Array<{
     sees: 'One fixed view of your site, day and night.',
     bestFor: 'A single elevation, a gate or a laydown yard.',
     goodToKnow: 'The simplest and lowest-cost option.',
+    buyFrom: '$949',
+    rentFrom: '$49',
   },
   {
     kind: 'fixed4k',
@@ -83,6 +87,8 @@ const cameraTypes: Array<{
     sees: 'The same fixed view with a 4K sensor for finer detail.',
     bestFor: 'Sites where you need to read detail at a distance.',
     goodToKnow: 'Streaming at full resolution needs a faster connection.',
+    buyFrom: '$1,795',
+    rentFrom: '$95',
   },
   {
     kind: 'panoramic',
@@ -90,6 +96,8 @@ const cameraTypes: Array<{
     sees: 'A 180° view from one camera, stitched into a single image.',
     bestFor: 'Seeing the whole site from one pole or rooftop.',
     goodToKnow: 'One camera replaces several fixed ones.',
+    buyFrom: '$2,595',
+    rentFrom: '$139',
   },
   {
     kind: 'ptz',
@@ -97,6 +105,8 @@ const cameraTypes: Array<{
     sees: 'Pans, tilts and zooms optically up to 30x, moving between preset views of the site.',
     bestFor: 'Large sites with several areas to watch.',
     goodToKnow: 'Preset views are set up with you at install.',
+    buyFrom: '$3,595',
+    rentFrom: '$189',
   },
 ]
 
@@ -126,7 +136,7 @@ const plans = [
   {
     value: 'essential',
     name: 'Essential',
-    price: '$129',
+    price: '$79',
     featured: false,
     lead: null as string | null,
     features: [
@@ -194,6 +204,10 @@ function ConstructionPage() {
           </div>
           <h1>See your job site from anywhere</h1>
           <p>Live view, time-lapse and a private dashboard for your team.</p>
+          <p className="!mb-4 !text-sm text-subtext0">
+            Plans from $79 per camera a month. Cameras from $49 a month to rent,
+            or $949 to buy.
+          </p>
           <a
             href="#quote"
             className="mt-2 inline-flex items-center justify-center rounded-lg bg-accent px-8 py-3 font-sans text-[1rem] font-semibold text-crust shadow-md transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
@@ -231,8 +245,8 @@ function ConstructionPage() {
         <Reveal>
           <h2 className="text-center">Choose your camera</h2>
           <p className="mx-auto max-w-2xl text-center">
-            All four are Axis network cameras. We help you pick on the quote
-            call.
+            All four are Axis network cameras. Prices are starting prices; we
+            confirm yours on the quote call.
           </p>
         </Reveal>
         <Reveal stagger>
@@ -252,6 +266,14 @@ function ConstructionPage() {
                 <p className="!mb-0 !text-sm text-subtext0">
                   <span className="font-medium text-text">Good to know:</span>{' '}
                   {c.goodToKnow}
+                </p>
+                <p className="!mt-auto !mb-0 border-t border-overlay0 !pt-3 !text-sm font-medium !text-text">
+                  <span className="whitespace-nowrap">
+                    Buy from {c.buyFrom} ·
+                  </span>{' '}
+                  <span className="whitespace-nowrap">
+                    Rent from {c.rentFrom} / month
+                  </span>
                 </p>
               </li>
             ))}
@@ -326,10 +348,26 @@ function ConstructionPage() {
           </ul>
         </Reveal>
         <Reveal>
+          <div className="section-container mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+            <div className="min-w-0">
+              <h3 className="!mb-1 !text-lg">Forever video</h3>
+              <p className="!mb-0 !text-sm text-subtext0">
+                Keep every recorded day permanently, on any plan.
+              </p>
+            </div>
+            <p className="!mb-0 shrink-0 font-display !text-xl font-extrabold !text-text">
+              +$99{' '}
+              <span className="font-sans !text-sm font-normal text-subtext0">
+                per camera / month
+              </span>
+            </p>
+          </div>
+        </Reveal>
+        <Reveal>
           <p className="mx-auto mt-6 max-w-3xl text-center !text-xs text-overlay2">
-            Camera hardware, internet and installation are quoted for your site.
-            The on-site weather station is available as an add-on on Essential
-            and Pro; the station hardware is separate on every plan.
+            Internet and installation are quoted for your site. The on-site
+            weather station is available as an add-on on Essential and Pro; the
+            station hardware is separate on every plan.
           </p>
         </Reveal>
       </section>
@@ -513,11 +551,15 @@ interface FormData {
   length: string
   plan: string
   weatherStation: boolean
+  foreverVideo: boolean
   notes: string
 }
 
 type ListField = 'cameraTypes'
-type TextField = Exclude<keyof FormData, ListField | 'weatherStation'>
+type TextField = Exclude<
+  keyof FormData,
+  ListField | 'weatherStation' | 'foreverVideo'
+>
 
 const emptyForm: FormData = {
   name: '',
@@ -533,6 +575,7 @@ const emptyForm: FormData = {
   length: '',
   plan: '',
   weatherStation: false,
+  foreverVideo: false,
   notes: '',
 }
 
@@ -559,6 +602,7 @@ function buildMessage(form: FormData): string {
       `Project length: ${labelFor(lengthOptions, form.length)}`,
       `Plan: ${form.plan ? labelFor(planOptions, form.plan) : 'Not specified'}`,
       `Weather station: ${form.weatherStation ? 'Yes' : 'No'}`,
+      `Forever video: ${form.foreverVideo ? 'Yes' : 'No'}`,
       '',
       'Notes:',
       notes || 'None',
@@ -770,6 +814,18 @@ function QuoteForm() {
           className="h-4 w-4 shrink-0 accent-accent"
         />
         Interested in an on-site weather station
+      </label>
+
+      <label className="flex cursor-pointer items-center gap-3 text-sm text-text">
+        <input
+          type="checkbox"
+          checked={form.foreverVideo}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, foreverVideo: e.target.checked }))
+          }
+          className="h-4 w-4 shrink-0 accent-accent"
+        />
+        Interested in forever video
       </label>
 
       <div>
