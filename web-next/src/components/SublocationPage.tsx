@@ -24,6 +24,11 @@ import LocationsHeroSection from '@/components/LocationsHeroSection'
 import CameraPlayer from '@/components/CameraPlayer'
 import CameraToolbar from '@/components/CameraToolbar'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
+import CameraGrid from '@/components/CameraGrid'
+import { buttonClasses } from '@/components/Button'
+import SectionHead from '@/components/ui/SectionHead'
+import Panel from '@/components/ui/Panel'
+import RuledGrid, { RuledCell } from '@/components/ui/RuledGrid'
 import NowPanel, { LocalClock, sinceLabel } from '@/components/NowPanel'
 import SnapshotStrip from '@/components/SnapshotStrip'
 import BannerSlot from '@/components/BannerSlot'
@@ -37,8 +42,8 @@ import { recordRecentCamera } from '@/hooks/useRecentCameras'
 /** The search/sort toolbar only earns its space once the strip gets long. */
 const TOOLBAR_MIN = 12
 
-export const CTA_CLASS =
-  'inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]'
+/** The primary button look, for a `<Link>`. */
+export const CTA_CLASS = buttonClasses({ variant: 'primary' })
 
 interface SublocationPageProps {
   stateSlug: string
@@ -97,6 +102,9 @@ export default function SublocationPage({
     sublocation.address || sublocation.host_name || sublocation.lat != null,
   )
   const crumbLink = 'transition-colors hover:text-accent'
+  const hasAbout = Boolean(
+    (camera && camera.about.trim()) || sublocation.about.trim(),
+  )
 
   // Previous/next camera within this sublocation, following the same order
   // as the poster strip below. Wraps at the ends. Hidden when there's only
@@ -219,7 +227,7 @@ export default function SublocationPage({
         }
       />
 
-      <div className="page-container">
+      <div className="measure pb-[var(--section-y)]">
         {featured && (
           <FeaturedBlock
             video={featured}
@@ -234,15 +242,13 @@ export default function SublocationPage({
           >
             {/* ── Camera strip — posters, not players ── */}
             {videos.length > 0 && (
-              <section className="mt-8">
-                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="mb-0 text-xl">
-                    Cameras at {sublocation.name}
-                  </h2>
-                  <span className="font-mono text-xs text-subtext0">
-                    {liveCount} live &middot; tap to switch
-                  </span>
-                </div>
+              <section className="mt-12" aria-labelledby="cameras-here">
+                <SectionHead
+                  id="cameras-here"
+                  stacked
+                  title={`Cameras at ${sublocation.name}`}
+                  body={`${liveCount} live · tap to switch`}
+                />
                 {videos.length > TOOLBAR_MIN && (
                   <CameraToolbar
                     search={search}
@@ -253,7 +259,7 @@ export default function SublocationPage({
                   />
                 )}
                 {filtered.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <CameraGrid>
                     {filtered.map((v) => (
                       <PosterTile
                         key={v.video_id}
@@ -272,7 +278,7 @@ export default function SublocationPage({
                         }}
                       />
                     ))}
-                  </div>
+                  </CameraGrid>
                 ) : (
                   <p className="mb-0 text-subtext0">
                     No cameras matching &ldquo;{search}&rdquo;
@@ -285,7 +291,7 @@ export default function SublocationPage({
 
         {/* ── Today at <sublocation> — camera page only ── */}
         {camera && frames.length > 0 && (
-          <div className="mt-8">
+          <div className="section-y">
             <SnapshotStrip
               sublocationName={sublocation.name}
               stateSlug={stateSlug}
@@ -299,7 +305,11 @@ export default function SublocationPage({
         )}
 
         {/* ── About + side column ── */}
-        <div className="mt-12 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div
+          className={`grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px] ${
+            hasAbout || hasVisit ? 'section-y' : 'pt-12'
+          }`}
+        >
           <div>
             {camera && (
               <AboutSection
@@ -340,9 +350,12 @@ export default function SublocationPage({
 
         {/* ── More in this state ── */}
         {others.length > 0 && (
-          <section className="mt-4">
-            <h2 className="mb-4 text-xl">More in {sublocation.state_name}</h2>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <section className="section-y" aria-labelledby="more-in-state">
+            <SectionHead
+              id="more-in-state"
+              title={`More in ${sublocation.state_name}`}
+            />
+            <CameraGrid>
               {others.map((s) => (
                 <PosterTile
                   key={s.sublocation_id}
@@ -357,14 +370,14 @@ export default function SublocationPage({
                   }}
                 />
               ))}
-            </div>
+            </CameraGrid>
           </section>
         )}
 
         {/* Empty state — framed as an invitation (the page is noindex'd). */}
         {videos.length === 0 && (
           <Reveal variant="scale">
-            <div className="section-container mt-12 py-12 text-center">
+            <Panel padding="lg" className="mt-12 py-12 text-center">
               <VideoIcon size={32} className="mx-auto mb-4 text-overlay1" />
               <h3>Coming to {sublocation.name}</h3>
               <p className="mx-auto max-w-lg">
@@ -375,7 +388,7 @@ export default function SublocationPage({
               <Link to="/contact" className={CTA_CLASS}>
                 Host a camera here &rarr;
               </Link>
-            </div>
+            </Panel>
           </Reveal>
         )}
       </div>
@@ -419,9 +432,9 @@ export function FeaturedBlock({
   const showCameraNav = Boolean(camera && sublocation && prevVideo && nextVideo)
   return (
     <div
-      className={
+      className={`pt-12 ${
         panel ? 'grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]' : ''
-      }
+      }`}
     >
       <div>
         <CameraPlayer camera={video} />
@@ -436,7 +449,7 @@ export function FeaturedBlock({
               }}
               aria-label={`Previous camera: ${prevVideo.title}`}
               title={`Previous camera: ${prevVideo.title}`}
-              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-overlay0 px-3 py-1.5 text-sm text-subtext0 transition-colors hover:text-text"
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border-input px-3 py-1.5 text-sm text-label transition-colors hover:border-accent hover:text-accent-ink"
             >
               <ChevronLeft size={16} className="shrink-0" />
               <span className="truncate">{prevVideo.title}</span>
@@ -450,7 +463,7 @@ export function FeaturedBlock({
               }}
               aria-label={`Next camera: ${nextVideo.title}`}
               title={`Next camera: ${nextVideo.title}`}
-              className="inline-flex min-w-0 items-center justify-end gap-1.5 rounded-lg border border-overlay0 px-3 py-1.5 text-sm text-subtext0 transition-colors hover:text-text"
+              className="inline-flex min-w-0 items-center justify-end gap-1.5 rounded-lg border border-border-input px-3 py-1.5 text-sm text-label transition-colors hover:border-accent hover:text-accent-ink"
             >
               <span className="truncate">{nextVideo.title}</span>
               <ChevronRight size={16} className="shrink-0" />
@@ -459,8 +472,8 @@ export function FeaturedBlock({
         )}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="mb-0 text-2xl">{video.title}</h2>
-            <p className="mt-1 mb-0 flex flex-wrap items-center gap-3 font-mono text-xs text-subtext0">
+            <h2 className="mb-0 font-display text-h2">{video.title}</h2>
+            <p className="mt-1 mb-0 flex flex-wrap items-center gap-3 font-mono text-xs text-label">
               <span className="inline-flex items-center gap-1">
                 <MapPin size={11} className="text-overlay2" />
                 {video.sublocation_name
@@ -492,7 +505,7 @@ export function FeaturedBlock({
         </div>
         {camera && sublocation && (
           <details className="group mt-2">
-            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 font-mono text-xs text-subtext0 transition-colors hover:text-accent">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 font-mono text-xs text-label transition-colors hover:text-accent-ink">
               <Code size={13} />
               Embed this camera
             </summary>
@@ -561,20 +574,15 @@ export function UpcomingSection({
 }) {
   if (events.length === 0) return null
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl">Upcoming</h2>
-      <div className="grid gap-4 sm:grid-cols-3">
+    <section className="section-y" aria-labelledby="upcoming-events">
+      <SectionHead id="upcoming-events" title="Upcoming" />
+      <RuledGrid cols={3}>
         {events.map((e) => (
-          <div
-            key={e.event_id}
-            className="rounded-xl border border-overlay0/60 bg-surface0 p-4"
-          >
-            <p className="mb-1 font-mono text-[11px] text-subtext0">
+          <RuledCell key={e.event_id}>
+            <p className="mono-label mb-2 leading-none">
               <EventWhen iso={e.starts_at} />
             </p>
-            <h4 className="mb-2 line-clamp-2 text-sm font-semibold text-text">
-              {e.title}
-            </h4>
+            <h3 className="mb-2 line-clamp-2 text-h3 text-text">{e.title}</h3>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {e.video_id != null &&
                 e.video_slug &&
@@ -586,7 +594,7 @@ export function UpcomingSection({
                       sublocationSlug: e.sublocation_slug,
                       cameraSlug: e.video_slug,
                     }}
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent-ink hover:underline"
                   >
                     Watch here &rarr;
                   </Link>
@@ -596,15 +604,15 @@ export function UpcomingSection({
                   href={e.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-accent-ink hover:underline"
                 >
                   Event site ↗
                 </a>
               )}
             </div>
-          </div>
+          </RuledCell>
         ))}
-      </div>
+      </RuledGrid>
     </section>
   )
 }
@@ -617,18 +625,16 @@ export function UpcomingSection({
 function FieldNotesSection({ posts }: { posts: Array<RelatedPost> }) {
   if (posts.length === 0) return null
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl">Field notes</h2>
-      <div className="grid gap-4 sm:grid-cols-3">
+    <section className="section-y" aria-labelledby="field-notes">
+      <SectionHead id="field-notes" title="Field notes" />
+      <RuledGrid cols={3}>
         {posts.map((p) => (
-          <Link
+          <RuledCell
             key={p.post_id}
-            to="/notes/$slug"
-            params={{ slug: p.slug }}
-            className="block rounded-xl border border-overlay0/60 bg-surface0 p-4 transition-colors duration-150 hover:border-accent"
+            className="relative transition-colors hover:bg-surface1"
           >
             {p.published_at && (
-              <p className="mb-1 font-mono text-[11px] text-subtext0">
+              <p className="mono-label mb-2 leading-none">
                 {new Date(p.published_at).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -636,17 +642,23 @@ function FieldNotesSection({ posts }: { posts: Array<RelatedPost> }) {
                 })}
               </p>
             )}
-            <h4 className="mb-1 line-clamp-2 text-sm font-semibold text-text">
-              {p.title}
-            </h4>
+            <h3 className="mb-1.5 line-clamp-2 text-h3 text-text">
+              <Link
+                to="/notes/$slug"
+                params={{ slug: p.slug }}
+                className="no-underline after:absolute after:inset-0 after:content-[''] hover:text-accent-ink"
+              >
+                {p.title}
+              </Link>
+            </h3>
             {p.excerpt && (
-              <p className="mb-0 line-clamp-2 text-xs text-subtext1">
+              <p className="mb-0 line-clamp-2 text-sm text-subtext1">
                 {p.excerpt}
               </p>
             )}
-          </Link>
+          </RuledCell>
         ))}
-      </div>
+      </RuledGrid>
     </section>
   )
 }
@@ -659,27 +671,25 @@ export function sublocationMeta(s: Sublocation): string {
 
 function PlanVisitCard({ sublocation: s }: { sublocation: Sublocation }) {
   return (
-    <div className="rounded-2xl border border-overlay0 bg-surface0 p-5">
-      <p className="mb-3 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
-        Plan a visit
-      </p>
+    <Panel>
+      <p className="mono-label mb-3 leading-none">Plan a visit</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
         {s.address && (
           <>
-            <dt className="text-subtext0">Address</dt>
+            <dt className="text-label">Address</dt>
             <dd className="mb-0 whitespace-pre-line text-text">{s.address}</dd>
           </>
         )}
         {s.host_name && (
           <>
-            <dt className="text-subtext0">Host</dt>
+            <dt className="text-label">Host</dt>
             <dd className="mb-0 text-text">
               {s.host_url ? (
                 <a
                   href={s.host_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-accent hover:underline"
+                  className="text-accent-ink hover:underline"
                 >
                   {s.host_name}
                 </a>
@@ -691,7 +701,7 @@ function PlanVisitCard({ sublocation: s }: { sublocation: Sublocation }) {
         )}
         {s.host_since && (
           <>
-            <dt className="text-subtext0">Since</dt>
+            <dt className="text-label">Since</dt>
             <dd className="mb-0 text-text">{sinceLabel(s.host_since)}</dd>
           </>
         )}
@@ -703,11 +713,11 @@ function PlanVisitCard({ sublocation: s }: { sublocation: Sublocation }) {
           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address || `${s.lat},${s.lng}`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-block text-sm font-medium text-accent hover:underline"
+          className="mt-3 inline-block text-sm font-medium text-accent-ink hover:underline"
         >
           Open in Maps ↗
         </a>
       )}
-    </div>
+    </Panel>
   )
 }

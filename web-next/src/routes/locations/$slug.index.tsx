@@ -11,6 +11,9 @@ import { seo, streamPoster } from '@/lib/seo'
 import LocationsHeroSection from '@/components/LocationsHeroSection'
 import CameraToolbar from '@/components/CameraToolbar'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
+import CameraGrid from '@/components/CameraGrid'
+import SectionHead from '@/components/ui/SectionHead'
+import Panel from '@/components/ui/Panel'
 import BannerSlot from '@/components/BannerSlot'
 import Reveal from '@/components/Reveal'
 import { AboutSection } from '@/components/EditorialText'
@@ -154,7 +157,7 @@ function StatePage() {
         }
       />
 
-      <div className="page-container">
+      <div className="measure pb-[var(--section-y)]">
         {featured && (
           <FeaturedBlock
             video={featured}
@@ -163,13 +166,13 @@ function StatePage() {
           >
             {/* ── Camera strip, grouped by sublocation ── */}
             {videos.length > 0 && (
-              <section className="mt-8">
-                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="mb-0 text-xl">Cameras in {state.name}</h2>
-                  <span className="font-mono text-xs text-subtext0">
-                    {liveCount} live &middot; tap to switch
-                  </span>
-                </div>
+              <section className="mt-12" aria-labelledby="cameras-in-state">
+                <SectionHead
+                  id="cameras-in-state"
+                  stacked
+                  title={`Cameras in ${state.name}`}
+                  body={`${liveCount} live · tap to switch`}
+                />
                 {videos.length > TOOLBAR_MIN && (
                   <CameraToolbar
                     search={search}
@@ -181,13 +184,13 @@ function StatePage() {
                 )}
 
                 {sections.map(({ sublocation, videos: subVideos }) => (
-                  <div key={sublocation.sublocation_id} className="mb-10">
+                  <div key={sublocation.sublocation_id} className="mb-12">
                     <SublocationHeader
                       sublocation={sublocation}
                       slug={slug}
                       videoCount={subVideos.length}
                     />
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    <CameraGrid>
                       {subVideos.map((v) => (
                         <PosterTile
                           key={v.video_id}
@@ -206,14 +209,14 @@ function StatePage() {
                           }}
                         />
                       ))}
-                    </div>
+                    </CameraGrid>
                   </div>
                 ))}
 
                 {uncategorized.length > 0 && (
-                  <div className="mb-10">
-                    <h3>Other Cameras</h3>
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="mb-12">
+                    <h3 className="mb-4 font-display">Other Cameras</h3>
+                    <CameraGrid>
                       {uncategorized.map((v) => (
                         <PosterTile
                           key={v.video_id}
@@ -224,7 +227,7 @@ function StatePage() {
                           tick={tick}
                         />
                       ))}
-                    </div>
+                    </CameraGrid>
                   </div>
                 )}
 
@@ -239,14 +242,20 @@ function StatePage() {
         )}
 
         {/* ── About + side column ── */}
-        <div className="mt-12 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div
+          className={`grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px] ${
+            state.about.trim() || sublocations.length > 0
+              ? 'section-y'
+              : 'pt-12'
+          }`}
+        >
           <div>
             <AboutSection title={`About ${state.name}`} text={state.about} />
           </div>
           <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
             {sublocations.length > 0 && (
               <div>
-                <p className="mb-3 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
+                <p className="mono-label mb-3 leading-none">
                   Locations in {state.name}
                 </p>
                 <div className="grid gap-3">
@@ -283,7 +292,7 @@ function StatePage() {
             should read as "we're coming here", not "this is broken". */}
         {videos.length === 0 && (
           <Reveal variant="scale">
-            <div className="section-container py-12 text-center">
+            <Panel padding="lg" className="mt-12 py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
               <h3>
                 {state.upcoming ? 'Coming soon to' : 'Coming to'} {state.name}
@@ -307,7 +316,7 @@ function StatePage() {
               <Link to="/contact" className={CTA_CLASS}>
                 Host a camera in {state.name} &rarr;
               </Link>
-            </div>
+            </Panel>
           </Reveal>
         )}
       </div>
@@ -333,16 +342,16 @@ function SublocationHeader({
         params={{ slug, sublocationSlug: sublocation.slug }}
         className="group inline-flex items-baseline gap-2"
       >
-        <h3 className="mb-0 transition-colors group-hover:text-accent">
+        <h3 className="mb-0 font-display transition-colors group-hover:text-accent-ink">
           {sublocation.name}
         </h3>
-        <span className="font-mono text-sm text-subtext0 opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="font-mono text-xs text-label opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
           View all &rarr;
         </span>
       </Link>
       <div className="flex items-center gap-1.5">
         <Radio size={10} className="text-live" />
-        <span className="font-mono text-xs text-subtext0">
+        <span className="font-mono text-xs text-label">
           {videoCount} camera{videoCount !== 1 ? 's' : ''}
         </span>
       </div>

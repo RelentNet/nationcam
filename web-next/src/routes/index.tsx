@@ -1,23 +1,17 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import {
-  Camera,
-  ChevronDown,
-  Globe,
-  History,
-  Map,
-  MonitorPlay,
-  Radio,
-  Sparkles,
-  Trophy,
-} from 'lucide-react'
+import { Camera, ChevronDown, Globe, Map } from 'lucide-react'
 import type { State, Sublocation, Video } from '@/lib/types'
 import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import StreamPlayer from '@/components/StreamPlayer'
 import PrerollGate from '@/components/PrerollGate'
 import LiveNowSection from '@/components/LiveNowSection'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
-import { CTA_CLASS } from '@/components/SublocationPage'
+import CameraGrid from '@/components/CameraGrid'
+import { buttonClasses } from '@/components/Button'
+import Eyebrow from '@/components/ui/Eyebrow'
+import SectionHead from '@/components/ui/SectionHead'
+import RuledGrid, { RuledCell } from '@/components/ui/RuledGrid'
 import { pickFeatured } from '@/lib/featured'
 import ContactCTA from '@/components/ContactCTA'
 import Reveal from '@/components/Reveal'
@@ -135,21 +129,25 @@ function HomeHeroSection() {
       <div className="absolute inset-0 bg-crust/70" />
       <div className="absolute inset-0 bg-gradient-to-t from-base via-transparent to-transparent" />
 
-      <div className="relative z-10 flex min-h-[85vh] flex-col items-center justify-center px-6 text-center">
-        {/* Pill badge — blur-in entrance */}
+      <div className="measure relative z-10 flex min-h-[85vh] flex-col justify-center pt-[calc(var(--nav-h)+48px)] pb-24">
+        {/* Accent band */}
         <div
-          className="mb-8 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5"
+          aria-hidden="true"
+          className="mb-7 h-[3px] w-16 bg-gradient-to-r from-accent to-accent-hover"
+        />
+
+        {/* Pill eyebrow — blur-in entrance */}
+        <div
           style={{ animation: 'blur-in 600ms var(--spring-ease-out) forwards' }}
         >
-          <Radio size={14} className="text-accent" />
-          <span className="font-mono text-xs font-medium text-accent">
+          <Eyebrow variant="pill" className="mb-6">
             Live cameras across America
-          </span>
+          </Eyebrow>
         </div>
 
         {/* Headline — float up with bounce spring */}
         <h1
-          className="mx-auto max-w-4xl text-white drop-shadow-2xl"
+          className="max-w-3xl text-white drop-shadow-2xl"
           style={{
             opacity: 0,
             animation: 'float-up 800ms var(--spring-bounce) 100ms forwards',
@@ -163,7 +161,7 @@ function HomeHeroSection() {
 
         {/* Subtitle — slide in from right with stagger */}
         <p
-          className="mx-auto max-w-xl text-lg text-gray-300"
+          className="mt-5 mb-0 max-w-xl text-lede text-gray-300"
           style={{
             opacity: 0,
             animation:
@@ -176,7 +174,7 @@ function HomeHeroSection() {
 
         {/* CTA buttons — scale-fade-in with poppy spring */}
         <div
-          className="mt-4 flex flex-wrap items-center justify-center gap-4"
+          className="mt-8 flex flex-wrap items-center gap-3 max-[480px]:flex-col max-[480px]:items-stretch"
           style={{
             opacity: 0,
             animation: 'scale-fade-in 600ms var(--spring-poppy) 450ms forwards',
@@ -184,14 +182,19 @@ function HomeHeroSection() {
         >
           <Link
             to="/locations"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-8 py-3 font-sans font-semibold text-crust transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
+            className={buttonClasses({ variant: 'primary', size: 'marketing' })}
           >
             <Map size={18} />
             Explore Locations
           </Link>
           <Link
             to="/contact"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-8 py-3 font-sans font-semibold text-white backdrop-blur-sm transition-[scale,border-color,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:border-white/40 hover:bg-white/10 active:scale-[0.98]"
+            className={buttonClasses({
+              variant: 'secondary',
+              size: 'marketing',
+              className:
+                'border-white/30! bg-white/5! text-white! backdrop-blur-sm hover:border-white/60! hover:bg-white/10!',
+            })}
           >
             Add Your Camera
           </Link>
@@ -199,7 +202,7 @@ function HomeHeroSection() {
 
         {/* Scroll indicator — delayed fade in */}
         <div
-          className="absolute bottom-8 flex flex-col items-center gap-2"
+          className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2 max-sm:hidden"
           style={{
             opacity: 0,
             animation: 'fade-in 1s ease 1.4s forwards',
@@ -222,47 +225,37 @@ function HomeHeroSection() {
 
 function FeaturedStream({ featured }: { featured: Video | null }) {
   return (
-    <section className="py-20">
+    <section className="measure section-y" aria-labelledby="home-watch-now">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <MonitorPlay size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Featured camera
-              </span>
-            </div>
-            <h2>Watch Now</h2>
-            <p className="mx-auto max-w-lg">
-              A live look from our network. Tune in to see what is happening
-              right now.
-            </p>
-          </div>
-
-          <div className="glow-accent overflow-hidden rounded-2xl">
-            {featured ? (
-              <PrerollGate videoId={featured.video_id}>
-                <StreamPlayer
-                  src={featured.src}
-                  type={featured.type}
-                  autoplay
-                  muted
-                  live={featured.status === 'active'}
-                  fluid
-                  audioChannels
-                />
-              </PrerollGate>
-            ) : (
+        <SectionHead
+          id="home-watch-now"
+          eyebrow="Featured camera"
+          title="Watch Now"
+          body="A live look from our network. Tune in to see what is happening right now."
+        />
+        <div className="glow-accent overflow-hidden rounded-xl">
+          {featured ? (
+            <PrerollGate videoId={featured.video_id}>
               <StreamPlayer
-                src="https://streamer.nationcam.com/memfs/4cdb363f-2bfa-4a0a-b954-ac9b16200665.m3u8"
+                src={featured.src}
+                type={featured.type}
                 autoplay
                 muted
-                live
+                live={featured.status === 'active'}
                 fluid
                 audioChannels
               />
-            )}
-          </div>
+            </PrerollGate>
+          ) : (
+            <StreamPlayer
+              src="https://streamer.nationcam.com/memfs/4cdb363f-2bfa-4a0a-b954-ac9b16200665.m3u8"
+              autoplay
+              muted
+              live
+              fluid
+              audioChannels
+            />
+          )}
         </div>
       </Reveal>
     </section>
@@ -297,33 +290,25 @@ function RecentlyWatchedSection() {
   if (recent.length === 0) return null
 
   return (
-    <section className="py-20">
+    <section className="measure section-y" aria-labelledby="home-recent">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <History size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Recently watched
-              </span>
-            </div>
-            <h2>Jump Back In</h2>
-            <p className="mx-auto max-w-lg">
-              Pick up right where you left off.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {recent.map((entry) => (
-              <PosterTile
-                key={entry.path}
-                title={entry.title}
-                meta={entry.subtitle}
-                poster={entry.poster}
-                link={cameraLink(entry.path)}
-              />
-            ))}
-          </div>
-        </div>
+        <SectionHead
+          id="home-recent"
+          eyebrow="Recently watched"
+          title="Jump Back In"
+          body="Pick up right where you left off."
+        />
+        <CameraGrid>
+          {recent.map((entry) => (
+            <PosterTile
+              key={entry.path}
+              title={entry.title}
+              meta={entry.subtitle}
+              poster={entry.poster}
+              link={cameraLink(entry.path)}
+            />
+          ))}
+        </CameraGrid>
       </Reveal>
     </section>
   )
@@ -371,47 +356,35 @@ function MostWatchedSection({ videos, states, sublocations }: RankedRowProps) {
   const top = videos.slice(0, HOME_ROW_SIZE)
 
   return (
-    <section className="py-20">
+    <section className="measure section-y" aria-labelledby="home-popular">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <Trophy size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Most watched
-              </span>
-            </div>
-            <h2>Fan Favorites</h2>
-            <p className="mx-auto max-w-lg">
-              The cameras our viewers keep coming back to.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {top.map((video, index) => (
-              <div key={video.video_id} className="relative">
-                <span className="absolute top-2 right-2 z-10 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-xs font-bold text-crust">
-                  #{index + 1}
-                </span>
-                <PosterTile
-                  title={video.title}
-                  meta={video.sublocation_name || video.state_name}
-                  poster={streamPoster(video.src, true)}
-                  live
-                  tick={tick}
-                  link={buildCameraLink(
-                    video,
-                    stateSlugById,
-                    sublocationSlugById,
-                  )}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-10 text-center">
-            <Link to="/cameras/popular" className={CTA_CLASS}>
-              See the full ranking &rarr;
-            </Link>
-          </div>
+        <SectionHead
+          id="home-popular"
+          eyebrow="Most watched"
+          title="Fan Favorites"
+          body="The cameras our viewers keep coming back to."
+        />
+        <CameraGrid>
+          {top.map((video, index) => (
+            <PosterTile
+              key={video.video_id}
+              title={video.title}
+              meta={video.sublocation_name || video.state_name}
+              poster={streamPoster(video.src, true)}
+              live
+              rank={index + 1}
+              tick={tick}
+              link={buildCameraLink(video, stateSlugById, sublocationSlugById)}
+            />
+          ))}
+        </CameraGrid>
+        <div className="mt-10">
+          <Link
+            to="/cameras/popular"
+            className={buttonClasses({ variant: 'secondary' })}
+          >
+            See the full ranking &rarr;
+          </Link>
         </div>
       </Reveal>
     </section>
@@ -436,43 +409,34 @@ function NewestSection({ videos, states, sublocations }: RankedRowProps) {
   const top = videos.slice(0, HOME_ROW_SIZE)
 
   return (
-    <section className="py-20">
+    <section className="measure section-y" aria-labelledby="home-newest">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <Sparkles size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Newest
-              </span>
-            </div>
-            <h2>Just Added</h2>
-            <p className="mx-auto max-w-lg">
-              The latest cameras to join our network.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {top.map((video) => (
-              <PosterTile
-                key={video.video_id}
-                title={video.title}
-                meta={video.sublocation_name || video.state_name}
-                poster={streamPoster(video.src, true)}
-                live
-                tick={tick}
-                link={buildCameraLink(
-                  video,
-                  stateSlugById,
-                  sublocationSlugById,
-                )}
-              />
-            ))}
-          </div>
-          <div className="mt-10 text-center">
-            <Link to="/cameras/new" className={CTA_CLASS}>
-              See all new cameras &rarr;
-            </Link>
-          </div>
+        <SectionHead
+          id="home-newest"
+          eyebrow="Newest"
+          title="Just Added"
+          body="The latest cameras to join our network."
+        />
+        <CameraGrid>
+          {top.map((video) => (
+            <PosterTile
+              key={video.video_id}
+              title={video.title}
+              meta={video.sublocation_name || video.state_name}
+              poster={streamPoster(video.src, true)}
+              live
+              tick={tick}
+              link={buildCameraLink(video, stateSlugById, sublocationSlugById)}
+            />
+          ))}
+        </CameraGrid>
+        <div className="mt-10">
+          <Link
+            to="/cameras/new"
+            className={buttonClasses({ variant: 'secondary' })}
+          >
+            See all new cameras &rarr;
+          </Link>
         </div>
       </Reveal>
     </section>
@@ -509,29 +473,26 @@ function StatsSection({ videos }: { videos: Array<Video> }) {
   ]
 
   return (
-    <section className="bg-surface0 py-20">
-      <Reveal stagger>
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <h2>Our Growing Network</h2>
-          <p className="mx-auto max-w-lg">
-            Building a nationwide network of live cameras, one location at a
-            time.
-          </p>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="reveal-scale section-container flex flex-col items-center gap-3 py-8 transition-[scale,border-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:border-accent/30"
-              >
-                <stat.icon size={24} className="text-accent" />
-                <div className="font-mono text-4xl font-bold text-accent">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-subtext0">{stat.label}</div>
+    <section className="measure section-y" aria-labelledby="home-network">
+      <Reveal variant="blur">
+        <SectionHead
+          id="home-network"
+          title="Our Growing Network"
+          body="Building a nationwide network of live cameras, one location at a time."
+        />
+        <RuledGrid cols={3}>
+          {stats.map((stat) => (
+            <RuledCell key={stat.label}>
+              <stat.icon size={20} className="mb-4 text-accent-fg" />
+              <div className="font-display text-h1 leading-none font-extrabold tracking-tight text-accent-fg tabular-nums">
+                {stat.value}
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="mt-2 font-mono text-xs tracking-[0.02em] text-label uppercase">
+                {stat.label}
+              </div>
+            </RuledCell>
+          ))}
+        </RuledGrid>
       </Reveal>
     </section>
   )
@@ -566,53 +527,45 @@ function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <section className="py-20">
-      <Reveal variant="float">
-        <div className="mx-auto max-w-3xl px-6">
-          <div className="mb-10 text-center">
-            <h2>Frequently Asked Questions</h2>
-            <p className="mx-auto max-w-lg">
-              Everything you need to know about NationCam.
-            </p>
-          </div>
-          <Reveal stagger>
-            <div className="space-y-3">
-              {faqItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="reveal-left overflow-hidden rounded-xl border border-overlay0 bg-surface0 transition-colors duration-200"
-                >
-                  <button
-                    onClick={() =>
-                      setOpenIndex(openIndex === index ? null : index)
-                    }
-                    className="flex w-full items-center justify-between px-6 py-5 text-left text-text transition-colors hover:bg-mantle"
-                  >
-                    <span className="font-sans font-medium">
-                      {item.question}
-                    </span>
-                    <ChevronDown
-                      size={18}
-                      className={`shrink-0 text-subtext0 transition-transform duration-350 ease-[var(--spring-snappy)] ${
-                        openIndex === index ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  <div
-                    className={`grid transition-[grid-template-rows,padding] duration-350 ease-[var(--spring-smooth)] ${
-                      openIndex === index
-                        ? 'grid-rows-[1fr] pb-5'
-                        : 'grid-rows-[0fr]'
-                    }`}
-                  >
-                    <div className="overflow-hidden px-6">
-                      <p className="mb-0 text-subtext1">{item.answer}</p>
-                    </div>
-                  </div>
+    <section className="measure section-y" aria-labelledby="home-faq">
+      <Reveal variant="blur">
+        <SectionHead
+          id="home-faq"
+          title="Frequently Asked Questions"
+          body="Everything you need to know about NationCam."
+        />
+        <div className="max-w-3xl overflow-hidden rounded-xl border border-border bg-surface0">
+          {faqItems.map((item, index) => (
+            <div
+              key={index}
+              className="border-t border-border first:border-t-0"
+            >
+              <button
+                onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                aria-expanded={openIndex === index}
+                className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left text-text transition-colors hover:bg-mantle"
+              >
+                <span className="font-sans font-medium">{item.question}</span>
+                <ChevronDown
+                  size={18}
+                  className={`shrink-0 text-subtext0 transition-transform duration-350 ease-[var(--spring-snappy)] ${
+                    openIndex === index ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              <div
+                className={`grid transition-[grid-template-rows,padding] duration-350 ease-[var(--spring-smooth)] ${
+                  openIndex === index
+                    ? 'grid-rows-[1fr] pb-5'
+                    : 'grid-rows-[0fr]'
+                }`}
+              >
+                <div className="overflow-hidden px-6">
+                  <p className="mb-0 text-subtext1">{item.answer}</p>
                 </div>
-              ))}
+              </div>
             </div>
-          </Reveal>
+          ))}
         </div>
       </Reveal>
     </section>

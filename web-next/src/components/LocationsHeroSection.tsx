@@ -89,7 +89,7 @@ export default function LocationsHeroSection({
       {/* Official tourism site — a pill in the hero's otherwise-empty top
           corner, full width on phones so it clears the breadcrumb. */}
       {tourism?.url && (
-        <div className="absolute inset-x-0 top-3 z-20 mx-auto flex w-11/12 justify-end lg:w-10/12 xl:max-w-7xl">
+        <div className="measure absolute inset-x-0 top-3 z-20 flex justify-end">
           <a
             href={tourism.url}
             target="_blank"
@@ -109,7 +109,7 @@ export default function LocationsHeroSection({
       {/* Content — bottom-aligned to the page column. Stacked on phones (the
           logo, text and sponsor would otherwise share one 375px row); a row
           from tablet up. */}
-      <div className="relative z-10 mx-auto flex min-h-[300px] w-11/12 flex-col items-start justify-end gap-4 pt-16 pb-6 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-5 sm:pb-8 lg:w-10/12 xl:max-w-7xl">
+      <div className="measure relative z-10 flex min-h-[300px] flex-col items-start justify-end gap-4 pt-16 pb-8 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-5">
         <img
           src={logoSrc}
           alt={alt ?? `${title} Logo`}
@@ -145,7 +145,7 @@ export default function LocationsHeroSection({
             )}
           </h1>
           {tagline && (
-            <p className="mt-1 mb-0 text-lg text-text/85">{tagline}</p>
+            <p className="mt-1 mb-0 text-lede text-text/85">{tagline}</p>
           )}
           {stats && (
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-text/70">

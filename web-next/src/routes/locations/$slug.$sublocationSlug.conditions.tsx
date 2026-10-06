@@ -1,5 +1,5 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
-import { ChevronRight, Clock, CloudSun, Gauge, Waves, Zap } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import type { Conditions, HourlyPoint, TidePrediction } from '@/lib/types'
 import {
   fetchAlerts,
@@ -9,6 +9,11 @@ import {
 } from '@/lib/api'
 import { SITE_URL, seo } from '@/lib/seo'
 import { AlertsBanner, LightningCard } from '@/components/NowPanel'
+import { buttonClasses } from '@/components/Button'
+import SectionHead from '@/components/ui/SectionHead'
+import Panel from '@/components/ui/Panel'
+import RuledGrid, { RuledCell } from '@/components/ui/RuledGrid'
+import DataTable from '@/components/ui/DataTable'
 
 export const Route = createFileRoute(
   '/locations/$slug/$sublocationSlug/conditions',
@@ -169,18 +174,18 @@ function TideCurve({ predictions }: { predictions: Array<TidePrediction> }) {
 /** One hour of the 12-hour strip. */
 function HourCard({ hour, temp_f, rain_pct, wind_mph, uv_index }: HourlyPoint) {
   return (
-    <div className="flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-xl border border-overlay0 bg-surface1 px-2 py-3">
-      <span className="font-mono text-[11px] text-subtext0">{hour}</span>
-      <span className="font-display text-xl font-semibold text-text">
+    <div className="flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface0 px-2 py-3">
+      <span className="font-mono text-[11px] text-label">{hour}</span>
+      <span className="font-display text-xl font-bold text-text tabular-nums">
         {r(temp_f)}°
       </span>
-      <span className="font-mono text-[11px] text-subtext1">
+      <span className="font-mono text-[11px] text-label tabular-nums">
         {r(rain_pct)}% rain
       </span>
-      <span className="font-mono text-[11px] text-subtext1">
+      <span className="font-mono text-[11px] text-label tabular-nums">
         {r(wind_mph)} mph
       </span>
-      <span className="font-mono text-[11px] text-subtext1">
+      <span className="font-mono text-[11px] text-label tabular-nums">
         UV {r(uv_index)}
       </span>
     </div>
@@ -197,30 +202,28 @@ function ForecastCard({
   sunset,
 }: Conditions['forecast'][number]) {
   return (
-    <div className="rounded-xl border border-overlay0 bg-surface1 px-4 py-3.5">
-      <p className="mb-2 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
-        {dayLabel(date)}
-      </p>
+    <RuledCell>
+      <p className="mono-label mb-3 leading-none">{dayLabel(date)}</p>
       <div className="flex items-baseline gap-2">
-        <span className="font-display text-3xl font-semibold text-text">
+        <span className="font-display text-3xl font-bold text-text tabular-nums">
           {r(high_f)}°
         </span>
-        <span className="text-sm text-subtext1">{r(low_f)}° low</span>
+        <span className="text-sm text-label">{r(low_f)}° low</span>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs text-subtext1">
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs text-label">
         <span>Rain {r(precip_chance)}%</span>
         <span>Wind {r(wind_max_mph)} mph</span>
         <span>↑ {sunrise}</span>
         <span>↓ {sunset}</span>
       </div>
-    </div>
+    </RuledCell>
   )
 }
 
 function ConditionsRoute() {
   const { slug } = Route.useParams()
   const { sublocation, conditions, lightning, alerts } = Route.useLoaderData()
-  const crumbLink = 'transition-colors hover:text-accent'
+  const crumbLink = 'transition-colors hover:text-accent-ink'
 
   return (
     <div className="page-container page-enter">
@@ -228,7 +231,7 @@ function ConditionsRoute() {
 
       <nav
         aria-label="Breadcrumb"
-        className="mb-6 flex items-center gap-1.5 font-mono text-xs text-subtext0"
+        className="mb-6 flex flex-wrap items-center gap-1.5 font-mono text-xs text-label"
       >
         <Link
           to="/locations"
@@ -259,113 +262,105 @@ function ConditionsRoute() {
         <span className="text-text">Conditions</span>
       </nav>
 
-      <h1 className="mb-1">{sublocation.name} Conditions</h1>
-      <p className="mb-8 text-subtext0">
-        Forecast, tides and river stage from public data — is it worth going
-        today?
-      </p>
+      <SectionHead
+        as="h1"
+        title={`${sublocation.name} Conditions`}
+        body="Forecast, tides and river stage from public data — is it worth going today?"
+      />
 
-      {lightning !== null && (
-        <section className="mb-10">
-          <h2 className="mb-3 flex items-center gap-2 text-lg">
-            <Zap size={18} className="text-accent" />
-            Lightning
-          </h2>
-          <div className="rounded-2xl border border-overlay0 bg-surface0 px-5 py-4">
-            <LightningCard slug={sublocation.slug} initial={lightning} detail />
-          </div>
-        </section>
-      )}
+      <div className="flex flex-col gap-[var(--section-y)]">
+        {lightning !== null && (
+          <section aria-labelledby="cond-lightning">
+            <SectionHead id="cond-lightning" stacked title="Lightning" />
+            <Panel>
+              <LightningCard
+                slug={sublocation.slug}
+                initial={lightning}
+                detail
+              />
+            </Panel>
+          </section>
+        )}
 
-      {conditions && conditions.hourly.length > 0 && (
-        <section className="mb-10">
-          <h2 className="mb-3 flex items-center gap-2 text-lg">
-            <Clock size={18} className="text-accent" />
-            Next 12 hours
-          </h2>
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
-            {conditions.hourly.map((hour, i) => (
-              <HourCard key={i} {...hour} />
-            ))}
-          </div>
-        </section>
-      )}
+        {conditions && conditions.hourly.length > 0 && (
+          <section aria-labelledby="cond-hourly">
+            <SectionHead id="cond-hourly" stacked title="Next 12 hours" />
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+              {conditions.hourly.map((hour, i) => (
+                <HourCard key={i} {...hour} />
+              ))}
+            </div>
+          </section>
+        )}
 
-      {conditions && conditions.forecast.length > 0 && (
-        <section className="mb-10">
-          <h2 className="mb-3 flex items-center gap-2 text-lg">
-            <CloudSun size={18} className="text-accent" />
-            3-day forecast
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {conditions.forecast.map((day) => (
-              <ForecastCard key={day.date} {...day} />
-            ))}
-          </div>
-        </section>
-      )}
+        {conditions && conditions.forecast.length > 0 && (
+          <section aria-labelledby="cond-forecast">
+            <SectionHead id="cond-forecast" stacked title="3-day forecast" />
+            <RuledGrid cols={3}>
+              {conditions.forecast.map((day) => (
+                <ForecastCard key={day.date} {...day} />
+              ))}
+            </RuledGrid>
+          </section>
+        )}
 
-      {conditions?.tides && (
-        <section className="mb-10">
-          <h2 className="mb-3 flex items-center gap-2 text-lg">
-            <Waves size={18} className="text-teal" />
-            Tides — {conditions.tides.station_name}
-          </h2>
-          <div className="overflow-hidden rounded-2xl border border-overlay0 bg-surface0 p-4">
-            <TideCurve predictions={conditions.tides.predictions} />
-            <table className="mt-4 w-full text-left text-sm">
-              <thead>
-                <tr className="font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
-                  <th className="pb-1.5 font-medium">Time</th>
-                  <th className="pb-1.5 font-medium">Type</th>
-                  <th className="pb-1.5 font-medium">Height</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conditions.tides.predictions.map((p, i) => (
-                  <tr key={i} className="border-t border-overlay0">
-                    <td className="py-1.5 text-text">
-                      {tideTimeLabel(p.time)}
-                    </td>
-                    <td className="py-1.5 text-subtext1 capitalize">
+        {conditions?.tides && (
+          <section aria-labelledby="cond-tides">
+            <SectionHead
+              id="cond-tides"
+              stacked
+              title={`Tides — ${conditions.tides.station_name}`}
+            />
+            <Panel>
+              <TideCurve predictions={conditions.tides.predictions} />
+              <DataTable
+                className="mt-4"
+                minWidth={320}
+                columns={[
+                  { key: 'time', header: 'Time' },
+                  { key: 'type', header: 'Type' },
+                  { key: 'height', header: 'Height' },
+                ]}
+                rows={conditions.tides.predictions.map((p, i) => ({
+                  key: String(i),
+                  cells: [
+                    tideTimeLabel(p.time),
+                    <span key="t" className="capitalize">
                       {p.type}
-                    </td>
-                    <td className="py-1.5 font-mono tabular-nums text-text">
+                    </span>,
+                    <span key="h" className="font-mono tabular-nums">
                       {p.height_ft.toFixed(1)} ft
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+                    </span>,
+                  ],
+                }))}
+              />
+            </Panel>
+          </section>
+        )}
 
-      {conditions?.river && (
-        <section className="mb-10">
-          <h2 className="mb-3 flex items-center gap-2 text-lg">
-            <Gauge size={18} className="text-accent" />
-            River stage
-          </h2>
-          <div className="rounded-2xl border border-overlay0 bg-surface0 px-5 py-4">
-            <p className="mb-0 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
-              {conditions.river.site_name}
-            </p>
-            <p className="mb-0 font-display text-3xl font-semibold text-text">
-              {conditions.river.stage_ft.toFixed(2)} ft
-            </p>
-            <p className="mb-0 text-xs text-subtext1">
-              Observed {conditions.river.observed_at}
-            </p>
-          </div>
-        </section>
-      )}
+        {conditions?.river && (
+          <section aria-labelledby="cond-river">
+            <SectionHead id="cond-river" stacked title="River stage" />
+            <Panel>
+              <p className="mono-label mb-2 leading-none">
+                {conditions.river.site_name}
+              </p>
+              <p className="mb-0 font-display text-3xl font-bold text-accent-fg tabular-nums">
+                {conditions.river.stage_ft.toFixed(2)} ft
+              </p>
+              <p className="mt-1 mb-0 text-xs text-label">
+                Observed {conditions.river.observed_at}
+              </p>
+            </Panel>
+          </section>
+        )}
 
-      {!conditions && (
-        <p className="text-subtext0">
-          Conditions data is unavailable right now — check back soon.
-        </p>
-      )}
+        {!conditions && (
+          <p className="mb-0 text-subtext0">
+            Conditions data is unavailable right now — check back soon.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -375,10 +370,7 @@ function ConditionsNotFound() {
     <div className="page-container page-enter text-center">
       <h2>Conditions unavailable</h2>
       <p>This location does not have a conditions page.</p>
-      <Link
-        to="/locations"
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
-      >
+      <Link to="/locations" className={buttonClasses({ variant: 'primary' })}>
         Back to locations
       </Link>
     </div>

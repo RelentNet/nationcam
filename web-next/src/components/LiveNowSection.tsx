@@ -1,9 +1,10 @@
 import { Link } from '@tanstack/react-router'
-import { Radio } from 'lucide-react'
 import type { State, Sublocation, Video } from '@/lib/types'
 import { streamPoster } from '@/lib/seo'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
-import { CTA_CLASS } from '@/components/SublocationPage'
+import CameraGrid from '@/components/CameraGrid'
+import { buttonClasses } from '@/components/Button'
+import SectionHead from '@/components/ui/SectionHead'
 import Reveal from '@/components/Reveal'
 
 /** Acceptance: show the first 24 cameras (grouped by state) when there are more. */
@@ -79,68 +80,58 @@ export default function LiveNowSection({
   const hasMore = visibleVideos.length > MAX_TILES
 
   return (
-    <section className="py-20">
+    <section className="measure section-y" aria-labelledby="home-live-now">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <Radio size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Live now
-              </span>
-            </div>
-            <h2>Every Camera, One Click Away</h2>
-            <p className="mx-auto max-w-lg">
-              Jump straight into any live feed in our network.
-            </p>
+        <SectionHead
+          id="home-live-now"
+          eyebrow="Live now"
+          title="Every Camera, One Click Away"
+          body="Jump straight into any live feed in our network."
+        />
+
+        {sections.map((group) => (
+          <div key={group.stateId} className="mb-10">
+            <h3 className="mb-4 font-display">{group.stateName}</h3>
+            <CameraGrid>
+              {group.videos.map((video) => {
+                const sublocationSlug = video.sublocation_id
+                  ? sublocationSlugById.get(video.sublocation_id)
+                  : undefined
+                return (
+                  <PosterTile
+                    key={video.video_id}
+                    title={video.title}
+                    poster={streamPoster(video.src, video.status === 'active')}
+                    live={video.status === 'active'}
+                    paused={video.status === 'paused'}
+                    tick={tick}
+                    link={
+                      group.stateSlug && sublocationSlug
+                        ? {
+                            to: '/locations/$slug/$sublocationSlug/$cameraSlug',
+                            params: {
+                              slug: group.stateSlug,
+                              sublocationSlug,
+                              cameraSlug: video.slug,
+                            },
+                          }
+                        : undefined
+                    }
+                  />
+                )
+              })}
+            </CameraGrid>
           </div>
+        ))}
 
-          {sections.map((group) => (
-            <div key={group.stateId} className="mb-10">
-              <h3 className="mb-4">{group.stateName}</h3>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {group.videos.map((video) => {
-                  const sublocationSlug = video.sublocation_id
-                    ? sublocationSlugById.get(video.sublocation_id)
-                    : undefined
-                  return (
-                    <PosterTile
-                      key={video.video_id}
-                      title={video.title}
-                      poster={streamPoster(
-                        video.src,
-                        video.status === 'active',
-                      )}
-                      live={video.status === 'active'}
-                      paused={video.status === 'paused'}
-                      tick={tick}
-                      link={
-                        group.stateSlug && sublocationSlug
-                          ? {
-                              to: '/locations/$slug/$sublocationSlug/$cameraSlug',
-                              params: {
-                                slug: group.stateSlug,
-                                sublocationSlug,
-                                cameraSlug: video.slug,
-                              },
-                            }
-                          : undefined
-                      }
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-
-          {hasMore && (
-            <div className="text-center">
-              <Link to="/locations" className={CTA_CLASS}>
-                See all cameras &rarr;
-              </Link>
-            </div>
-          )}
-        </div>
+        {hasMore && (
+          <Link
+            to="/locations"
+            className={buttonClasses({ variant: 'secondary' })}
+          >
+            See all cameras &rarr;
+          </Link>
+        )}
       </Reveal>
     </section>
   )

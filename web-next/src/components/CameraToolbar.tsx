@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react'
 import { useRef } from 'react'
+import { controlClasses } from '@/components/ui/Field'
 
 export type SortOption = 'a-z' | 'z-a' | 'newest' | 'oldest'
 
@@ -47,7 +48,7 @@ export default function CameraToolbar({
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+    <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
       {/* Search input */}
       <div className="relative flex-1">
         <Search
@@ -60,7 +61,7 @@ export default function CameraToolbar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={`Search ${label}...`}
-          className="w-full rounded-xl border border-overlay0 bg-surface0 py-2.5 pr-9 pl-10 font-sans text-sm text-text placeholder:text-overlay2 transition-[border-color,box-shadow] duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/15"
+          className={`${controlClasses} h-10 pr-9 pl-10`}
         />
         {search && (
           <button
@@ -78,7 +79,7 @@ export default function CameraToolbar({
       </div>
 
       {/* Sort buttons */}
-      <div className="flex items-center gap-1 rounded-xl border border-overlay0 bg-surface0 p-1">
+      <div className="flex items-center gap-1 rounded-lg border border-border-input bg-surface0 p-1">
         {SORT_OPTIONS.map((opt) => {
           const Icon = opt.icon
           const isActive = sort === opt.value
@@ -87,10 +88,10 @@ export default function CameraToolbar({
               key={opt.value}
               type="button"
               onClick={() => onSortChange(opt.value)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-xs transition-all duration-200 ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-mono text-xs transition-colors duration-150 ${
                 isActive
-                  ? 'bg-accent/12 text-accent shadow-sm'
-                  : 'text-subtext0 hover:bg-surface1 hover:text-text'
+                  ? 'bg-accent-glow text-accent-ink'
+                  : 'text-label hover:bg-surface1 hover:text-text'
               }`}
               aria-label={`Sort ${opt.label}`}
               title={`Sort ${opt.label}`}
@@ -103,7 +104,7 @@ export default function CameraToolbar({
       </div>
 
       {/* Result count */}
-      <span className="shrink-0 font-mono text-xs tabular-nums text-subtext0">
+      <span className="shrink-0 font-mono text-xs tabular-nums text-label">
         {resultCount} {resultCount === 1 ? label.replace(/s$/, '') : label}
       </span>
     </div>

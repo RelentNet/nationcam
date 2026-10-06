@@ -1,6 +1,7 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import type { StripFrame } from '@/components/SnapshotStrip'
 import type { Camera } from '@/lib/types'
+import { buttonClasses } from '@/components/Button'
 import {
   fetchAlerts,
   fetchCamera,
@@ -237,7 +238,7 @@ function CameraNotFound() {
       <Link
         to="/locations/$slug/$sublocationSlug"
         params={{ slug, sublocationSlug }}
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+        className={buttonClasses({ variant: 'primary' })}
       >
         Back to location
       </Link>

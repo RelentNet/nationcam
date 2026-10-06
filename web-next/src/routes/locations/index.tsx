@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { MapPin, Radio } from 'lucide-react'
+import { Radio } from 'lucide-react'
 import type { State, Video } from '@/lib/types'
 import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import { seo, streamPoster } from '@/lib/seo'
 import Reveal from '@/components/Reveal'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
+import CameraGrid from '@/components/CameraGrid'
+import { buttonClasses } from '@/components/Button'
+import SectionHead from '@/components/ui/SectionHead'
+import Panel from '@/components/ui/Panel'
 
 export const Route = createFileRoute('/locations/')({
   loader: async () => {
@@ -66,9 +70,9 @@ function CamerasSection({
     .filter((g) => g.videos.length > 0)
 
   return (
-    <div className="mb-12">
+    <section className="section-y" aria-label="Cameras by state">
       <Reveal variant="blur">
-        <div className="mb-8 flex flex-wrap gap-2">
+        <div className="mb-10 flex flex-wrap gap-2">
           <StateChip
             active={selected === 'all'}
             onClick={() => setSelected('all')}
@@ -88,29 +92,29 @@ function CamerasSection({
       </Reveal>
 
       {groups.map(({ state, videos: stateVideos }) => (
-        <div key={state.state_id} className="mb-10">
+        <div key={state.state_id} className="mb-12 last:mb-0">
           <div className="mb-4 flex items-baseline gap-3">
             <Link
               to="/locations/$slug"
               params={{ slug: state.slug }}
               className="group inline-flex items-baseline gap-2"
             >
-              <h3 className="mb-0 transition-colors group-hover:text-accent">
+              <h3 className="mb-0 font-display transition-colors group-hover:text-accent-ink">
                 {state.name}
               </h3>
-              <span className="font-mono text-sm text-subtext0 opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="font-mono text-xs text-label opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                 View all &rarr;
               </span>
             </Link>
             <div className="flex items-center gap-1.5">
               <Radio size={10} className="text-live" />
-              <span className="font-mono text-xs text-subtext0">
+              <span className="font-mono text-xs text-label">
                 {stateVideos.length} camera{stateVideos.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
           <Reveal stagger>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <CameraGrid>
               {stateVideos.map((v) => {
                 const sublocationSlug = v.sublocation_id
                   ? sublocationSlugs[v.sublocation_id]
@@ -138,11 +142,11 @@ function CamerasSection({
                   />
                 )
               })}
-            </div>
+            </CameraGrid>
           </Reveal>
         </div>
       ))}
-    </div>
+    </section>
   )
 }
 
@@ -162,8 +166,8 @@ function StateChip({
       aria-pressed={active}
       className={`rounded-full border px-4 py-1.5 font-mono text-xs font-medium transition-colors ${
         active
-          ? 'border-accent bg-accent text-crust'
-          : 'border-overlay0 bg-surface0 text-subtext0 hover:border-accent/40 hover:text-accent'
+          ? 'border-accent bg-accent text-on-accent'
+          : 'border-border-input bg-surface0 text-text hover:border-accent hover:text-accent-ink'
       }`}
     >
       {children}
@@ -178,41 +182,37 @@ function ComingSoonSection({ states }: { states: Array<State> }) {
   if (comingSoon.length === 0) return null
 
   return (
-    <Reveal variant="blur">
-      <div className="rounded-xl border border-overlay0/50 bg-surface0/50 p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h4 className="mb-1 font-mono text-sm font-medium text-overlay2">
-              Coming soon &mdash; {comingSoon.length} more state
-              {comingSoon.length === 1 ? '' : 's'}
-            </h4>
-            <p className="mb-0 max-w-lg text-sm text-subtext0">
-              We&rsquo;re adding cameras state by state. Know a marina,
-              waterfront, or landmark worth watching? You could host the first
-              camera in your state &mdash; it costs nothing.
-            </p>
+    <section className="section-y" aria-labelledby="locations-coming-soon">
+      <Reveal variant="blur">
+        <SectionHead
+          id="locations-coming-soon"
+          title={`Coming soon — ${comingSoon.length} more state${
+            comingSoon.length === 1 ? '' : 's'
+          }`}
+          body="We’re adding cameras state by state. Know a marina, waterfront, or landmark worth watching? You could host the first camera in your state — it costs nothing."
+        />
+        <Panel>
+          <div className="flex flex-wrap gap-2">
+            {comingSoon.map((state) => (
+              <Link
+                key={state.state_id}
+                to="/locations/$slug"
+                params={{ slug: state.slug }}
+                className="rounded-full border border-border-input px-3 py-1 font-mono text-xs text-label transition-colors hover:border-accent hover:text-accent-ink"
+              >
+                {state.name}
+              </Link>
+            ))}
           </div>
           <Link
             to="/contact"
-            className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg bg-accent px-5 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+            className={buttonClasses({ variant: 'primary', className: 'mt-5' })}
           >
             Host a camera &rarr;
           </Link>
-        </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {comingSoon.map((state) => (
-            <Link
-              key={state.state_id}
-              to="/locations/$slug"
-              params={{ slug: state.slug }}
-              className="rounded-full border border-overlay0/60 px-3 py-1 font-mono text-xs text-subtext0 transition-colors hover:border-accent/40 hover:text-accent"
-            >
-              {state.name}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </Reveal>
+        </Panel>
+      </Reveal>
+    </section>
   )
 }
 
@@ -221,19 +221,12 @@ function ComingSoonSection({ states }: { states: Array<State> }) {
 function LocationsHeader() {
   return (
     <Reveal variant="blur">
-      <div className="mb-10">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-          <MapPin size={14} className="text-accent" />
-          <span className="font-mono text-xs font-medium text-accent">
-            Browse by state
-          </span>
-        </div>
-        <h1>Locations</h1>
-        <p className="max-w-lg">
-          Browse live cameras across the United States. Select a state to view
-          available cameras.
-        </p>
-      </div>
+      <SectionHead
+        as="h1"
+        eyebrow="Browse by state"
+        title="Locations"
+        body="Browse live cameras across the United States. Select a state to view available cameras."
+      />
     </Reveal>
   )
 }
@@ -242,11 +235,11 @@ function LocationsSkeleton() {
   return (
     <div className="page-container">
       <LocationsHeader />
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, i) => (
+      <CameraGrid>
+        {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-video rounded-xl border border-overlay0 bg-surface0"
+            className="aspect-video rounded-xl border border-border bg-surface0"
             style={{
               opacity: 0,
               animation: `fade-in 400ms var(--spring-ease-out) ${i * 60}ms forwards`,
@@ -258,7 +251,7 @@ function LocationsSkeleton() {
             />
           </div>
         ))}
-      </div>
+      </CameraGrid>
     </div>
   )
 }

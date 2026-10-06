@@ -1,4 +1,5 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
+import { buttonClasses } from '@/components/Button'
 import {
   fetchAlerts,
   fetchLightning,
@@ -101,7 +102,7 @@ function SublocationNotFound() {
       <Link
         to="/locations/$slug"
         params={{ slug }}
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+        className={buttonClasses({ variant: 'primary' })}
       >
         Back to state
       </Link>

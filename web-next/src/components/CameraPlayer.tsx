@@ -82,7 +82,7 @@ function PausedPlaceholder({ camera }: { camera: Video }) {
                 slug: camera.state_slug,
                 sublocationSlug: camera.sublocation_slug,
               }}
-              className="text-accent hover:underline"
+              className="text-accent-ink hover:underline"
             >
               browse other cameras at {sublocationName}
             </Link>

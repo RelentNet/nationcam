@@ -81,17 +81,29 @@ function hostRow(sub: Sublocation) {
   return null
 }
 
+/** One ruled cell of a stats grid — wrap the cells in a `StatGrid`. */
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-lg bg-surface1 px-2.5 py-1.5">
-      <b className="block font-mono text-[13px] font-medium whitespace-nowrap tabular-nums">
+    <div className="rule-cell min-w-0 px-4 py-3">
+      <b className="block font-mono text-lg leading-tight font-medium whitespace-nowrap tabular-nums">
         {value}
       </b>
-      <span className="text-[11px] tracking-[0.05em] text-subtext0 uppercase">
+      <span className="mt-1 block font-mono text-[11px] leading-snug tracking-[0.02em] text-label uppercase">
         {label}
       </span>
     </div>
   )
+}
+
+/** Clips the cells' hairlines to the grid's own edge. */
+function StatGrid({
+  children,
+  className = 'grid-cols-2',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return <div className={`grid overflow-hidden ${className}`}>{children}</div>
 }
 
 const r = Math.round
@@ -108,9 +120,16 @@ const r = Math.round
 type Tone = 'calm' | 'caution' | 'alert'
 
 const toneClasses: Record<Tone, string> = {
-  calm: 'bg-teal/10 text-teal',
-  caution: 'bg-accent/10 text-accent',
-  alert: 'bg-live/10 text-live',
+  calm: 'bg-surface1 shadow-[inset_2px_0_0_var(--color-slate)]',
+  caution: 'bg-accent-glow shadow-[inset_2px_0_0_var(--color-accent)]',
+  alert: 'bg-live-glow shadow-[inset_2px_0_0_var(--color-live)]',
+}
+
+/** Caption colour on a toned surface: muted when calm, full ink otherwise. */
+const toneLabelClasses: Record<Tone, string> = {
+  calm: 'text-label',
+  caution: 'text-text',
+  alert: 'text-text',
 }
 
 function StatusTile({
@@ -123,11 +142,13 @@ function StatusTile({
   tone: Tone
 }) {
   return (
-    <div className={`min-w-0 rounded-lg px-2.5 py-1.5 ${toneClasses[tone]}`}>
-      <b className="block font-mono text-[13px] leading-tight font-semibold tabular-nums">
+    <div className={`min-w-0 rounded-md px-3 py-2.5 ${toneClasses[tone]}`}>
+      <b className="block font-mono text-sm leading-tight font-medium tabular-nums">
         {value}
       </b>
-      <span className="block text-[11px] tracking-[0.05em] break-words uppercase opacity-80">
+      <span
+        className={`mt-1 block font-mono text-[11px] leading-snug tracking-[0.02em] break-words uppercase ${toneLabelClasses[tone]}`}
+      >
         {label}
       </span>
     </div>
@@ -251,9 +272,9 @@ const ALERTS_POLL_MS = 5 * 60_000
 type AlertTone = 'alert' | 'caution' | 'neutral'
 
 const alertToneClasses: Record<AlertTone, string> = {
-  alert: 'bg-live/10 text-live',
-  caution: 'bg-accent/10 text-accent',
-  neutral: 'bg-surface1 text-subtext0',
+  alert: toneClasses.alert,
+  caution: toneClasses.caution,
+  neutral: 'bg-surface1 shadow-[inset_2px_0_0_var(--color-overlay1)]',
 }
 
 /**
@@ -286,16 +307,16 @@ function AlertCard({ alert, mounted }: { alert: Alert; mounted: boolean }) {
   const hasDetails = Boolean(alert.description || alert.instruction)
   return (
     <div
-      className={`rounded-lg px-3 py-2.5 ${alertToneClasses[alertTone(alert.event)]}`}
+      className={`rounded-md px-3.5 py-3 text-text ${alertToneClasses[alertTone(alert.event)]}`}
       role="status"
     >
       <div className="flex items-center gap-2">
         <AlertTriangle size={14} aria-hidden="true" className="shrink-0" />
-        <span className="font-mono text-[11px] tracking-[0.08em] uppercase opacity-80">
+        <span className="font-mono text-[11px] tracking-[0.08em] text-text uppercase">
           {alert.event}
         </span>
         {alert.ends && (
-          <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums opacity-80">
+          <span className="ml-auto shrink-0 font-mono text-[11px] text-text tabular-nums">
             until {alertUntilText(alert.ends, mounted)}
           </span>
         )}
@@ -307,7 +328,7 @@ function AlertCard({ alert, mounted }: { alert: Alert; mounted: boolean }) {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="mt-1.5 font-mono text-[11px] font-medium underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
+            className="mt-1.5 font-mono text-[11px] font-medium text-accent-ink underline decoration-dotted underline-offset-2 hover:decoration-solid"
           >
             {open ? 'Hide details' : 'Details'}
           </button>
@@ -385,13 +406,13 @@ export function AlertsBanner({
 
   if (standalone) {
     return (
-      <div className="mb-6 overflow-hidden rounded-2xl border border-overlay0 bg-surface0 p-3">
+      <div className="mb-8 overflow-hidden rounded-xl border border-border bg-surface0 p-3">
         {list}
       </div>
     )
   }
 
-  return <div className="border-b border-overlay0 px-5 py-3">{list}</div>
+  return <div className="border-b border-border px-5 py-4">{list}</div>
 }
 
 /* ──── Lightning (DAN-34) ──── */
@@ -507,7 +528,7 @@ export function LightningCard({
   if (result === null) return null
 
   const footnote = (
-    <p className="mt-1.5 mb-0 font-mono text-[11px] text-subtext0">
+    <p className="mt-2 mb-0 font-mono text-[11px] leading-normal text-label">
       Satellite-detected (NOAA GOES). Informational only — not a certified
       safety system.
     </p>
@@ -516,14 +537,14 @@ export function LightningCard({
   if (result === 'unavailable') {
     return (
       <div>
-        <div className="rounded-lg bg-surface1 px-3 py-2.5 text-subtext0">
+        <div className="rounded-md bg-surface1 px-3.5 py-3 text-label shadow-[inset_2px_0_0_var(--color-overlay1)]">
           <div className="flex items-center gap-2">
             <Zap size={14} aria-hidden="true" />
             <span className="font-mono text-[11px] tracking-[0.08em] uppercase">
               Lightning
             </span>
           </div>
-          <p className="mt-1 mb-0 text-[13px]">Lightning data unavailable</p>
+          <p className="mt-1.5 mb-0 text-[13px]">Lightning data unavailable</p>
         </div>
         {footnote}
       </div>
@@ -549,27 +570,37 @@ export function LightningCard({
   return (
     <div>
       <div
-        className={`rounded-lg px-3 py-2.5 ${toneClasses[tone]}`}
+        className={`rounded-md px-3.5 py-3 ${toneClasses[tone]}`}
         role="status"
         aria-live="polite"
       >
         <div className="flex items-center gap-2">
-          <Zap size={14} aria-hidden="true" />
-          <span className="font-mono text-[11px] tracking-[0.08em] uppercase opacity-80">
+          <Zap
+            size={14}
+            aria-hidden="true"
+            className={toneLabelClasses[tone]}
+          />
+          <span
+            className={`font-mono text-[11px] tracking-[0.08em] uppercase ${toneLabelClasses[tone]}`}
+          >
             Lightning
           </span>
           {alerting && now !== null && data.all_clear_at && (
             <span
-              className="ml-auto font-mono text-[13px] font-semibold tabular-nums"
+              className="ml-auto font-mono text-[13px] font-semibold text-text tabular-nums"
               aria-label="Time until all clear"
             >
               {countdown(data.all_clear_at, now)}
             </span>
           )}
         </div>
-        <p className="mt-1 mb-0 text-[13px] font-medium">{headline}</p>
+        <p className="mt-1.5 mb-0 text-[13px] font-medium text-text">
+          {headline}
+        </p>
         {detail && (
-          <p className="mt-1 mb-0 font-mono text-[11px] tabular-nums opacity-80">
+          <p
+            className={`mt-1 mb-0 font-mono text-[11px] tabular-nums ${toneLabelClasses[tone]}`}
+          >
             {data.strikes_10mi_30min} within 10 mi · {data.strikes_30mi_30min}{' '}
             within 30 mi, last 30 min
           </p>
@@ -604,48 +635,41 @@ export default function NowPanel({
   const { slug: stateSlug } = useParams({ strict: false })
   const hasCoords = sublocation.lat != null && sublocation.lng != null
   const tiles = statusTiles(w)
-  const hasDetailStats =
-    w.dew_point_f != null ||
-    w.pressure_inhg != null ||
-    w.visibility_mi != null ||
-    w.cloud_cover_pct != null
   return (
     <aside
       aria-label={`Current conditions at ${sublocation.name}`}
-      className="overflow-hidden rounded-2xl border border-overlay0 bg-surface0"
+      className="min-w-0 self-start overflow-hidden rounded-xl border border-border bg-surface0"
     >
-      <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
-        <span className="font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border px-5 py-4">
+        <span className="font-display text-lg leading-tight font-bold tracking-tight text-text">
           Right now at {sublocation.name}
         </span>
         <LocalClock
           timeZone={w.timezone}
           initial={w.fetched_at}
-          className="shrink-0 font-mono text-sm text-text"
+          className="shrink-0 font-mono text-xs text-label"
         />
       </div>
 
-      <div className="border-b border-overlay0 px-5 pt-3 pb-4">
-        <div className="flex items-center gap-4">
-          <div className="font-display text-5xl leading-none font-semibold tracking-tight text-text">
+      <div className="border-b border-border">
+        <div className="px-5 pt-5 pb-4">
+          <div className="font-display text-6xl leading-none font-extrabold tracking-tight text-accent-fg tabular-nums">
             {r(w.temp_f)}
-            <sup className="ml-0.5 align-top text-xl font-medium">°F</sup>
+            <sup className="ml-0.5 align-top text-xl font-semibold">°F</sup>
           </div>
-          <div className="text-[15px] text-text">
+          <div className="mt-2 text-[15px] text-label">
             {w.condition}
-            <span className="block text-[13px] text-subtext0">
+            <span className="block text-[13px]">
               Feels like {r(w.feels_f)}° · Humidity {r(w.humidity)}%
             </span>
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
-          <Stat value={`${r(w.wind_mph)} mph`} label={`Wind ${w.wind_dir}`} />
-          <Stat value={`${r(w.gust_mph)} mph`} label="Gusts" />
-          <Stat value={`${r(w.high_f)}°`} label="High" />
-          <Stat value={`${r(w.rain_pct)}%`} label="Rain" />
-        </div>
-        {hasDetailStats && (
-          <div className="mt-2 grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <div className="border-t border-border">
+          <StatGrid className="grid-cols-2">
+            <Stat value={`${r(w.wind_mph)} mph`} label={`Wind ${w.wind_dir}`} />
+            <Stat value={`${r(w.gust_mph)} mph`} label="Gusts" />
+            <Stat value={`${r(w.high_f)}°`} label="High" />
+            <Stat value={`${r(w.rain_pct)}%`} label="Rain" />
             {w.dew_point_f != null && (
               <Stat value={`${r(w.dew_point_f)}°`} label="Dew point" />
             )}
@@ -664,11 +688,11 @@ export default function NowPanel({
             {w.cloud_cover_pct != null && (
               <Stat value={`${r(w.cloud_cover_pct)}%`} label="Cloud cover" />
             )}
-          </div>
-        )}
-        <div className="mt-3 flex items-center font-mono text-xs text-subtext1">
+          </StatGrid>
+        </div>
+        <div className="flex items-center border-t border-border px-5 py-3 font-mono text-xs text-label">
           <span>↑ {w.sunrise}</span>
-          <span className="mx-3 h-px flex-1 bg-overlay0" />
+          <span className="mx-3 h-px flex-1 bg-border" />
           <span>↓ {w.sunset}</span>
         </div>
       </div>
@@ -676,33 +700,45 @@ export default function NowPanel({
       <AlertsBanner slug={sublocation.slug} initial={alerts} />
 
       {lightning !== null && (
-        <div className="border-b border-overlay0 px-5 py-3">
+        <div className="border-b border-border px-5 py-4">
           <LightningCard slug={sublocation.slug} initial={lightning} />
         </div>
       )}
 
       {tiles.length > 0 && (
-        <div className="border-b border-overlay0 px-5 py-3">
-          <p className="mb-1.5 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
-            Outdoor conditions
-          </p>
+        <div className="border-b border-border px-5 py-4">
+          <p className="mono-label mb-2.5 leading-none">Outdoor conditions</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2">
             {tiles.map(({ id, ...tile }) => (
               <StatusTile key={id} {...tile} />
             ))}
           </div>
-          <p className="mt-2 mb-0 font-mono text-[11px] text-subtext0">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-[11px] leading-normal text-label">
+            <span className="inline-flex items-center">
+              <i className="mr-1.5 inline-block h-2 w-2 bg-slate" />
+              Calm
+            </span>
+            <span className="inline-flex items-center">
+              <i className="mr-1.5 inline-block h-2 w-2 bg-accent" />
+              Caution
+            </span>
+            <span className="inline-flex items-center">
+              <i className="mr-1.5 inline-block h-2 w-2 bg-live" />
+              Alert
+            </span>
+          </div>
+          <p className="mt-1.5 mb-0 font-mono text-[11px] leading-normal text-label">
             Estimates from forecast models, not on-site sensors
           </p>
         </div>
       )}
 
       {hasCoords && stateSlug && (
-        <div className="border-b border-overlay0 px-5 py-2.5">
+        <div className="border-b border-border px-5 py-3">
           <Link
             to="/locations/$slug/$sublocationSlug/conditions"
             params={{ slug: stateSlug, sublocationSlug: sublocation.slug }}
-            className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent-ink hover:underline"
           >
             Full conditions <ArrowRight size={12} />
           </Link>
@@ -710,14 +746,16 @@ export default function NowPanel({
       )}
 
       {w.marine && (
-        <div className="border-b border-overlay0 px-5 py-3">
-          <p className="mb-1.5 font-mono text-[11px] tracking-[0.08em] text-teal uppercase">
+        <div className="border-b border-border">
+          <p className="mono-label px-5 pt-4 pb-2.5 leading-none">
             On the water
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            <Stat value={`${w.marine.wave_ft.toFixed(1)} ft`} label="Waves" />
-            <Stat value={`${r(w.marine.period_s)} s`} label="Period" />
-            <Stat value={`${r(w.marine.water_f)}°F`} label="Water" />
+          <div className="border-t border-border">
+            <StatGrid className="grid-cols-3">
+              <Stat value={`${w.marine.wave_ft.toFixed(1)} ft`} label="Waves" />
+              <Stat value={`${r(w.marine.period_s)} s`} label="Period" />
+              <Stat value={`${r(w.marine.water_f)}°F`} label="Water" />
+            </StatGrid>
           </div>
         </div>
       )}
@@ -730,7 +768,7 @@ export default function NowPanel({
           title={`Weather map around ${sublocation.name}`}
           src={`https://embed.windy.com/embed.html?type=map&location=coordinates&lat=${sublocation.lat}&lon=${sublocation.lng}&zoom=9&overlay=wind&marker=true&metricWind=mph&metricTemp=%C2%B0F&metricRain=in`}
           loading="lazy"
-          className="block h-60 w-full border-0 border-b border-overlay0"
+          className="block h-60 w-full border-0 border-b border-border"
         />
       )}
 
@@ -744,9 +782,7 @@ export default function NowPanel({
             />
           )}
           <div className="min-w-0">
-            <p className="mb-0 font-mono text-[11px] tracking-[0.08em] text-subtext0 uppercase">
-              Hosted by
-            </p>
+            <p className="mono-label mb-1 leading-none">Hosted by</p>
             <p className="mb-0 font-semibold text-text">{host.name}</p>
             {sublocation.host_since && (
               <p className="mb-0 text-[13px] text-subtext1">
@@ -759,7 +795,7 @@ export default function NowPanel({
               href={host.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto shrink-0 text-sm font-medium text-accent hover:underline"
+              className="ml-auto shrink-0 text-sm font-medium text-accent-ink hover:underline"
             >
               {domain(host.url)} ↗
             </a>
@@ -767,13 +803,13 @@ export default function NowPanel({
         </div>
       )}
 
-      <p className="mb-0 px-5 pb-3 font-mono text-[11px] text-subtext0">
+      <p className="mb-0 px-5 pb-4 font-mono text-[11px] text-label">
         Weather via{' '}
         <a
           href="https://open-meteo.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-accent"
+          className="hover:text-accent-ink"
         >
           Open-Meteo
         </a>
