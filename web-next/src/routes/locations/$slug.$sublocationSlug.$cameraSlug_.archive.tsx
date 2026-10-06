@@ -2,6 +2,8 @@ import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { ChevronRight, Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Frame } from '@/lib/types'
+import { buttonClasses } from '@/components/Button'
+import SectionHead from '@/components/ui/SectionHead'
 import { fetchCamera, fetchFrameDays, fetchFrames } from '@/lib/api'
 import { SITE_URL, seo } from '@/lib/seo'
 import Dropdown from '@/components/Dropdown'
@@ -135,13 +137,13 @@ function ArchiveRoute() {
     }
   }, [selectedDay])
 
-  const crumbLink = 'transition-colors hover:text-accent'
+  const crumbLink = 'transition-colors hover:text-accent-ink'
 
   return (
     <div className="page-container page-enter">
       <nav
         aria-label="Breadcrumb"
-        className="mb-6 flex flex-wrap items-center gap-1.5 font-mono text-xs text-subtext0"
+        className="mb-6 flex flex-wrap items-center gap-1.5 font-mono text-xs text-label"
       >
         <Link
           to="/locations"
@@ -181,11 +183,11 @@ function ArchiveRoute() {
         <span className="text-text">Archive</span>
       </nav>
 
-      <h1 className="mb-1">{camera.title} Archive</h1>
-      <p className="mb-8 text-subtext0">
-        Stills captured every 15 minutes at {camera.sublocation_name},{' '}
-        {camera.state_name}.
-      </p>
+      <SectionHead
+        as="h1"
+        title={`${camera.title} Archive`}
+        body={`Stills captured every 15 minutes at ${camera.sublocation_name}, ${camera.state_name}.`}
+      />
 
       {days.length === 0 ? (
         <p className="text-subtext0">
@@ -210,11 +212,11 @@ function ArchiveRoute() {
               No stills were captured on {selectedDay && dayLabel(selectedDay)}.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
               {frames.map((frame) => (
                 <div
                   key={frame.url}
-                  className="overflow-hidden rounded-xl border border-overlay0 bg-surface0"
+                  className="overflow-hidden rounded-xl border border-border bg-surface0"
                 >
                   <a
                     href={frame.url}
@@ -238,7 +240,7 @@ function ArchiveRoute() {
                     <a
                       href={frame.url}
                       download
-                      className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent hover:underline"
+                      className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent-ink hover:underline"
                     >
                       <Download size={12} />
                       Download
@@ -263,7 +265,7 @@ function ArchiveNotFound() {
       <Link
         to="/locations/$slug/$sublocationSlug"
         params={{ slug, sublocationSlug }}
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
+        className={buttonClasses({ variant: 'primary' })}
       >
         Back to location
       </Link>

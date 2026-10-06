@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Pause, Play, Repeat, Sunrise, Sunset } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Frame } from '@/lib/types'
+import SectionHead from '@/components/ui/SectionHead'
 
 /** A `Frame` that also knows whether it came from yesterday's archive. */
 export interface StripFrame extends Frame {
@@ -195,23 +196,24 @@ export default function SnapshotStrip({
           : `Today's stills at ${sublocationName}`
       }
     >
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="mb-0 text-xl">
-          {hasYesterday ? 'Last 24 hours at' : 'Today at'} {sublocationName}
-        </h2>
-        <Link
-          to="/locations/$slug/$sublocationSlug/$cameraSlug/archive"
-          params={{ slug: stateSlug, sublocationSlug, cameraSlug }}
-          className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent hover:underline"
-        >
-          Browse the archive <ArrowRight size={12} />
-        </Link>
-      </div>
+      <SectionHead
+        stacked
+        title={`${hasYesterday ? 'Last 24 hours at' : 'Today at'} ${sublocationName}`}
+        body={
+          <Link
+            to="/locations/$slug/$sublocationSlug/$cameraSlug/archive"
+            params={{ slug: stateSlug, sublocationSlug, cameraSlug }}
+            className="inline-flex items-center gap-1 font-mono text-xs font-medium text-accent-ink hover:underline"
+          >
+            Browse the archive <ArrowRight size={12} />
+          </Link>
+        }
+      />
 
       <div
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        className="overflow-hidden rounded-2xl border border-overlay0 bg-surface0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-base"
+        className="overflow-hidden rounded-xl border border-border bg-surface0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-base"
       >
         <div className="relative aspect-video bg-crust">
           <img
@@ -260,7 +262,7 @@ export default function SnapshotStrip({
                     ? 'Pause timelapse'
                     : 'Play last 24 hours as a timelapse'
                 }
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-crust transition-colors hover:bg-accent-hover"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent transition-colors hover:bg-accent-hover"
               >
                 {playing ? (
                   <Pause size={14} fill="currentColor" />
@@ -293,7 +295,7 @@ export default function SnapshotStrip({
                 aria-pressed={loop}
                 aria-label={loop ? 'Disable loop' : 'Enable loop'}
                 className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 transition-colors ${
-                  loop ? 'text-accent' : 'hover:text-text'
+                  loop ? 'text-accent-ink' : 'hover:text-text'
                 }`}
               >
                 <Repeat size={13} /> Loop
@@ -324,7 +326,7 @@ export default function SnapshotStrip({
           )}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto border-t border-overlay0 px-5 py-3">
+        <div className="flex gap-2 overflow-x-auto border-t border-border px-5 py-3">
           {frames.map((frame, i) => (
             <button
               key={frame.url}
