@@ -51,7 +51,7 @@ export function StatusPill({ status }: { status: string }) {
   const Icon = c.icon
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${c.className}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[11px] font-medium tracking-[0.02em] uppercase ${c.className}`}
     >
       <Icon size={12} />
       {c.label}

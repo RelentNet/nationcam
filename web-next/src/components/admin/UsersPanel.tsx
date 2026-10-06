@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import type { AdminRole, AdminUser, AdminUserStats } from '@/lib/types'
 import { PanelHeaderStatic, timeAgo } from '@/components/dashboardUi'
+import DataTable from '@/components/ui/DataTable'
+import Panel from '@/components/ui/Panel'
 import {
   fetchAdminRoles,
   fetchAdminUserStats,
@@ -89,20 +91,21 @@ export default function UsersPanel() {
       )}
 
       {state === 'not-configured' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-overlay0/60 bg-surface0 py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface1">
-            <ServerOff size={22} className="text-subtext0" />
-          </div>
-          <p className="mb-0 max-w-sm text-sm text-subtext0">
+        <Panel className="flex flex-col items-center gap-3 py-16 text-center">
+          <ServerOff size={22} className="text-subtext0" />
+          <p className="mb-0 max-w-sm text-sm text-subtext1">
             Not configured — set <code>LOGTO_M2M_APP_ID</code> and{' '}
             <code>LOGTO_M2M_APP_SECRET</code> to enable the Logto management
             connection (see AGENTS.md).
           </p>
-        </div>
+        </Panel>
       )}
 
       {state === 'error' && (
-        <p className="mb-0 rounded-lg bg-live/10 px-3.5 py-2.5 text-sm text-live">
+        <p
+          role="alert"
+          className="mb-0 rounded-r-md border-l-2 border-live bg-live-glow px-3 py-2 text-sm font-medium text-text"
+        >
           {error}
         </p>
       )}
@@ -123,15 +126,15 @@ export default function UsersPanel() {
               {roles.map((r) => (
                 <span
                   key={r.id}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-overlay0/60 bg-surface0 px-3 py-1.5 text-xs text-subtext0"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface0 px-3 py-1.5 text-xs text-subtext1"
                   title={r.description}
                 >
                   <span className="font-medium text-text">{r.name}</span>
-                  <span className="font-mono text-[11px] text-overlay2">
+                  <span className="mono-label">
                     {r.user_count} user{r.user_count !== 1 ? 's' : ''}
                   </span>
                   {r.is_default && (
-                    <span className="rounded bg-accent/10 px-1 py-px font-mono text-[10px] text-accent">
+                    <span className="rounded bg-accent/10 px-1 py-px font-mono text-[10px] text-accent-ink uppercase">
                       default
                     </span>
                   )}
@@ -140,22 +143,45 @@ export default function UsersPanel() {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-overlay0/60 bg-surface0">
+          <div className="space-y-3">
             {users.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <p className="mb-0 text-sm text-subtext0">No users found</p>
-              </div>
+              <Panel className="py-16 text-center">
+                <p className="mono-label mb-0">No users found</p>
+              </Panel>
             ) : (
-              <div className="divide-y divide-overlay0">
-                {users.map((u) => (
-                  <UserRow key={u.id} user={u} />
-                ))}
-              </div>
+              <DataTable
+                caption="Users"
+                minWidth={640}
+                columns={[
+                  { key: 'user', header: 'User' },
+                  { key: 'roles', header: 'Roles' },
+                  { key: 'joined', header: 'Joined' },
+                  { key: 'last', header: 'Last sign-in' },
+                ]}
+                rows={users.map((u) => ({
+                  key: u.id,
+                  cells: [
+                    <>
+                      <span className="block truncate">
+                        {u.name || u.primary_email || u.id}
+                      </span>
+                      {u.primary_email && (
+                        <span className="block truncate text-xs font-normal text-subtext1">
+                          {u.primary_email}
+                        </span>
+                      )}
+                    </>,
+                    <UserRoles roles={u.roles} />,
+                    timeAgo(u.created_at),
+                    u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : '—',
+                  ],
+                }))}
+              />
             )}
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-overlay0/30 px-4 py-2.5 sm:px-5">
-                <p className="mb-0 font-mono text-xs text-subtext0">
+              <div className="flex items-center justify-between">
+                <p className="mono-label mb-0">
                   Page {page}/{totalPages} &middot; {total} users
                 </p>
                 <div className="flex items-center gap-1">
@@ -163,7 +189,7 @@ export default function UsersPanel() {
                     type="button"
                     disabled={page <= 1}
                     onClick={() => load(page - 1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-subtext0 transition-colors duration-150 hover:bg-surface1 disabled:pointer-events-none disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-subtext1 transition-colors duration-150 hover:bg-surface1 disabled:pointer-events-none disabled:opacity-30"
                     aria-label="Previous page"
                   >
                     <ChevronLeft size={14} />
@@ -172,7 +198,7 @@ export default function UsersPanel() {
                     type="button"
                     disabled={page >= totalPages}
                     onClick={() => load(page + 1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-subtext0 transition-colors duration-150 hover:bg-surface1 disabled:pointer-events-none disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-subtext1 transition-colors duration-150 hover:bg-surface1 disabled:pointer-events-none disabled:opacity-30"
                     aria-label="Next page"
                   >
                     <ChevronRight size={14} />
@@ -197,53 +223,35 @@ function StatTile({
   icon?: typeof Users
 }) {
   return (
-    <div className="rounded-xl border border-overlay0/60 bg-surface0 p-3.5">
-      <div className="flex items-center gap-1.5 text-xs text-subtext0">
+    <Panel>
+      <div className="mono-label flex items-center gap-1.5">
         {Icon && <Icon size={13} />}
         {label}
       </div>
-      <p className="mb-0 mt-1 font-display text-xl font-bold text-text">
+      <p className="mt-2 mb-0 font-display text-2xl font-bold text-text">
         {value}
       </p>
-    </div>
+    </Panel>
   )
 }
 
-function UserRow({ user }: { user: AdminUser }) {
+function UserRoles({ roles }: { roles: Array<string> }) {
   return (
-    <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
-      <div className="min-w-0 flex-1">
-        <p className="mb-0 truncate text-sm font-medium text-text">
-          {user.name || user.primary_email || user.id}
-        </p>
-        {user.primary_email && (
-          <p className="mb-0 truncate text-xs text-subtext0">
-            {user.primary_email}
-          </p>
-        )}
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-        {user.roles.length === 0 ? (
-          <span className="rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext0">
-            no role
+    <div className="flex flex-wrap items-center gap-1.5">
+      {roles.length === 0 ? (
+        <span className="rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext1">
+          no role
+        </span>
+      ) : (
+        roles.map((role) => (
+          <span
+            key={role}
+            className="rounded bg-accent/10 px-1.5 py-px font-mono text-[11px] text-accent-ink"
+          >
+            {role}
           </span>
-        ) : (
-          user.roles.map((role) => (
-            <span
-              key={role}
-              className="rounded bg-accent/10 px-1.5 py-px font-mono text-[11px] text-accent"
-            >
-              {role}
-            </span>
-          ))
-        )}
-      </div>
-      <div className="shrink-0 text-right font-mono text-[11px] text-overlay2">
-        <p className="mb-0">joined {timeAgo(user.created_at)}</p>
-        {user.last_sign_in_at && (
-          <p className="mb-0">last in {timeAgo(user.last_sign_in_at)}</p>
-        )}
-      </div>
+        ))
+      )}
     </div>
   )
 }

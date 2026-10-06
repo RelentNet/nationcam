@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import type { OwnerSublocation, OwnerVideo } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
-import Dropdown from '@/components/Dropdown'
 import {
   AboutField,
   ActionBtn,
@@ -20,6 +19,7 @@ import {
   FormFooter,
   ModalShell,
   PanelHeader,
+  SelectField,
   staggerStyle,
   useAutoHide,
 } from '@/components/dashboardUi'
@@ -219,7 +219,7 @@ export default function MyCamerasPanel({
                   onChange={setRtspUrl}
                   placeholder="rtsp://user:pass@ip:554/path"
                 />
-                <Dropdown
+                <SelectField
                   label="Location"
                   options={locations.map((l) => ({
                     value: l.sublocation_id,
@@ -325,13 +325,11 @@ function CameraRow({
 
   return (
     <div style={staggerStyle(index)}>
-      <div className="flex items-start gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-          <Film size={18} className="text-accent" />
-        </div>
+      <div className="flex items-start gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5">
+        <Film size={18} className="text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+            <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
               {video.title}
             </p>
             <StatusPill status={video.status} />
@@ -345,7 +343,7 @@ function CameraRow({
             <button
               type="button"
               onClick={() => setShowEmbed((s) => !s)}
-              className="mt-1.5 text-xs font-medium text-accent hover:underline"
+              className="mt-1.5 text-xs font-medium text-accent-ink hover:underline"
             >
               {showEmbed ? 'Hide embed code' : 'Embed code'}
             </button>

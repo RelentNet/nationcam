@@ -300,14 +300,12 @@ function StateRow({
 }) {
   return (
     <div
-      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5"
+      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5"
       style={staggerStyle(index)}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <MapPin size={18} className="text-accent" />
-      </div>
+      <MapPin size={18} className="text-accent" />
       <div className="min-w-0 flex-1">
-        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
           {state.name}
         </p>
         <div className="mt-0.5 flex items-center gap-2">

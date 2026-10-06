@@ -27,6 +27,8 @@ import {
   rejectVideo,
 } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
+import Button, { buttonClasses } from '@/components/Button'
+import Field, { Textarea } from '@/components/ui/Field'
 import StreamPlayer from '@/components/StreamPlayer'
 
 /* ════════════════════════════════════════════════
@@ -126,7 +128,10 @@ export default function ReviewQueuePanel() {
       />
 
       {loadError && (
-        <p className="mb-0 rounded-lg bg-live/10 px-3.5 py-2.5 text-sm text-live">
+        <p
+          role="alert"
+          className="mb-0 rounded-r-md border-l-2 border-live bg-live-glow px-3 py-2 text-sm font-medium text-text"
+        >
           {loadError}
         </p>
       )}
@@ -199,15 +204,13 @@ function SublocationReviewRow({
 }) {
   return (
     <div
-      className="flex flex-col gap-3 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+      className="flex flex-col gap-3 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
       style={staggerStyle(index)}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <Landmark size={18} className="text-accent" />
-      </div>
+      <Landmark size={18} className="text-accent" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
             {s.name}
           </p>
           <span className="inline-flex shrink-0 items-center rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext0">
@@ -247,13 +250,11 @@ function VideoReviewRow({
 
   return (
     <div style={staggerStyle(index)}>
-      <div className="flex flex-col gap-3 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-          <Film size={18} className="text-accent" />
-        </div>
+      <div className="flex flex-col gap-3 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+        <Film size={18} className="text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+            <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
               {v.title}
             </p>
             <span className="inline-flex shrink-0 items-center rounded bg-surface2 px-1.5 py-px font-mono text-[11px] text-subtext0">
@@ -279,7 +280,7 @@ function VideoReviewRow({
           <button
             type="button"
             onClick={() => setShowPreview((p) => !p)}
-            className="mt-1.5 text-xs font-medium text-accent hover:underline"
+            className="mt-1.5 text-xs font-medium text-accent-ink hover:underline"
           >
             {showPreview ? 'Hide preview' : 'Preview stream'}
           </button>
@@ -288,7 +289,7 @@ function VideoReviewRow({
       </div>
       {showPreview && (
         <div className="px-4 pb-4 sm:px-5">
-          <div className="overflow-hidden rounded-lg border border-overlay0/60">
+          <div className="overflow-hidden rounded-lg border border-border">
             <StreamPlayer src={v.src} type={v.type} controls fluid />
           </div>
         </div>
@@ -310,28 +311,24 @@ function ReviewActions({
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <button
-        type="button"
-        onClick={onApprove}
-        disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-teal/10 px-3 py-1.5 text-xs font-medium text-teal transition-colors duration-150 hover:bg-teal/20 disabled:pointer-events-none disabled:opacity-50"
-      >
+      <Button size="sm" onClick={onApprove} disabled={busy}>
         {busy ? (
           <Loader2 size={13} className="animate-spin" />
         ) : (
           <Check size={13} />
         )}
         Approve
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
         onClick={onReject}
         disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-overlay0 bg-base px-3 py-1.5 text-xs font-medium text-subtext0 transition-colors duration-150 hover:border-live hover:text-live disabled:pointer-events-none disabled:opacity-50"
+        className="hover:border-live! hover:text-live!"
       >
         <X size={13} />
         Reject
-      </button>
+      </Button>
     </div>
   )
 }
@@ -354,32 +351,31 @@ function RejectModal({
   return (
     <ModalShell title={`Reject "${name}"`} onClose={onCancel}>
       <div className="space-y-4">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-subtext0">
-            Note to the owner (optional)
-          </label>
-          <textarea
+        <Field label="Note to the owner (optional)">
+          <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={4}
             placeholder="Why this was rejected — shown to the owner on their dashboard."
-            className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
           />
-        </div>
+        </Field>
         <div className="flex gap-3">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={onCancel}
             disabled={busy}
-            className="flex-1 rounded-lg border border-overlay0 bg-surface1 px-4 py-2.5 text-sm font-medium text-text transition-colors duration-150 hover:bg-surface2 disabled:opacity-50"
+            className="flex-1"
           >
             Cancel
-          </button>
+          </Button>
           <button
             type="button"
             onClick={() => onConfirm(note)}
             disabled={busy}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-live px-4 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-live/90 active:scale-[0.97] disabled:opacity-60"
+            className={buttonClasses({
+              className:
+                'flex-1 border-live! bg-live! text-white! hover:bg-live/90!',
+            })}
           >
             {busy && <Loader2 size={14} className="animate-spin" />}
             {busy ? 'Rejecting...' : 'Reject'}

@@ -21,7 +21,7 @@ import type {
   Video,
 } from '@/lib/types'
 import type { FormMsg, ScopeKind } from '@/components/dashboardUi'
-import Dropdown from '@/components/Dropdown'
+import Field, { Input, Textarea } from '@/components/ui/Field'
 import {
   ActionBtn,
   ConfirmDeleteDialog,
@@ -35,6 +35,7 @@ import {
   PER_PAGE,
   PaginationBar,
   PanelHeader,
+  SelectField,
   StatusDot,
   ToggleRow,
   staggerStyle,
@@ -444,7 +445,7 @@ function AdFields({
           onChange={(v) => update({ name: v })}
           placeholder="e.g. Summer promo"
         />
-        <Dropdown
+        <SelectField
           label="Ad Type"
           options={AD_TYPE_OPTIONS}
           selectedValue={form.type}
@@ -462,20 +463,17 @@ function AdFields({
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-[1fr_11rem]">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-subtext0">
-              Banner HTML / AdSense code
-            </label>
-            <textarea
+          <Field label="Banner HTML / AdSense code">
+            <Textarea
               value={form.htmlCode}
               onChange={(e) => update({ htmlCode: e.target.value })}
               rows={5}
               spellCheck={false}
               placeholder="<script async src=...></script>"
-              className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-mono text-xs text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
+              className="font-mono text-xs"
             />
-          </div>
-          <Dropdown
+          </Field>
+          <SelectField
             label="Placement"
             options={PLACEMENT_OPTIONS}
             selectedValue={form.placement}
@@ -491,23 +489,19 @@ function AdFields({
           onChange={(v) => update({ clickUrl: v })}
           placeholder="https://advertiser.example.com"
         />
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-subtext0">
-            Weight
-          </label>
-          <input
+        <Field label="Weight">
+          <Input
             type="number"
             min={1}
             value={form.weight}
             onChange={(e) => update({ weight: e.target.value })}
-            className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
           />
-        </div>
+        </Field>
       </div>
 
       {/* Scope picker — at most one of state/sublocation/camera, or House */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Dropdown
+        <SelectField
           label="Scope"
           options={SCOPE_OPTIONS}
           selectedValue={form.scopeKind}
@@ -521,7 +515,7 @@ function AdFields({
           }
         />
         {form.scopeKind !== 'house' && (
-          <Dropdown
+          <SelectField
             label={form.scopeKind === 'state' ? 'State' : 'State (filter)'}
             options={states.map((s) => ({ value: s.state_id, label: s.name }))}
             selectedValue={form.stateId}
@@ -531,7 +525,7 @@ function AdFields({
           />
         )}
         {form.scopeKind === 'sublocation' && form.stateId !== '' && (
-          <Dropdown
+          <SelectField
             label="Sublocation"
             options={filteredSubs.map((s) => ({
               value: s.sublocation_id,
@@ -542,7 +536,7 @@ function AdFields({
           />
         )}
         {form.scopeKind === 'camera' && form.stateId !== '' && (
-          <Dropdown
+          <SelectField
             label="Camera"
             options={filteredVideos.map((v) => ({
               value: v.video_id,
@@ -560,28 +554,20 @@ function AdFields({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-subtext0">
-            Starts at (optional)
-          </label>
-          <input
+        <Field label="Starts at (optional)">
+          <Input
             type="datetime-local"
             value={form.startsAt}
             onChange={(e) => update({ startsAt: e.target.value })}
-            className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-subtext0">
-            Ends at (optional)
-          </label>
-          <input
+        </Field>
+        <Field label="Ends at (optional)">
+          <Input
             type="datetime-local"
             value={form.endsAt}
             onChange={(e) => update({ endsAt: e.target.value })}
-            className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
           />
-        </div>
+        </Field>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -649,7 +635,7 @@ function AdRow({
 
   return (
     <div
-      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5"
+      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5"
       style={staggerStyle(index)}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
@@ -661,7 +647,7 @@ function AdRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
           {ad.name}
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
