@@ -46,6 +46,11 @@ function devApiProxy(): Plugin {
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  build: {
+    // Maps are emitted for error tooling but never referenced from the bundles
+    // (no `//# sourceMappingURL`), so browsers don't fetch them (DAN-239).
+    sourcemap: 'hidden',
+  },
   plugins: [
     devApiProxy(),
     devtools(),
@@ -55,11 +60,34 @@ const config = defineConfig({
       // `<iframe>`, so only that route gets a permissive frame-ancestors CSP
       // (and no X-Frame-Options is ever set — Nitro doesn't add one by
       // default) — every other route keeps today's headers unchanged.
+      //
+      // Cache lifetimes (DAN-239). Hashed bundles under /assets/ already get
+      // `max-age=31536000, immutable` from Nitro's static handler; HTML gets
+      // no Cache-Control and stays uncached. Uploads and archived snapshot
+      // frames are immutable by construction (a new file gets a new name),
+      // so browsers may keep them for a year too.
       routeRules: {
         '/embed/**': {
           headers: { 'Content-Security-Policy': 'frame-ancestors *' },
         },
+        '/api/uploads/**': {
+          headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+        },
+        '/api/snapshots/**': {
+          headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+        },
+        // Bundled hero videos and their poster stills: not content-hashed,
+        // so a day, then revalidated in the background.
+        '/videos/**': {
+          headers: {
+            'Cache-Control':
+              'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        },
       },
+      // Pre-compressed .br/.gz copies of the static assets, served when the
+      // browser accepts them — smaller than the proxy's on-the-fly gzip.
+      compressPublicAssets: { gzip: true, brotli: true },
     }),
     tailwindcss(),
     tanstackStart(),

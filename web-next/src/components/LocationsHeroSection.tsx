@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import type { Branding } from '@/lib/types'
+import { afterLoadIdle } from '@/lib/afterLoadIdle'
 
 const DEFAULT_HERO = '/videos/nc_default_hero.webm'
 const DEFAULT_LOGO = '/logos/nc_default_logo.webp'
@@ -20,6 +22,17 @@ interface LocationsHeroSectionProps {
 
 // videoType maps a hero video URL to a <source> type. Unknown extensions (e.g. a
 // signed CDN URL with no extension) return undefined so the browser sniffs.
+/**
+ * First-frame still for a bundled `/videos/*.webm` hero (`*.poster.webp`
+ * beside it, ~20–45 KB). It paints at once while the video loads after the
+ * page, and is what LCP measures instead of a multi-megabyte first frame
+ * (DAN-239). A hero pasted as an external URL has no still.
+ */
+function heroPoster(url: string): string | undefined {
+  const m = url.match(/^\/videos\/([\w.-]+)\.webm$/)
+  return m ? `/videos/${m[1]}.poster.webp` : undefined
+}
+
 function videoType(url: string): string | undefined {
   if (url.endsWith('.webm')) return 'video/webm'
   if (url.endsWith('.mp4')) return 'video/mp4'
@@ -61,6 +74,11 @@ export default function LocationsHeroSection({
   const videoSrc = hero_url || DEFAULT_HERO
   const logoSrc = logo_url || DEFAULT_LOGO
 
+  const [heroVideoReady, setHeroVideoReady] = useState(false)
+  useEffect(() => {
+    afterLoadIdle(() => setHeroVideoReady(true))
+  }, [])
+
   return (
     <section className="relative overflow-hidden">
       {/* Background hero — an uploaded image, or a looping video (default or URL) */}
@@ -76,9 +94,15 @@ export default function LocationsHeroSection({
           loop
           muted
           playsInline
+          poster={heroPoster(videoSrc)}
           className="absolute inset-0 h-full w-full object-cover"
         >
-          <source src={videoSrc} type={videoType(videoSrc)} />
+          {/* Decorative and multi-megabyte, so its <source> is only added
+              once the page has loaded (DAN-239) — it used to share a phone's
+              bandwidth with the camera still and the scripts. */}
+          {heroVideoReady && (
+            <source src={videoSrc} type={videoType(videoSrc)} />
+          )}
         </video>
       )}
 

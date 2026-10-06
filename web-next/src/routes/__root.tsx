@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import BannerSlot from '@/components/BannerSlot'
 import Navbar from '@/components/Navbar'
@@ -16,6 +16,7 @@ import GrainOverlay from '@/components/GrainOverlay'
 import ThemeProvider, { themeInitScript } from '@/components/ThemeProvider'
 import LogtoProvider from '@/components/LogtoProvider'
 import PostHogInit from '@/lib/posthog'
+import { afterLoadIdle } from '@/lib/afterLoadIdle'
 
 import appCss from '@/styles.css?url'
 
@@ -114,14 +115,38 @@ function AdSenseLoader() {
       isAdFreeSurface(pathname)
     )
       return
-    if (document.querySelector('script[src*="adsbygoogle.js"]')) return
-    const s = document.createElement('script')
-    s.async = true
-    s.crossOrigin = 'anonymous'
-    s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`
-    document.head.appendChild(s)
+    // Waits for `load` + an idle moment as well (DAN-239): the library and
+    // the ~170 KB it pulls in next otherwise compete with the camera still and
+    // the app's own scripts for the first seconds on a phone.
+    afterLoadIdle(() => {
+      // The visitor may have moved on to an app/ad-free page in the meantime.
+      const now = window.location.pathname
+      if (isAppSurface(now) || isEmbedSurface(now) || isAdFreeSurface(now))
+        return
+      if (document.querySelector('script[src*="adsbygoogle.js"]')) return
+      const s = document.createElement('script')
+      s.async = true
+      s.crossOrigin = 'anonymous'
+      s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`
+      document.head.appendChild(s)
+    })
   }, [pathname])
   return null
+}
+
+/**
+ * The film-grain overlay, mounted only once the page has loaded and gone
+ * idle (DAN-239). It is a full-viewport SVG `feTurbulence` filter: rasterising
+ * it in the first frame held back first paint by ~2 s on a throttled phone
+ * profile. At 3–4% opacity, the texture fading in a moment later is not
+ * something a visitor can see.
+ */
+function DeferredGrain() {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    afterLoadIdle(() => setShow(true))
+  }, [])
+  return show ? <GrainOverlay /> : null
 }
 
 /** `?theme=` on an `/embed/*` URL — anything but `light` is dark (the widget's
@@ -182,7 +207,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             provider can wrap the server-rendered shell without a mismatch. */}
         <LogtoProvider>
           <ThemeProvider>
-            <GrainOverlay />
+            <DeferredGrain />
             <Navbar />
             <PageBody>{children}</PageBody>
             <Footer />
