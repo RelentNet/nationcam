@@ -200,7 +200,7 @@ function FreeCameraPage() {
         <RuledGrid
           as="ul"
           cols={2}
-          className="min-[960px]:grid-cols-6! min-[960px]:[&>li]:col-span-2 min-[960px]:[&>li:nth-child(-n+2)]:col-span-3 max-[959px]:[&>li:first-child]:col-span-full"
+          className="lg:grid-cols-6 lg:[&>li]:col-span-2 lg:[&>li:nth-child(-n+2)]:col-span-3 max-lg:[&>li:first-child]:col-span-full"
         >
           {youGet.map((g, i) => (
             <RuledCell

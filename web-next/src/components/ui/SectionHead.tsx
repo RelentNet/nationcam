@@ -36,7 +36,7 @@ export default function SectionHead({
   return (
     <div
       className={`relative mb-10 grid grid-cols-1 gap-x-12 gap-y-3 border-t border-border pt-5 before:absolute before:-top-px before:left-0 before:h-0.5 before:w-12 before:bg-accent before:shadow-[0_0_12px_var(--color-accent-glow)] before:content-[''] ${
-        stacked ? '' : 'min-[900px]:grid-cols-[5fr_6fr] min-[900px]:items-end'
+        stacked ? '' : 'lg:grid-cols-[5fr_6fr] lg:items-end'
       } ${className}`}
     >
       {(eyebrow || number) && (

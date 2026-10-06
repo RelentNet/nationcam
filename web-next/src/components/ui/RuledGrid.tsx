@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 interface RuledGridProps {
   children: ReactNode
-  /** 1 column always, 2 from 640px, or 2 from 640px / 3 from 960px. */
+  /** 1 column always, 2 from sm (640px), or 2 from sm / 3 from lg (1024px). */
   cols?: 1 | 2 | 3
   /** `ul` when the cells are a list (pair with `RuledCell as="li"`). */
   as?: 'div' | 'ul' | 'ol'
@@ -12,7 +12,7 @@ interface RuledGridProps {
 const colClasses = {
   1: 'grid-cols-1',
   2: 'grid-cols-1 sm:grid-cols-2',
-  3: 'grid-cols-1 sm:grid-cols-2 min-[960px]:grid-cols-3',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
 }
 
 /**
