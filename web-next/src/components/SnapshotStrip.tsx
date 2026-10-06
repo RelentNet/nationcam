@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Pause, Play, Repeat, Sunrise, Sunset } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Frame } from '@/lib/types'
+import { afterLoadIdle } from '@/lib/afterLoadIdle'
 import SectionHead from '@/components/ui/SectionHead'
 
 /** A `Frame` that also knows whether it came from yesterday's archive. */
@@ -102,6 +103,14 @@ export default function SnapshotStrip({
   const [playing, setPlaying] = useState(false)
   const [loop, setLoop] = useState(false)
   const [speed, setSpeed] = useState<Speed>(DEFAULT_SPEED)
+
+  // The thumbnail row is ~25 full-size archive stills (~190 KB each) that
+  // `loading="lazy"` still fetches at once (a horizontal strip sits inside the
+  // lazy-load margin), so they wait for the page to load first (DAN-239).
+  const [thumbsReady, setThumbsReady] = useState(false)
+  useEffect(() => {
+    afterLoadIdle(() => setThumbsReady(true))
+  }, [])
 
   const preloadedRef = useRef<Set<string>>(new Set())
   const inFlightRef = useRef(0)
@@ -341,7 +350,7 @@ export default function SnapshotStrip({
               }`}
             >
               <img
-                src={frame.url}
+                src={thumbsReady ? frame.url : undefined}
                 alt=""
                 width={THUMB_W}
                 height={THUMB_H}
