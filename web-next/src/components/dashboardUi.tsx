@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   AlertCircle,
   ArrowDownAZ,
@@ -19,6 +19,8 @@ import type { LucideIcon } from 'lucide-react'
 import type { Branding } from '@/lib/types'
 import { uploadAsset } from '@/lib/api'
 import Dropdown from '@/components/Dropdown'
+import Button from '@/components/Button'
+import Field, { Input, Textarea } from '@/components/ui/Field'
 
 /* ════════════════════════════════════════════════
    Shared dashboard primitives — used by both the
@@ -384,22 +386,22 @@ export function AboutField({
   onChange: (v: string) => void
 }) {
   return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-subtext0">
-        About (editorial)
-      </label>
-      <textarea
+    <Field
+      label="About (editorial)"
+      hint={
+        <>
+          Formatting: <code>## Heading</code>, a blank line between paragraphs,{' '}
+          <code>- </code> for bullets.
+        </>
+      }
+    >
+      <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={10}
         placeholder="Shown as an “About” section on the public page. Leave blank for no section."
-        className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
       />
-      <p className="mt-1 mb-0 text-xs text-overlay2">
-        Formatting: <code>## Heading</code>, a blank line between paragraphs,{' '}
-        <code>- </code> for bullets.
-      </p>
-    </div>
+    </Field>
   )
 }
 
@@ -416,20 +418,18 @@ export function FormField({
   placeholder?: string
   type?: 'text' | 'number' | 'date' | 'url'
 }) {
+  const id = useId()
   return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-subtext0">
-        {label}
-      </label>
-      <input
+    <Field label={label} htmlFor={id}>
+      <Input
+        id={id}
         type={type}
         step={type === 'number' ? 'any' : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
       />
-    </div>
+    </Field>
   )
 }
 
@@ -445,14 +445,10 @@ export function FormFooter({
   return (
     <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex-1">{msg && <StatusBanner msg={msg} />}</div>
-      <button
-        type="submit"
-        disabled={submitting}
-        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-crust shadow-sm transition-all duration-200 ease-[var(--spring-snappy)] hover:bg-accent-hover hover:shadow-md active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50"
-      >
+      <Button type="submit" disabled={submitting} className="shrink-0">
         {submitting && <Loader2 size={15} className="animate-spin" />}
         {submitting ? 'Saving...' : label}
-      </button>
+      </Button>
     </div>
   )
 }
