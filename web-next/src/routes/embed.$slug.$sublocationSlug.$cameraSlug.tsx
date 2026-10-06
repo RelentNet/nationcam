@@ -254,7 +254,7 @@ function EmbedPage() {
         <p className="mb-0 truncate font-display text-[13px] font-semibold text-text">
           {camera.title}
         </p>
-        <p className="mb-0 truncate font-mono text-[11px] text-subtext0">
+        <p className="mb-0 truncate font-mono text-[11px] text-subtext1">
           {camera.sublocation_name
             ? `${camera.sublocation_name}, ${camera.state_name}`
             : camera.state_name}
@@ -282,12 +282,12 @@ function EmbedPage() {
       )}
 
       {/* Footer */}
-      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-overlay0 pt-1.5">
+      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-border pt-1.5">
         <a
           href={cameraPageUrl}
           target="_blank"
           rel="noopener"
-          className="truncate font-mono text-[11px] font-medium text-accent hover:underline"
+          className="truncate font-mono text-[11px] font-medium text-accent-ink hover:underline"
         >
           Watch live on NationCam &rarr;
         </a>
@@ -307,7 +307,7 @@ function EmbedPage() {
 
 function MiniStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-md bg-surface1 px-1.5 py-1 text-center">
+    <div className="rounded-md border border-border bg-base px-1.5 py-1 text-center">
       <b className="block font-mono text-[12px] leading-tight font-medium tabular-nums">
         {value}
       </b>

@@ -5,6 +5,8 @@ import { fetchPostBySlug } from '@/lib/api'
 import { seo } from '@/lib/seo'
 import EditorialText from '@/components/EditorialText'
 import Reveal from '@/components/Reveal'
+import { buttonClasses } from '@/components/Button'
+import Eyebrow from '@/components/ui/Eyebrow'
 
 /** The three pages a note's scope link can lead to, with their params kept in
  *  step — same discriminated-union shape as PosterTile's LinkTarget. Kept in
@@ -113,10 +115,7 @@ function NoteNotFound() {
     <div className="page-container page-enter text-center">
       <h2>Note not found</h2>
       <p>The field note you are looking for does not exist.</p>
-      <Link
-        to="/notes"
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 font-sans font-semibold text-crust transition-[scale,background-color] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover active:scale-[0.98]"
-      >
+      <Link to="/notes" className={buttonClasses({ variant: 'primary' })}>
         Back to Field Notes
       </Link>
     </div>
@@ -129,19 +128,22 @@ function NotePage() {
 
   return (
     <div className="page-container">
-      <article className="mx-auto max-w-3xl">
+      <article className="mx-auto max-w-[720px]">
         <Reveal variant="blur">
-          <p className="mb-3 font-mono text-xs text-subtext0">
-            <Link to="/notes" className="transition-colors hover:text-accent">
+          <Eyebrow className="mb-4">
+            <Link
+              to="/notes"
+              className="transition-colors hover:text-accent-ink"
+            >
               Field Notes
             </Link>
             {post.published_at && (
               <> &middot; {formatDate(post.published_at)}</>
             )}
-          </p>
-          <h1>{post.title}</h1>
+          </Eyebrow>
+          <h1 className="text-h1">{post.title}</h1>
           {post.excerpt && (
-            <p className="text-lg text-subtext1">{post.excerpt}</p>
+            <p className="text-lede text-subtext1">{post.excerpt}</p>
           )}
         </Reveal>
 
@@ -172,10 +174,10 @@ function NotePage() {
         </div>
 
         {scope && (
-          <div className="mt-10 border-t border-overlay0/50 pt-6">
+          <div className="mt-12 border-t border-border pt-6">
             <Link
               {...scope.target}
-              className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-accent hover:underline"
+              className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-accent-ink hover:underline"
             >
               &larr; See {scope.label} on NationCam
             </Link>

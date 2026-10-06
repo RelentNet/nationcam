@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Trophy } from 'lucide-react'
 import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import { seo, streamPoster } from '@/lib/seo'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
 import Reveal from '@/components/Reveal'
+import SectionHead from '@/components/ui/SectionHead'
 
 export const Route = createFileRoute('/cameras/popular')({
   loader: async () => {
@@ -43,68 +43,56 @@ function PopularCamerasPage() {
   )
 
   return (
-    <section className="py-20">
+    <div className="page-container">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <Trophy size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Most watched
-              </span>
-            </div>
-            <h1>Most Watched Cameras</h1>
-            <p className="mx-auto max-w-lg">
-              Every camera in our network, ranked by total views.
-            </p>
-          </div>
+        <div>
+          <SectionHead
+            as="h1"
+            eyebrow="Most watched"
+            title="Most Watched Cameras"
+            body="Every camera in our network, ranked by total views."
+          />
 
           {videos.length === 0 ? (
-            <p className="text-center text-subtext0">
+            <p className="rounded-xl border border-border bg-surface0 px-6 py-16 text-center text-subtext1">
               No cameras yet — check back soon.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
               {videos.map((video, index) => {
                 const stateSlug = stateSlugById.get(video.state_id)
                 const sublocationSlug = video.sublocation_id
                   ? sublocationSlugById.get(video.sublocation_id)
                   : undefined
                 return (
-                  <div key={video.video_id} className="relative">
-                    <span className="absolute top-2 right-2 z-10 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-xs font-bold text-crust">
-                      #{index + 1}
-                    </span>
-                    <PosterTile
-                      title={video.title}
-                      meta={video.sublocation_name || video.state_name}
-                      poster={streamPoster(
-                        video.src,
-                        video.status === 'active',
-                      )}
-                      live={video.status === 'active'}
-                      paused={video.status === 'paused'}
-                      tick={tick}
-                      link={
-                        stateSlug && sublocationSlug
-                          ? {
-                              to: '/locations/$slug/$sublocationSlug/$cameraSlug',
-                              params: {
-                                slug: stateSlug,
-                                sublocationSlug,
-                                cameraSlug: video.slug,
-                              },
-                            }
-                          : undefined
-                      }
-                    />
-                  </div>
+                  <PosterTile
+                    key={video.video_id}
+                    rank={index + 1}
+                    title={video.title}
+                    meta={video.sublocation_name || video.state_name}
+                    poster={streamPoster(video.src, video.status === 'active')}
+                    live={video.status === 'active'}
+                    paused={video.status === 'paused'}
+                    tick={tick}
+                    link={
+                      stateSlug && sublocationSlug
+                        ? {
+                            to: '/locations/$slug/$sublocationSlug/$cameraSlug',
+                            params: {
+                              slug: stateSlug,
+                              sublocationSlug,
+                              cameraSlug: video.slug,
+                            },
+                          }
+                        : undefined
+                    }
+                  />
                 )
               })}
             </div>
           )}
         </div>
       </Reveal>
-    </section>
+    </div>
   )
 }

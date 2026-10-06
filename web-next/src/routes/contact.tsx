@@ -1,9 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Camera, CheckCircle, Mail } from 'lucide-react'
-import Dropdown from '@/components/Dropdown'
+import { CheckCircle, Mail } from 'lucide-react'
+import type { ReactNode } from 'react'
 import Button from '@/components/Button'
 import Reveal from '@/components/Reveal'
+import Panel from '@/components/ui/Panel'
+import SectionHead from '@/components/ui/SectionHead'
+import Field, { Input, Select } from '@/components/ui/Field'
 import { seo } from '@/lib/seo'
 import { submitContact } from '@/lib/api'
 
@@ -18,79 +21,62 @@ export const Route = createFileRoute('/contact')({
   component: ContactPage,
 })
 
+const perks = [
+  {
+    title: 'Free to join',
+    body: 'No fees or hidden costs for camera hosts.',
+  },
+  {
+    title: 'Quick setup',
+    body: 'We handle the technical integration for you.',
+  },
+  {
+    title: 'Full support',
+    body: 'Our team is available to help with any questions.',
+  },
+]
+
 function ContactPage() {
   return (
     <div className="page-container">
-      <div className="grid grid-cols-1 gap-12 lg:grid-cols-5">
-        {/* Left — Info panel, slides from left */}
-        <Reveal variant="left" className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-10 min-[960px]:grid-cols-[4fr_7fr] min-[960px]:gap-16">
+        <Reveal variant="left">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <Camera size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Join the network
-              </span>
-            </div>
-            <h1>Get Your Camera on NationCam</h1>
-            <p>
-              Fill out the form and our team will review your submission and get
-              back to you about getting your camera live on the platform.
-            </p>
-
-            <div className="mt-8 space-y-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle
-                  size={18}
-                  className="mt-0.5 shrink-0 text-accent"
-                />
-                <div>
-                  <p className="mb-0 font-sans text-sm font-medium text-text">
-                    Free to join
-                  </p>
-                  <p className="mb-0 text-sm text-subtext0">
-                    No fees or hidden costs for camera hosts.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle
-                  size={18}
-                  className="mt-0.5 shrink-0 text-accent"
-                />
-                <div>
-                  <p className="mb-0 font-sans text-sm font-medium text-text">
-                    Quick setup
-                  </p>
-                  <p className="mb-0 text-sm text-subtext0">
-                    We handle the technical integration for you.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle
-                  size={18}
-                  className="mt-0.5 shrink-0 text-accent"
-                />
-                <div>
-                  <p className="mb-0 font-sans text-sm font-medium text-text">
-                    Full support
-                  </p>
-                  <p className="mb-0 text-sm text-subtext0">
-                    Our team is available to help with any questions.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 flex items-center gap-2 text-subtext0">
+            <SectionHead
+              as="h1"
+              eyebrow="Join the network"
+              title="Get Your Camera on NationCam"
+              body="Fill out the form and our team will review your submission and get back to you about getting your camera live on the platform."
+              stacked
+              className="mb-8"
+            />
+            <ul className="border-t border-border">
+              {perks.map((p) => (
+                <li
+                  key={p.title}
+                  className="flex items-start gap-3 border-b border-border py-4"
+                >
+                  <CheckCircle
+                    size={18}
+                    className="mt-0.5 shrink-0 text-accent-fg"
+                  />
+                  <div>
+                    <p className="mb-0 font-sans text-sm font-medium text-text">
+                      {p.title}
+                    </p>
+                    <p className="mb-0 text-sm text-subtext1">{p.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex items-center gap-2 text-subtext1">
               <Mail size={14} />
               <span className="font-mono text-sm">support@nationcam.com</span>
             </div>
           </div>
         </Reveal>
 
-        {/* Right — Form, slides from right */}
-        <Reveal variant="right" className="lg:col-span-3">
+        <Reveal variant="blur">
           <div>
             <ContactForm />
           </div>
@@ -237,153 +223,101 @@ function ContactForm() {
 
   if (submitted) {
     return (
-      <div
-        className="section-container flex flex-col items-center py-12 text-center"
-        style={{
-          animation: 'scale-fade-in 500ms var(--spring-poppy) forwards',
-        }}
+      <Panel
+        accentTop
+        padding="lg"
+        className="flex flex-col items-center text-center"
       >
-        <CheckCircle size={48} className="mb-4 text-accent" />
-        <h3>Thank you!</h3>
-        <p className="mb-0 max-w-sm">
+        <CheckCircle size={48} className="mb-4 text-accent-fg" />
+        <h3 className="mb-2 text-xl">Thank you!</h3>
+        <p className="mb-0 max-w-sm text-subtext1">
           We have received your submission. Our team will review it and get back
           to you soon.
         </p>
-      </div>
+      </Panel>
     )
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="section-container space-y-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input
-          label="First Name"
-          required
-          value={form.firstName}
-          onChange={(v) => update('firstName', v)}
-        />
-        <Input
-          label="Last Name"
-          required
-          value={form.lastName}
-          onChange={(v) => update('lastName', v)}
-        />
-      </div>
-
+  const text = (
+    id: keyof FormData,
+    label: string,
+    opts: { required?: boolean; type?: string } = {},
+  ) => (
+    <Field label={label} htmlFor={id} required={opts.required}>
       <Input
-        label="Email"
-        required
-        value={form.email}
-        onChange={(v) => update('email', v)}
-        type="email"
+        id={id}
+        type={opts.type ?? 'text'}
+        value={form[id]}
+        onChange={(e) => update(id, e.target.value)}
       />
-
-      <Input
-        label="Number of Cameras"
-        required
-        value={form.cameras}
-        onChange={(v) => update('cameras', v)}
-        type="number"
-      />
-
-      <Dropdown
-        label="Do you have internet access? *"
-        options={internetOptions}
-        selectedValue={form.internet}
-        onSelect={(v) => update('internet', String(v))}
-      />
-
-      <Input
-        label="Street Address"
-        required
-        value={form.street}
-        onChange={(v) => update('street', v)}
-      />
-      <Input
-        label="Address Line 2"
-        value={form.street2}
-        onChange={(v) => update('street2', v)}
-      />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Input
-          label="City"
-          required
-          value={form.city}
-          onChange={(v) => update('city', v)}
-        />
-        <Input
-          label="State"
-          required
-          value={form.state}
-          onChange={(v) => update('state', v)}
-        />
-        <Input
-          label="Postal Code"
-          required
-          value={form.postalCode}
-          onChange={(v) => update('postalCode', v)}
-        />
-      </div>
-
-      <Input
-        label="Country"
-        required
-        value={form.country}
-        onChange={(v) => update('country', v)}
-      />
-
-      <Dropdown
-        label="When are you looking to start? *"
-        options={timelineOptions}
-        selectedValue={form.timeline}
-        onSelect={(v) => update('timeline', String(v))}
-      />
-
-      {error && <p className="mb-0 text-sm font-medium text-live">{error}</p>}
-
-      <Button
-        text={submitting ? 'Submitting...' : 'Submit Application'}
-        type="submit"
-        className="w-full"
-        size="lg"
-        disabled={submitting}
-      />
-
-      <p className="mb-0 text-center text-xs text-overlay2">
-        Your information is kept private and never shared with third parties.
-      </p>
-    </form>
+    </Field>
   )
-}
 
-/* ──── Styled text input ──── */
+  const choice = (
+    id: keyof FormData,
+    label: string,
+    options: Array<{ value: string; label: string }>,
+  ) => (
+    <Field label={label} htmlFor={id} required>
+      <Select
+        id={id}
+        value={form[id]}
+        onChange={(e) => update(id, e.target.value)}
+      >
+        <option value="">Select…</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  )
 
-function Input({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  required = false,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  type?: string
-  required?: boolean
-}) {
   return (
-    <div>
-      <label className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
-        {label}
-        {required && <span className="ml-0.5 text-accent">*</span>}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-overlay0 bg-base px-4 py-3 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
-      />
-    </div>
+    <Panel accentTop padding="lg">
+      <form onSubmit={handleSubmit} className="grid gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {text('firstName', 'First Name', { required: true })}
+          {text('lastName', 'Last Name', { required: true })}
+        </div>
+        {text('email', 'Email', { required: true, type: 'email' })}
+        {text('cameras', 'Number of Cameras', {
+          required: true,
+          type: 'number',
+        })}
+        {choice('internet', 'Do you have internet access?', internetOptions)}
+        {text('street', 'Street Address', { required: true })}
+        {text('street2', 'Address Line 2')}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {text('city', 'City', { required: true })}
+          {text('state', 'State', { required: true })}
+          {text('postalCode', 'Postal Code', { required: true })}
+        </div>
+        {text('country', 'Country', { required: true })}
+        {choice('timeline', 'When are you looking to start?', timelineOptions)}
+
+        {error && (
+          <p
+            role="alert"
+            className="mb-0 rounded-r-md border-l-2 border-live bg-live-glow px-3 py-2.5 text-sm font-medium text-text"
+          >
+            {error}
+          </p>
+        )}
+
+        <Button
+          text={submitting ? 'Submitting...' : 'Submit Application'}
+          type="submit"
+          block
+          size="lg"
+          disabled={submitting}
+        />
+
+        <p className="mb-0 text-center text-xs text-subtext1">
+          Your information is kept private and never shared with third parties.
+        </p>
+      </form>
+    </Panel>
   )
 }

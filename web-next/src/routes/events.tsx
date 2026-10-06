@@ -4,6 +4,7 @@ import type { EventItem } from '@/lib/types'
 import { fetchUpcomingEvents } from '@/lib/api'
 import { seo } from '@/lib/seo'
 import Reveal from '@/components/Reveal'
+import SectionHead from '@/components/ui/SectionHead'
 import { EventWhen } from '@/components/SublocationPage'
 
 /** The page this event's attachment links to: its camera when it has one,
@@ -90,19 +91,12 @@ export const Route = createFileRoute('/events')({
 function EventsHeader() {
   return (
     <Reveal variant="blur">
-      <div className="mb-10">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-          <CalendarDays size={14} className="text-accent" />
-          <span className="font-mono text-xs font-medium text-accent">
-            Events
-          </span>
-        </div>
-        <h1>Upcoming Events</h1>
-        <p className="max-w-lg">
-          Tournaments, rodeos and festivals happening at the places NationCam
-          watches. Times are shown in your local time.
-        </p>
-      </div>
+      <SectionHead
+        as="h1"
+        eyebrow="Events"
+        title="Upcoming Events"
+        body="Tournaments, rodeos and festivals happening at the places NationCam watches. Times are shown in your local time."
+      />
     </Reveal>
   )
 }
@@ -111,18 +105,18 @@ function EventCard({ event: e }: { event: EventItem }) {
   const target = eventScopeTarget(e)
   const placeLabel = e.video_title || e.sublocation_name
   return (
-    <article className="rounded-xl border border-overlay0/60 bg-surface0 p-4 transition-colors duration-150 hover:border-accent">
-      <p className="mb-1.5 font-mono text-[11px] text-subtext0">
+    <article className="rounded-xl border border-border bg-surface0 p-5 transition-colors duration-150 hover:border-accent">
+      <p className="mono-label mb-2">
         <EventWhen iso={e.starts_at} />
       </p>
-      <h3 className="mb-1.5 !text-lg">{e.title}</h3>
-      <p className="mb-3 text-xs text-subtext1">
+      <h3 className="mb-2 font-display text-lg font-semibold">{e.title}</h3>
+      <p className="mb-4 text-sm text-subtext1">
         {placeLabel}, {e.state_name}
       </p>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <Link
           {...target}
-          className="text-sm font-medium text-accent hover:underline"
+          className="text-sm font-medium text-accent-ink hover:underline"
         >
           {e.video_id != null && e.video_slug ? 'Watch here' : 'View location'}{' '}
           &rarr;
@@ -132,7 +126,7 @@ function EventCard({ event: e }: { event: EventItem }) {
             href={e.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-medium text-accent-ink hover:underline"
           >
             Event site <ExternalLink size={12} />
           </a>
@@ -144,10 +138,10 @@ function EventCard({ event: e }: { event: EventItem }) {
 
 function EventsEmpty() {
   return (
-    <div className="section-container py-16 text-center">
+    <div className="rounded-xl border border-border bg-surface0 px-6 py-16 text-center">
       <CalendarDays size={32} className="mx-auto mb-4 text-overlay1" />
-      <h3>No events scheduled</h3>
-      <p className="mx-auto max-w-lg">
+      <h3 className="mb-2">No events scheduled</h3>
+      <p className="mx-auto mb-0 max-w-[52ch] text-subtext1">
         Check back soon — tournaments, rodeos and festivals hosted at our camera
         locations will show up here.
       </p>
@@ -163,7 +157,7 @@ function EventsSkeleton() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-32 rounded-xl border border-overlay0 bg-surface0"
+            className="h-32 rounded-xl border border-border bg-surface0"
             style={{
               opacity: 0,
               animation: `fade-in 400ms var(--spring-ease-out) ${i * 60}ms forwards`,
@@ -190,10 +184,12 @@ function EventsPage() {
         <EventsEmpty />
       ) : (
         <Reveal stagger>
-          <div className="space-y-10">
+          <div className="space-y-12">
             {groups.map((group) => (
               <section key={group.key}>
-                <h2 className="mb-4 text-xl">{group.label}</h2>
+                <h2 className="mb-5 font-display text-h3 font-semibold">
+                  {group.label}
+                </h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {group.events.map((e) => (
                     <EventCard key={e.event_id} event={e} />
