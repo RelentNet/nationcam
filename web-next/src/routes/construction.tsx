@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import {
+  ComparePlans,
   ConstructionHero,
-  FreeCameraStrip,
+  FaqSection,
+  FreeCameraLink,
   IncludedSection,
 } from '@/components/construction/ConstructionIntro'
 import QuoteBuilder from '@/components/construction/QuoteBuilder'
@@ -20,13 +22,13 @@ export const Route = createFileRoute('/construction')({
 
 function ConstructionPage() {
   return (
-    <div className="page-container !mt-6">
-      <FreeCameraStrip />
-      <div className="mt-12 space-y-20">
-        <ConstructionHero />
-        <IncludedSection />
-        <QuoteBuilder />
-      </div>
+    <div className="pb-[var(--section-y)]">
+      <ConstructionHero />
+      <IncludedSection />
+      <ComparePlans />
+      <QuoteBuilder />
+      <FaqSection />
+      <FreeCameraLink />
     </div>
   )
 }

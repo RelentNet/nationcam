@@ -1,7 +1,27 @@
-import { Check } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 /**
- * One selectable card in the quote builder. A native radio or checkbox sits
+ * The ruled panel that holds a step's options: one radius-xl card, cells
+ * separated by hairlines. `className` carries the column classes.
+ */
+export function OptionGroup({
+  className = '',
+  children,
+}: {
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={`grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-surface0 ${className}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * One selectable cell in the quote builder. A native radio or checkbox sits
  * inside the label (visually hidden), so arrow keys, Space and screen readers
  * all behave as they do for any radio group or checkbox.
  */
@@ -18,14 +38,14 @@ export default function OptionCard({
   value: string
   checked: boolean
   onChange: () => void
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <label
-      className={`relative flex h-full min-w-0 cursor-pointer flex-col rounded-xl border bg-surface0 p-4 pr-10 shadow-md transition-[border-color,box-shadow] duration-200 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent sm:p-5 sm:pr-11 ${
+      className={`group/opt relative flex min-w-0 cursor-pointer flex-col p-5 pb-[18px] transition-colors duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-4 has-[:focus-visible]:outline-accent-fg ${
         checked
-          ? 'border-accent ring-2 ring-accent'
-          : 'border-overlay0 hover:border-accent/60'
+          ? 'z-[1] bg-accent/5 shadow-[inset_0_0_0_1px_var(--color-accent),inset_0_0_0_4px_var(--color-accent-glow),1px_0_0_var(--color-border),0_1px_0_var(--color-border)]'
+          : 'rule-cell hover:bg-surface1'
       }`}
     >
       <input
@@ -34,19 +54,23 @@ export default function OptionCard({
         value={value}
         checked={checked}
         onChange={onChange}
-        className="sr-only scroll-my-32"
+        className="pointer-events-none absolute h-px w-px scroll-my-32 opacity-0"
       />
       <span
         aria-hidden="true"
-        className={`absolute top-4 right-4 flex h-5 w-5 items-center justify-center border transition-colors ${
-          type === 'radio' ? 'rounded-full' : 'rounded-md'
+        className={`absolute top-5 right-5 flex h-[18px] w-[18px] items-center justify-center border ${
+          type === 'radio' ? 'rounded-full' : 'rounded-sm'
         } ${
           checked
-            ? 'border-accent bg-accent text-crust'
-            : 'border-overlay1 bg-transparent'
+            ? type === 'radio'
+              ? 'border-accent bg-accent shadow-[inset_0_0_0_4px_var(--color-surface0),0_0_0_3px_var(--color-accent-glow)]'
+              : 'border-accent bg-accent shadow-[0_0_0_3px_var(--color-accent-glow)]'
+            : 'border-border-input bg-transparent'
         }`}
       >
-        {checked && <Check size={13} strokeWidth={3} />}
+        {checked && type === 'checkbox' && (
+          <span className="-mt-px h-2.5 w-[5px] rotate-45 border-r-2 border-b-2 border-on-accent" />
+        )}
       </span>
       {children}
     </label>
