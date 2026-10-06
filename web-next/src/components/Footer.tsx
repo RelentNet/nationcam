@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { Mail } from 'lucide-react'
 import Logo from '@/components/Logo'
 
 const footerSections = [
@@ -28,42 +27,31 @@ const footerSections = [
 
 export default function Footer() {
   return (
-    <footer className="border-t border-overlay0/40 bg-mantle">
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="border-t border-border bg-mantle">
+      <div className="measure pt-14 pb-8">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-[2fr_1fr_1fr]">
           {/* Brand column */}
-          <div className="lg:col-span-2">
+          <div>
             <Logo />
-            <p className="mt-3 mb-0 font-display text-xs font-semibold tracking-[0.3em] text-subtext0 uppercase">
+            <p className="mt-3.5 mb-0 font-mono text-[11px] leading-none tracking-[0.2em] text-subtext1 uppercase">
               Live views. Anywhere.
             </p>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-subtext0">
+            <p className="mt-3 mb-0 max-w-[40ch] text-sm leading-[1.55] text-subtext1">
               Live cameras from across the United States. Explore cities,
               landmarks, and communities through real-time video feeds.
             </p>
-            <div className="mt-4 flex gap-3">
-              <Link
-                to="/contact"
-                className="rounded-lg p-2 text-subtext0 transition-colors hover:text-accent hover:bg-surface0"
-                aria-label="Contact"
-              >
-                <Mail size={18} />
-              </Link>
-            </div>
           </div>
 
           {/* Link columns */}
           {footerSections.map((section) => (
             <div key={section.title}>
-              <h6 className="mb-3 font-mono text-xs font-semibold tracking-widest text-subtext0 uppercase">
-                {section.title}
-              </h6>
-              <ul className="space-y-2">
+              <h6 className="mono-label mb-3.5">{section.title}</h6>
+              <ul className="grid gap-2.5">
                 {section.links.map((link) => (
                   <li key={link.label}>
                     <Link
                       to={link.to}
-                      className="text-sm text-subtext1 transition-colors hover:text-accent"
+                      className="text-sm text-subtext1 underline-offset-[3px] transition-colors hover:text-accent-ink hover:underline hover:decoration-accent"
                     >
                       {link.label}
                     </Link>
@@ -75,10 +63,16 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 border-t border-overlay0/30 pt-6">
-          <p className="mb-0 font-mono text-xs text-subtext0">
+        <div className="mt-12 flex flex-wrap justify-between gap-2 border-t border-border pt-5 font-mono text-xs leading-[1.4] text-subtext1">
+          <span>
             &copy; {new Date().getFullYear()} NationCam. All rights reserved.
-          </p>
+          </span>
+          <Link
+            to="/contact"
+            className="underline-offset-[3px] transition-colors hover:text-accent-ink hover:underline hover:decoration-accent"
+          >
+            Contact us
+          </Link>
         </div>
       </div>
     </footer>

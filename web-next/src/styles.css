@@ -70,6 +70,33 @@
   );
   --spring-gentle: linear(0, 1.2533, 0.9361, 1.0161, 1, 1, 1);
 
+  /* ── NationCam Mono roles (DAN-231). New names only — every value below
+     points at an existing palette colour, nothing new is introduced. ── */
+  /* Orange as text: no orange reaches 4.5:1 on the light base, so
+     accent-fg (accent-hover, 3.4:1) is for large text and non-text marks
+     (focus rings, numbers ≥ 24px), and accent-ink falls back to ink for small
+     text in light mode. In dark mode both are the accent itself (7:1). */
+  --color-accent-fg: var(--color-accent-hover);
+  --color-accent-ink: var(--color-text);
+  /* Dark ink on orange buttons in both themes (light-mode --color-text). */
+  --color-on-accent: #1a1a2e;
+  --color-live-bg: var(--color-surface0);
+  /* Hairline roles */
+  --color-border: var(--color-overlay0);
+  --color-border-strong: var(--color-overlay1);
+  --color-border-input: var(--color-subtext0); /* 3:1 control boundary */
+  --color-label: var(--color-subtext1); /* mono labels */
+  --grain-opacity: 0.028;
+
+  /* Rhythm + measure (draft frame): 128px sections / 24px gutter on
+     desktop, 72px / 16px under 768px. */
+  --section-y: 128px;
+  --measure: 1080px;
+  --gutter: 24px;
+  --nav-h: 64px;
+  --tracking-display: -0.025em;
+  --tracking-mono: 0.02em;
+
   /* Extended spring easings — from Motion MCP studio */
   --spring-poppy: linear(
     0,
@@ -151,6 +178,19 @@ html.dark {
   --color-base: #0a0e17;
   --color-mantle: #0f1520;
   --color-crust: #080c14;
+
+  --color-accent-fg: var(--color-accent);
+  --color-accent-ink: var(--color-accent);
+  --color-live-bg: var(--color-crust);
+  --color-border-input: var(--color-overlay2);
+  --grain-opacity: 0.04;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --section-y: 72px;
+    --gutter: 16px;
+  }
 }
 
 /* The inline brand shield (BrandMark.tsx): white face in light mode, open in
@@ -187,9 +227,51 @@ html.dark .brand-shield-fill {
   --color-mantle: var(--color-mantle);
   --color-crust: var(--color-crust);
 
+  --color-accent-fg: var(--color-accent-fg);
+  --color-accent-ink: var(--color-accent-ink);
+  --color-on-accent: var(--color-on-accent);
+  --color-live-bg: var(--color-live-bg);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-border-input: var(--color-border-input);
+  --color-label: var(--color-label);
+
   --font-display: 'Saira', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* NationCam Mono type scale. xs/sm/base are Tailwind's own 12/14/16;
+     the draft's larger steps get their own names so existing text-lg/xl/2xl
+     callers keep their sizes. Use text-body for 16px: in this project
+     `text-base` resolves to the base *colour* (--color-base), not a size. */
+  --text-body: 16px;
+  --text-body--line-height: 1.6;
+  --text-eyebrow: 12px;
+  --text-eyebrow--line-height: 1;
+  --text-lede: 20px;
+  --text-lede--line-height: 1.5;
+  --text-display-xl: 32px;
+  --text-display-xl--line-height: 1.1;
+  --text-display-2xl: 48px;
+  --text-display-2xl--line-height: 1.1;
+  --text-h1: clamp(32px, 5vw, 48px);
+  --text-h1--line-height: 1.1;
+  --text-h2: clamp(26px, 3.4vw, 32px);
+  --text-h2--line-height: 1.15;
+  --text-h3: 16px;
+  --text-h3--line-height: 1.35;
+
+  --tracking-mono: 0.02em;
+
+  /* Radius scale 4/6/8/12 (same as Tailwind's sm/md/lg/xl, pinned). */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 100px;
+
+  /* max-w-measure = the 1080px content measure */
+  --container-measure: 1080px;
 }
 
 /* ═══════════════════════════════════════════════
@@ -204,6 +286,8 @@ body {
   background-color: var(--color-base);
   color: var(--color-text);
   font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition:
@@ -465,43 +549,129 @@ body {
     0 4px 16px -4px rgba(0, 0, 0, 0.3);
 }
 
+/* Page wrapper: the 1080px measure plus gutters, the draft hero's 72px top
+   (under the fixed navbar) and one section of rhythm below. */
 .page-container {
-  @apply mx-auto my-20 w-11/12 text-left lg:w-10/12 xl:max-w-7xl;
+  width: 100%;
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  margin: 72px auto var(--section-y);
+  padding-inline: var(--gutter);
+  text-align: left;
 }
 
+/* Card: radius-xl, hairline border, surface0. */
 .section-container {
-  @apply rounded-xl border border-overlay0 bg-surface0 p-6 shadow-lg;
+  @apply rounded-xl border border-border bg-surface0 p-6;
+}
+
+/* ── NationCam Mono utilities (DAN-231) ── */
+
+/* The measure without the vertical margins: `measure` on a section's inner
+   wrapper, `section-y` for the 128px/72px top rhythm between sections. */
+@utility measure {
+  width: 100%;
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+@utility section-y {
+  padding-top: var(--section-y);
+}
+
+/* Mono eyebrow / label: 12px JetBrains Mono, uppercase, label colour. */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--color-label);
+}
+
+/* Hairline divider used between ruled cells (box-shadow, not border, so
+   cells share one 1px line). */
+@utility rule-cell {
+  box-shadow:
+    1px 0 0 var(--color-border),
+    0 1px 0 var(--color-border);
+}
+
+/* Light spring reveal from the draft: visible at rest, replays a short
+   fade-up from a visible state. Additive — .reveal/* above still work. */
+@keyframes rv-up {
+  from {
+    opacity: 0.35;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rv-in {
+  animation: rv-up 600ms var(--spring-smooth) both;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
 }
 
 /* ═══════════════════════════════════════════════
    Global Typography
+   In @layer base so a utility class on an element (mb-0, text-sm, …) wins
+   over these defaults without `!`.
    ═══════════════════════════════════════════════ */
-h1 {
-  @apply mb-3 font-display text-4xl leading-[1.1] font-extrabold tracking-tight text-text sm:text-5xl md:text-6xl;
-}
+@layer base {
+  h1 {
+    margin-bottom: 0.75rem;
+    font-family: var(--font-display);
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: var(--tracking-display);
+    color: var(--color-text);
+    text-wrap: balance;
+  }
 
-h2 {
-  @apply mb-3 font-display text-2xl leading-tight font-bold tracking-tight text-text sm:text-3xl md:text-4xl;
-}
+  h2 {
+    margin-bottom: 0.75rem;
+    font-family: var(--font-display);
+    font-size: clamp(26px, 3.4vw, 32px);
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: var(--tracking-display);
+    color: var(--color-text);
+    text-wrap: balance;
+  }
 
-h3 {
-  @apply mb-2 font-display text-xl leading-snug font-semibold text-text sm:text-2xl md:text-3xl;
-}
+  h3 {
+    margin-bottom: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 16px;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: var(--tracking-display);
+    color: var(--color-text);
+  }
 
-h4 {
-  @apply mb-2 font-sans text-lg leading-snug font-semibold text-text sm:text-xl md:text-2xl;
-}
+  h4 {
+    @apply mb-2 font-sans text-lg leading-snug font-semibold text-text;
+  }
 
-h5 {
-  @apply mb-2 font-sans text-base leading-normal font-semibold text-text sm:text-lg md:text-xl;
-}
+  h5 {
+    @apply mb-2 font-sans text-body leading-normal font-semibold text-text;
+  }
 
-h6 {
-  @apply mb-2 font-sans text-sm leading-normal font-medium text-text sm:text-base md:text-lg;
-}
+  h6 {
+    @apply mb-2 font-sans text-sm leading-normal font-medium text-text;
+  }
 
-p {
-  @apply mb-6 font-sans text-base leading-relaxed text-subtext1 md:text-lg;
+  p {
+    @apply mb-6 font-sans text-body leading-[1.6] text-subtext1;
+  }
 }
 
 /* ═══════════════════════════════════════════════
