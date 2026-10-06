@@ -1,16 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import {
-  Camera,
-  CheckCircle,
-  CloudSun,
-  Code,
-  LayoutTemplate,
-  Wallet,
-} from 'lucide-react'
-import Dropdown from '@/components/Dropdown'
-import Button from '@/components/Button'
-import Reveal from '@/components/Reveal'
+import { ArrowRight, CheckCircle } from 'lucide-react'
+import Button, { buttonClasses } from '@/components/Button'
+import Eyebrow from '@/components/ui/Eyebrow'
+import Field, { Input, Select, Textarea } from '@/components/ui/Field'
+import Panel from '@/components/ui/Panel'
+import RuledGrid, { RuledCell } from '@/components/ui/RuledGrid'
+import SectionHead from '@/components/ui/SectionHead'
 import { seo } from '@/lib/seo'
 import { submitContact } from '@/lib/api'
 
@@ -27,27 +23,22 @@ export const Route = createFileRoute('/free-camera')({
 
 const youGet = [
   {
-    icon: Camera,
     title: 'A live camera on NationCam',
     text: 'At no charge to you.',
   },
   {
-    icon: LayoutTemplate,
     title: 'Your own page',
     text: 'Customise it to advertise your business with your logo, a description and a link, as existing host locations have.',
   },
   {
-    icon: CloudSun,
     title: 'Live weather and conditions',
     text: 'Shown on your page next to the camera.',
   },
   {
-    icon: Code,
     title: 'An embed for your website',
     text: 'Put the camera on your own site.',
   },
   {
-    icon: Wallet,
     title: 'A share of revenue',
     text: 'If your camera becomes popular, we share revenue with you. The terms are agreed with you.',
   },
@@ -60,135 +51,266 @@ const weNeed = [
   'A place to mount the camera.',
 ]
 
-const goodToKnow = [
-  'The camera is owned by NationCam and stays NationCam’s property.',
-  'The camera may not be new.',
-  'We choose the camera for the site. We do not guarantee a resolution.',
-  'The view is public. Anyone can watch it on NationCam.',
-  'We choose which sites get a camera, so applying does not guarantee one.',
+const deal = [
+  {
+    k: 'You get',
+    title: 'A live camera on NationCam',
+    text: 'At no charge to you.',
+    highlight: true,
+  },
+  {
+    k: 'In return',
+    title: 'The view is public',
+    text: 'Anyone can watch it on NationCam.',
+  },
+  {
+    k: 'The camera',
+    title: 'Stays NationCam’s',
+    text: 'The camera is owned by NationCam and stays NationCam’s property.',
+  },
+  {
+    k: 'Selection',
+    title: 'We choose the sites',
+    text: 'Applying does not guarantee a camera.',
+  },
 ]
+
+const howItWorks = [
+  {
+    title: 'Tell us about your site',
+    text: 'Fill in the form below: where it is and what the camera would look at.',
+  },
+  {
+    title: 'We review it',
+    text: 'We choose which sites get a camera, and we choose the camera for the site.',
+  },
+  {
+    title: 'The camera goes up',
+    text: 'Depending on where you are, we install it or you do, with our help.',
+  },
+]
+
+const goodToKnow = [
+  {
+    k: 'Owner',
+    text: 'The camera is owned by NationCam and stays NationCam’s property.',
+  },
+  { k: 'Condition', text: 'The camera may not be new.' },
+  {
+    k: 'Camera',
+    text: 'We choose the camera for the site. We do not guarantee a resolution.',
+  },
+  {
+    k: 'View',
+    text: 'The view is public. Anyone can watch it on NationCam.',
+  },
+  {
+    k: 'Selection',
+    text: 'We choose which sites get a camera, so applying does not guarantee one.',
+  },
+]
+
+const indexLabel = (i: number) => String(i + 1).padStart(2, '0')
+
+const tick =
+  "before:mr-2 before:inline-block before:h-0.5 before:w-3 before:align-middle before:bg-accent before:content-['']"
 
 function FreeCameraPage() {
   return (
-    <div className="page-container space-y-20">
-      {/* 1. Hero */}
-      <Reveal>
-        <section className="mx-auto max-w-3xl text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-            <Camera size={14} className="text-accent" />
-            <span className="font-mono text-xs font-medium text-accent">
-              Free camera
-            </span>
-          </div>
-          <h1>Get a free camera for your site</h1>
-          <p>
-            NationCam installs one of its cameras at a place worth watching, and
-            the live view is public on NationCam.
-          </p>
-          <a
-            href="#apply"
-            className="mt-2 inline-flex items-center justify-center rounded-lg bg-accent px-8 py-3 font-sans text-[1rem] font-semibold text-crust shadow-md transition-[scale,background-color,box-shadow] duration-350 ease-[var(--spring-snappy)] hover:scale-[1.02] hover:bg-accent-hover hover:shadow-lg active:scale-[0.98]"
-          >
-            Apply for a camera
-          </a>
-        </section>
-      </Reveal>
-
-      {/* 2. What you get */}
-      <section>
-        <Reveal>
-          <h2 className="text-center">What you get</h2>
-        </Reveal>
-        <Reveal stagger>
-          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {youGet.map(({ icon: Icon, title, text }) => (
-              <li
-                key={title}
-                className="section-container reveal-scale flex items-start gap-3"
+    <div className="page-container">
+      {/* Hero */}
+      <section aria-labelledby="fc-h1">
+        <div className="grid grid-cols-1 items-center gap-12 min-[960px]:grid-cols-2 min-[960px]:gap-16">
+          <div>
+            <div
+              aria-hidden="true"
+              className="mb-7 h-[3px] w-16 bg-gradient-to-r from-accent to-accent-hover"
+            />
+            <Eyebrow variant="pill">Free camera</Eyebrow>
+            <h1 id="fc-h1" className="text-h1">
+              Get a <span className="text-accent-fg">free camera</span> for your
+              site
+            </h1>
+            <p className="mt-5 max-w-[40ch] text-lede leading-normal text-subtext1">
+              NationCam installs one of its cameras at a place worth watching,
+              and the live view is public on NationCam.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3 max-[480px]:[&>a]:w-full">
+              <a
+                href="#apply"
+                className={buttonClasses({
+                  variant: 'primary',
+                  size: 'marketing',
+                })}
               >
-                <Icon size={20} className="mt-0.5 shrink-0 text-accent" />
-                <div className="min-w-0">
-                  <h3 className="!mb-1 !text-[1rem]">{title}</h3>
-                  <p className="!mb-0 !text-sm text-subtext0">{text}</p>
-                </div>
-              </li>
+                Apply for a camera
+                <ArrowRight size={16} aria-hidden="true" />
+              </a>
+              <Link
+                to="/construction"
+                className={buttonClasses({
+                  variant: 'secondary',
+                  size: 'marketing',
+                })}
+              >
+                Need a private camera?
+              </Link>
+            </div>
+          </div>
+
+          <dl
+            aria-label="The exchange"
+            className="m-0 overflow-hidden rounded-xl bg-surface0 shadow-[0_0_0_1px_var(--color-border)]"
+          >
+            {deal.map((d) => (
+              <div
+                key={d.k}
+                className={`grid grid-cols-1 gap-1.5 border-b border-border px-5 py-[18px] last:border-b-0 min-[520px]:grid-cols-[110px_1fr] min-[520px]:gap-4 ${
+                  d.highlight
+                    ? 'shadow-[inset_3px_0_0_var(--color-accent)]'
+                    : ''
+                }`}
+              >
+                <dt
+                  className={`mono-label ${d.highlight ? 'font-semibold text-accent-ink' : ''}`}
+                >
+                  {d.k}
+                </dt>
+                <dd className="m-0 text-sm leading-normal text-subtext1">
+                  <strong className="block font-display text-body leading-snug font-semibold tracking-tight text-text">
+                    {d.title}
+                  </strong>
+                  {d.text}
+                </dd>
+              </div>
             ))}
-          </ul>
-        </Reveal>
+          </dl>
+        </div>
       </section>
 
-      {/* 3. What we need from you */}
-      <section className="mx-auto max-w-3xl">
-        <Reveal>
-          <h2 className="text-center">What we need from you</h2>
-        </Reveal>
-        <Reveal>
-          <div className="section-container mt-8">
-            <ul className="space-y-3">
-              {weNeed.map((item) => (
-                <li key={item} className="flex items-start gap-3">
-                  <CheckCircle
-                    size={18}
-                    className="mt-0.5 shrink-0 text-accent"
-                  />
-                  <p className="!mb-0 !text-sm text-subtext0">{item}</p>
-                </li>
-              ))}
-            </ul>
-            <p className="!mt-5 !mb-0 !text-sm text-subtext0">
+      {/* 01 What you get */}
+      <section className="section-y" aria-labelledby="fc-get">
+        <SectionHead
+          number="01"
+          eyebrow="What you get"
+          id="fc-get"
+          title="What you get"
+          body="A camera, a page of your own, and a way onto your own website."
+        />
+        <RuledGrid
+          as="ul"
+          cols={2}
+          className="min-[960px]:grid-cols-6! min-[960px]:[&>li]:col-span-2 min-[960px]:[&>li:nth-child(-n+2)]:col-span-3 max-[959px]:[&>li:first-child]:col-span-full"
+        >
+          {youGet.map((g, i) => (
+            <RuledCell
+              key={g.title}
+              as="li"
+              index={indexLabel(i)}
+              title={g.title}
+            >
+              <p>{g.text}</p>
+            </RuledCell>
+          ))}
+        </RuledGrid>
+      </section>
+
+      {/* 02 What we need */}
+      <section className="section-y" aria-labelledby="fc-need">
+        <SectionHead
+          number="02"
+          eyebrow="Requirements"
+          id="fc-need"
+          title="What we need from you"
+          body="Four things at the site."
+        />
+        <div className="grid grid-cols-1 gap-8 min-[900px]:grid-cols-[7fr_5fr] min-[900px]:gap-16">
+          <ol className="m-0 list-none border-t border-text p-0">
+            {weNeed.map((item, i) => (
+              <li
+                key={item}
+                className="grid grid-cols-[56px_1fr] items-baseline border-b border-border py-4"
+              >
+                <span className={`mono-label ${tick}`}>{indexLabel(i)}</span>
+                <span className="font-display text-lg leading-snug font-semibold tracking-tight text-text">
+                  {item}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <aside className="self-start rounded-xl border border-border bg-surface0 p-5 text-sm text-subtext1">
+            <Eyebrow className="!mb-2.5">Installation</Eyebrow>
+            <p className="mb-0 text-sm">
               Depending on where you are, we install it or you do, with our
               help.
             </p>
-          </div>
-        </Reveal>
+          </aside>
+        </div>
       </section>
 
-      {/* 4. Good to know */}
-      <section className="mx-auto max-w-3xl">
-        <Reveal>
-          <h2 className="text-center">Good to know</h2>
-        </Reveal>
-        <Reveal>
-          <div className="section-container mt-8">
-            <ul className="space-y-3">
-              {goodToKnow.map((item) => (
-                <li key={item} className="flex items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-                  />
-                  <p className="!mb-0 !text-sm !text-text">{item}</p>
-                </li>
+      {/* 03 How applying works */}
+      <section className="section-y" aria-labelledby="fc-flow">
+        <SectionHead
+          number="03"
+          eyebrow="Applying"
+          id="fc-flow"
+          title="How applying works"
+          body="Three steps from application to a camera on site."
+        />
+        <ol className="m-0 grid list-none grid-cols-1 overflow-hidden rounded-xl border border-border bg-surface0 p-0 min-[768px]:grid-cols-3">
+          {howItWorks.map((s, i) => (
+            <li key={s.title} className="rule-cell min-w-0 px-6 py-5">
+              <span className={`mono-label mb-4 flex items-center ${tick}`}>
+                {indexLabel(i)}
+              </span>
+              <h3 className="mb-1.5">{s.title}</h3>
+              <p className="mb-0 text-sm text-subtext1">{s.text}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* 04 Apply */}
+      <section
+        id="apply"
+        className="section-y scroll-mt-24"
+        aria-labelledby="fc-app"
+      >
+        <SectionHead
+          number="04"
+          eyebrow="Application"
+          id="fc-app"
+          title="Apply for a camera"
+          body="Tell us about your site. We will review it and get back to you."
+        />
+        <div className="grid grid-cols-1 gap-10 min-[960px]:grid-cols-[4fr_7fr] min-[960px]:gap-16">
+          <aside aria-labelledby="fc-know" className="self-start">
+            <Eyebrow>
+              <span id="fc-know">Good to know</span>
+            </Eyebrow>
+            <dl className="m-0 border-t border-border">
+              {goodToKnow.map((g) => (
+                <div
+                  key={g.k}
+                  className="grid gap-1 border-b border-border py-3 text-sm"
+                >
+                  <dt className="mono-label">{g.k}</dt>
+                  <dd className="m-0 text-text">{g.text}</dd>
+                </div>
               ))}
-            </ul>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* 5. Construction pointer */}
-      <Reveal>
-        <p className="mx-auto max-w-3xl text-center !text-sm text-subtext0">
-          Need a private camera for a job site?{' '}
-          <Link
-            to="/construction"
-            className="font-medium text-accent underline underline-offset-2"
-          >
-            See construction cameras.
-          </Link>
-        </p>
-      </Reveal>
-
-      {/* 6. Application form */}
-      <section id="apply" className="mx-auto max-w-3xl scroll-mt-24">
-        <Reveal>
-          <div className="mb-6 text-center">
-            <h2>Apply for a camera</h2>
-            <p className="mb-0">
-              Tell us about your site. We will review it and get back to you.
+            </dl>
+            <p className="mt-4 mb-0 text-body text-subtext1">
+              Need a private camera for a job site?{' '}
+              <Link
+                to="/construction"
+                className="font-medium text-accent-ink underline underline-offset-2"
+              >
+                See construction cameras.
+              </Link>
             </p>
-          </div>
-        </Reveal>
-        <ApplyForm />
+          </aside>
+          <ApplyForm />
+        </div>
       </section>
     </div>
   )
@@ -356,175 +478,156 @@ function ApplyForm() {
 
   if (submitted) {
     return (
-      <div
-        className="section-container flex flex-col items-center py-12 text-center"
-        style={{
-          animation: 'scale-fade-in 500ms var(--spring-poppy) forwards',
-        }}
+      <Panel
+        accentTop
+        padding="lg"
+        className="flex flex-col items-center py-12 text-center"
       >
-        <CheckCircle size={48} className="mb-4 text-accent" />
+        <CheckCircle size={48} className="mb-4 text-accent-fg" />
         <h3>Thank you!</h3>
         <p className="mb-0 max-w-sm">
           We have received your application. Our team will review it and get
           back to you soon.
         </p>
-      </div>
+      </Panel>
     )
   }
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      className="section-container space-y-5"
-    >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input
-          label="Name"
-          required
-          value={form.name}
-          maxLength={100}
-          onChange={(v) => update('name', v)}
-        />
-        <Input
-          label="Business or organisation"
-          required
-          value={form.company}
-          maxLength={120}
-          onChange={(v) => update('company', v)}
-        />
-        <Input
-          label="Email"
-          required
-          type="email"
-          value={form.email}
-          maxLength={200}
-          onChange={(v) => update('email', v)}
-        />
-        <Input
-          label="Phone"
-          type="tel"
-          value={form.phone}
-          maxLength={40}
-          onChange={(v) => update('phone', v)}
-        />
-        <Input
-          label="Site city"
-          required
-          value={form.city}
-          maxLength={100}
-          onChange={(v) => update('city', v)}
-        />
-        <Input
-          label="Site state"
-          required
-          value={form.state}
-          maxLength={60}
-          onChange={(v) => update('state', v)}
-        />
-      </div>
-
-      <Input
-        label="What the camera would look at"
-        required
-        value={form.views}
-        maxLength={300}
-        onChange={(v) => update('views', v)}
-      />
-
-      <Dropdown
-        label="Site type *"
-        options={siteTypeOptions}
-        selectedValue={form.siteType}
-        onSelect={(v) => update('siteType', String(v))}
-      />
-      <Dropdown
-        label="Power available at the mounting spot *"
-        options={yesNoOptions}
-        selectedValue={form.power}
-        onSelect={(v) => update('power', String(v))}
-      />
-      <Dropdown
-        label="Internet available at the site *"
-        options={yesNoOptions}
-        selectedValue={form.internet}
-        onSelect={(v) => update('internet', String(v))}
-      />
-      <Dropdown
-        label="Who would install *"
-        options={installOptions}
-        selectedValue={form.install}
-        onSelect={(v) => update('install', String(v))}
-      />
-
-      <div>
-        <label
-          htmlFor="free-camera-notes"
-          className="mb-1.5 block font-sans text-sm font-medium text-subtext1"
-        >
-          Notes
-        </label>
-        <textarea
-          id="free-camera-notes"
-          rows={4}
-          maxLength={NOTES_MAX_CHARS}
-          value={form.notes}
-          onChange={(e) => update('notes', e.target.value)}
-          className="w-full rounded-lg border border-overlay0 bg-base px-4 py-3 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
-        />
-      </div>
-
-      {error && (
-        <p role="alert" className="!mb-0 !text-sm font-medium text-live">
-          {error}
-        </p>
-      )}
-
-      <Button
-        text={submitting ? 'Sending...' : 'Apply for a camera'}
-        type="submit"
-        className="w-full"
-        size="lg"
-        disabled={submitting}
-      />
-
-      <p className="!mb-0 text-center !text-xs text-overlay2">
-        Your information is kept private and never shared with third parties.
-      </p>
-    </form>
+  const text = (field: TextField, id: string) => ({
+    id,
+    value: form[field],
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+      update(field, e.target.value),
+  })
+  const select = (field: TextField, id: string) => ({
+    id,
+    value: form[field],
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+      update(field, e.target.value),
+  })
+  const optionsOf = (options: Array<{ value: string; label: string }>) => (
+    <>
+      <option value="">Select…</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </>
   )
-}
 
-/* ──── Styled text input ──── */
-
-function Input({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  required = false,
-  maxLength,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  type?: string
-  required?: boolean
-  maxLength?: number
-}) {
   return (
-    <div className="min-w-0">
-      <label className="mb-1.5 block font-sans text-sm font-medium text-subtext1">
-        {label}
-        {required && <span className="ml-0.5 text-accent">*</span>}
-        <input
-          type={type}
-          value={value}
-          maxLength={maxLength}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-overlay0 bg-base px-4 py-3 font-sans text-sm font-normal text-text transition-[border-color,box-shadow] duration-200 placeholder:text-overlay1 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
+    <Panel accentTop padding="lg">
+      <form onSubmit={handleSubmit} noValidate className="grid gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Name" htmlFor="fc-name" required>
+            <Input
+              {...text('name', 'fc-name')}
+              maxLength={100}
+              autoComplete="name"
+            />
+          </Field>
+          <Field label="Business or organisation" htmlFor="fc-company" required>
+            <Input
+              {...text('company', 'fc-company')}
+              maxLength={120}
+              autoComplete="organization"
+            />
+          </Field>
+          <Field label="Email" htmlFor="fc-email" required>
+            <Input
+              {...text('email', 'fc-email')}
+              type="email"
+              maxLength={200}
+              autoComplete="email"
+            />
+          </Field>
+          <Field label="Phone" htmlFor="fc-phone">
+            <Input
+              {...text('phone', 'fc-phone')}
+              type="tel"
+              maxLength={40}
+              autoComplete="tel"
+            />
+          </Field>
+          <Field label="Site city" htmlFor="fc-city" required>
+            <Input {...text('city', 'fc-city')} maxLength={100} />
+          </Field>
+          <Field label="Site state" htmlFor="fc-state" required>
+            <Input {...text('state', 'fc-state')} maxLength={60} />
+          </Field>
+        </div>
+
+        <Field
+          label="What the camera would look at"
+          htmlFor="fc-views"
+          required
+        >
+          <Input {...text('views', 'fc-views')} maxLength={300} />
+        </Field>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Site type" htmlFor="fc-type" required>
+            <Select {...select('siteType', 'fc-type')}>
+              {optionsOf(siteTypeOptions)}
+            </Select>
+          </Field>
+          <Field label="Who would install" htmlFor="fc-install" required>
+            <Select {...select('install', 'fc-install')}>
+              {optionsOf(installOptions)}
+            </Select>
+          </Field>
+          <Field
+            label="Power available at the mounting spot"
+            htmlFor="fc-power"
+            required
+          >
+            <Select {...select('power', 'fc-power')}>
+              {optionsOf(yesNoOptions)}
+            </Select>
+          </Field>
+          <Field
+            label="Internet available at the site"
+            htmlFor="fc-internet"
+            required
+          >
+            <Select {...select('internet', 'fc-internet')}>
+              {optionsOf(yesNoOptions)}
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Notes" htmlFor="fc-notes">
+          <Textarea
+            id="fc-notes"
+            rows={4}
+            maxLength={NOTES_MAX_CHARS}
+            value={form.notes}
+            onChange={(e) => update('notes', e.target.value)}
+          />
+        </Field>
+
+        {error && (
+          <p
+            role="alert"
+            className="mb-0 rounded-r-md border-l-2 border-live bg-live-glow px-3 py-2.5 text-sm font-medium text-text"
+          >
+            {error}
+          </p>
+        )}
+
+        <Button
+          text={submitting ? 'Sending...' : 'Apply for a camera'}
+          type="submit"
+          size="marketing"
+          block
+          disabled={submitting}
         />
-      </label>
-    </div>
+
+        <p className="mb-0 text-center text-xs text-subtext1">
+          Your information is kept private and never shared with third parties.
+        </p>
+      </form>
+    </Panel>
   )
 }
