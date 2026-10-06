@@ -348,6 +348,7 @@ function StreamRow({
           onClick={onCopy}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-subtext0 transition-colors duration-150 hover:bg-accent/10 hover:text-accent"
           title={copied ? 'Copied!' : 'Copy HLS URL'}
+          aria-label="Copy HLS URL"
         >
           {copied ? (
             <Check size={15} className="text-teal" />
@@ -361,6 +362,7 @@ function StreamRow({
           disabled={restarting}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-subtext0 transition-colors duration-150 hover:bg-accent/10 hover:text-accent disabled:pointer-events-none disabled:opacity-40"
           title="Restart stream"
+          aria-label="Restart stream"
         >
           <RefreshCw size={15} className={restarting ? 'animate-spin' : ''} />
         </button>

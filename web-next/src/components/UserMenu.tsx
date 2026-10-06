@@ -39,6 +39,7 @@ export default function UserMenu() {
     return (
       <button
         onClick={login}
+        aria-label="Sign in"
         className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-sans text-sm font-medium text-subtext1 transition-colors duration-200 ease-[var(--spring-gentle)] hover:bg-surface0/50 hover:text-text"
       >
         <LogIn size={16} />

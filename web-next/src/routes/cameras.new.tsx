@@ -71,6 +71,7 @@ function NewCamerasPage() {
                 return (
                   <PosterTile
                     key={video.video_id}
+                    as="h2"
                     title={video.title}
                     meta={addedLabel(video.created_at)}
                     poster={streamPoster(video.src, video.status === 'active')}

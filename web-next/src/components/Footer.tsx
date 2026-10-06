@@ -45,7 +45,7 @@ export default function Footer() {
           {/* Link columns */}
           {footerSections.map((section) => (
             <div key={section.title}>
-              <h6 className="mono-label mb-3.5">{section.title}</h6>
+              <h2 className="mono-label mb-3.5">{section.title}</h2>
               <ul className="grid gap-2.5">
                 {section.links.map((link) => (
                   <li key={link.label}>

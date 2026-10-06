@@ -12,7 +12,7 @@ interface SectionHeadProps {
   /** id for the heading, for `aria-labelledby` on the section. */
   id?: string
   /** Heading level; h2 by default. */
-  as?: 'h1' | 'h2'
+  as?: 'h1' | 'h2' | 'h3'
   /** Stack title and body in one column at every width. */
   stacked?: boolean
   className?: string

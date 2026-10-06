@@ -294,9 +294,9 @@ function StatePage() {
           <Reveal variant="scale">
             <Panel padding="lg" className="mt-12 py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
-              <h3>
+              <h2 className="text-[16px] leading-[1.35] font-semibold">
                 {state.upcoming ? 'Coming soon to' : 'Coming to'} {state.name}
-              </h3>
+              </h2>
               <p className="mx-auto max-w-lg">
                 {state.upcoming ? (
                   <>

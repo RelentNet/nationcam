@@ -100,6 +100,7 @@ export default function LiveNowSection({
                 return (
                   <PosterTile
                     key={video.video_id}
+                    as="h4"
                     title={video.title}
                     poster={streamPoster(video.src, video.status === 'active')}
                     live={video.status === 'active'}

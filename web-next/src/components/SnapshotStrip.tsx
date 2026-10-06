@@ -288,7 +288,7 @@ export default function SnapshotStrip({
           </div>
 
           {playable && (
-            <div className="mt-2 flex items-center justify-end gap-3 font-mono text-xs text-subtext0">
+            <div className="mt-2 flex items-center justify-end gap-3 font-mono text-xs text-subtext1">
               <button
                 type="button"
                 onClick={() => setLoop((l) => !l)}
@@ -311,7 +311,7 @@ export default function SnapshotStrip({
                     type="button"
                     onClick={() => setSpeed(s)}
                     aria-pressed={speed === s}
-                    aria-label={`${s}x speed`}
+                    aria-label={`${s}× speed`}
                     className={`rounded-md px-1.5 py-1 transition-colors ${
                       speed === s
                         ? 'bg-overlay0/40 text-text'

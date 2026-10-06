@@ -99,9 +99,9 @@ function CamerasSection({
               params={{ slug: state.slug }}
               className="group inline-flex items-baseline gap-2"
             >
-              <h3 className="mb-0 font-display transition-colors group-hover:text-accent-ink">
+              <h2 className="mb-0 font-display text-[16px] leading-[1.35] font-semibold tracking-[var(--tracking-display)] transition-colors group-hover:text-accent-ink">
                 {state.name}
-              </h3>
+              </h2>
               <span className="font-mono text-xs text-label opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                 View all &rarr;
               </span>

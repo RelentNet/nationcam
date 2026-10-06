@@ -102,9 +102,11 @@ export default function Navbar() {
             type="button"
             onClick={() => setSearchOpen(true)}
             className="inline-flex h-9 w-9 items-center justify-center gap-2.5 sm:h-10 sm:w-10 rounded-md border border-border bg-surface0 text-sm text-subtext1 transition-colors duration-150 hover:border-accent hover:text-accent-ink lg:w-auto lg:justify-start lg:pr-2 lg:pl-3"
-            aria-label="Search cameras"
           >
             <Search size={16} />
+            {/* Icon-only below lg: the name comes from this text, so a visible
+                label is never missing from the accessible name. */}
+            <span className="sr-only lg:hidden">Search cameras</span>
             <span className="hidden lg:inline">Search cameras</span>
             <kbd className="hidden rounded-sm border border-border px-1.5 py-[3px] font-mono text-[11px] leading-none text-label lg:inline">
               Ctrl K
