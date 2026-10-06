@@ -208,7 +208,7 @@ export function IncludedSection() {
         title="Every camera includes"
         body="On every plan, whichever camera you pick."
       />
-      <RuledGrid as="ul" cols={3} className="lg:grid-cols-3">
+      <RuledGrid as="ul" cols={3}>
         {includedItems.map((item, i) => (
           <RuledCell
             key={item.title}

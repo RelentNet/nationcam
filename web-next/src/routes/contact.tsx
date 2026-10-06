@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { CheckCircle, Mail } from 'lucide-react'
-import type { ReactNode } from 'react'
 import Button from '@/components/Button'
 import Reveal from '@/components/Reveal'
 import Panel from '@/components/ui/Panel'
