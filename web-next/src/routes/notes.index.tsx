@@ -4,6 +4,8 @@ import type { Post } from '@/lib/types'
 import { fetchPosts } from '@/lib/api'
 import { seo } from '@/lib/seo'
 import Reveal from '@/components/Reveal'
+import SectionHead from '@/components/ui/SectionHead'
+import { buttonClasses } from '@/components/Button'
 
 const NOTES_PER_PAGE = 12
 
@@ -99,18 +101,12 @@ export const Route = createFileRoute('/notes/')({
 function NotesHeader() {
   return (
     <Reveal variant="blur">
-      <div className="mb-10">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-          <Newspaper size={14} className="text-accent" />
-          <span className="font-mono text-xs font-medium text-accent">
-            Field notes
-          </span>
-        </div>
-        <h1>Field Notes</h1>
-        <p className="max-w-lg">
-          Dispatches from the marinas, waterfronts and communities on NationCam.
-        </p>
-      </div>
+      <SectionHead
+        as="h1"
+        eyebrow="Field notes"
+        title="Field Notes"
+        body="Dispatches from the marinas, waterfronts and communities on NationCam."
+      />
     </Reveal>
   )
 }
@@ -118,7 +114,7 @@ function NotesHeader() {
 function NoteCard({ post: p }: { post: Post }) {
   const scope = postScopeLink(p)
   return (
-    <article className="group overflow-hidden rounded-xl border border-overlay0/60 bg-surface0 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-accent">
+    <article className="group overflow-hidden rounded-xl border border-border bg-surface0 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-accent">
       <Link to="/notes/$slug" params={{ slug: p.slug }} className="block">
         <div className="aspect-video overflow-hidden bg-crust">
           {p.cover_url ? (
@@ -135,24 +131,22 @@ function NoteCard({ post: p }: { post: Post }) {
           )}
         </div>
       </Link>
-      <div className="p-4">
+      <div className="p-5">
         {p.published_at && (
-          <p className="mb-1.5 font-mono text-[11px] text-subtext0">
-            {formatDate(p.published_at)}
-          </p>
+          <p className="mono-label mb-2">{formatDate(p.published_at)}</p>
         )}
         <Link to="/notes/$slug" params={{ slug: p.slug }}>
-          <h3 className="mb-1.5 !text-lg transition-colors group-hover:text-accent">
+          <h3 className="mb-2 font-display text-lg font-semibold transition-colors group-hover:text-accent-ink">
             {p.title}
           </h3>
         </Link>
         {p.excerpt && (
-          <p className="mb-2 line-clamp-3 text-sm text-subtext1">{p.excerpt}</p>
+          <p className="mb-3 line-clamp-3 text-sm text-subtext1">{p.excerpt}</p>
         )}
         {scope && (
           <Link
             {...scope.target}
-            className="text-xs font-medium text-accent hover:underline"
+            className="text-xs font-medium text-accent-ink hover:underline"
           >
             {scope.label} &rarr;
           </Link>
@@ -164,10 +158,10 @@ function NoteCard({ post: p }: { post: Post }) {
 
 function NotesEmpty() {
   return (
-    <div className="section-container py-16 text-center">
+    <div className="rounded-xl border border-border bg-surface0 px-6 py-16 text-center">
       <Newspaper size={32} className="mx-auto mb-4 text-overlay1" />
-      <h3>No field notes yet</h3>
-      <p className="mx-auto max-w-lg">
+      <h3 className="mb-2">No field notes yet</h3>
+      <p className="mx-auto mb-0 max-w-[52ch] text-subtext1">
         Check back soon — dispatches from the cameras will show up here.
       </p>
     </div>
@@ -183,12 +177,12 @@ function NotesPagination({
 }) {
   if (page === 1 && !hasMore) return null
   return (
-    <div className="mt-10 flex items-center justify-between">
+    <div className="mt-12 flex items-center justify-between">
       {page > 1 ? (
         <Link
           to="/notes"
           search={{ page: page - 1 }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-overlay0 px-4 py-2 text-sm text-subtext0 transition-colors hover:text-text"
+          className={buttonClasses({ variant: 'secondary', size: 'sm' })}
         >
           <ChevronLeft size={15} />
           Newer
@@ -200,7 +194,7 @@ function NotesPagination({
         <Link
           to="/notes"
           search={{ page: page + 1 }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-overlay0 px-4 py-2 text-sm text-subtext0 transition-colors hover:text-text"
+          className={buttonClasses({ variant: 'secondary', size: 'sm' })}
         >
           Older
           <ChevronRight size={15} />
@@ -218,7 +212,7 @@ function NotesSkeleton() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-[4/5] rounded-xl border border-overlay0 bg-surface0"
+            className="aspect-[4/5] rounded-xl border border-border bg-surface0"
             style={{
               opacity: 0,
               animation: `fade-in 400ms var(--spring-ease-out) ${i * 60}ms forwards`,

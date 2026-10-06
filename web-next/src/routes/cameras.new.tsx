@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Sparkles } from 'lucide-react'
 import { fetchStates, fetchSublocationsByState, fetchVideos } from '@/lib/api'
 import { seo, streamPoster } from '@/lib/seo'
 import PosterTile, { usePosterTick } from '@/components/PosterTile'
 import Reveal from '@/components/Reveal'
+import SectionHead from '@/components/ui/SectionHead'
 
 /** "Added <Month YYYY>" — matches the tile meta line other pages use. */
 function addedLabel(createdAt: string) {
@@ -47,28 +47,22 @@ function NewCamerasPage() {
   )
 
   return (
-    <section className="py-20">
+    <div className="page-container">
       <Reveal variant="blur">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
-              <Sparkles size={14} className="text-accent" />
-              <span className="font-mono text-xs font-medium text-accent">
-                Newest
-              </span>
-            </div>
-            <h1>Newest Cameras</h1>
-            <p className="mx-auto max-w-lg">
-              The latest additions to our network, newest first.
-            </p>
-          </div>
+        <div>
+          <SectionHead
+            as="h1"
+            eyebrow="Newest"
+            title="Newest Cameras"
+            body="The latest additions to our network, newest first."
+          />
 
           {videos.length === 0 ? (
-            <p className="text-center text-subtext0">
+            <p className="rounded-xl border border-border bg-surface0 px-6 py-16 text-center text-subtext1">
               No cameras yet — check back soon.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
               {videos.map((video) => {
                 const stateSlug = stateSlugById.get(video.state_id)
                 const sublocationSlug = video.sublocation_id
@@ -102,6 +96,6 @@ function NewCamerasPage() {
           )}
         </div>
       </Reveal>
-    </section>
+    </div>
   )
 }

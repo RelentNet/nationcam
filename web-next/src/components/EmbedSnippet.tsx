@@ -62,10 +62,8 @@ export default function EmbedSnippet({
   }
 
   return (
-    <div
-      className={`rounded-xl border border-overlay0 bg-base p-3.5 ${className}`}
-    >
-      <p className="mb-2 text-xs text-subtext0">
+    <div className={`rounded-xl border border-border bg-base p-4 ${className}`}>
+      <p className="mb-3 text-xs text-subtext1">
         Paste this into your site to show this camera — a live still (or
         player), current conditions, and a link back to NationCam.
       </p>
@@ -76,7 +74,7 @@ export default function EmbedSnippet({
         <button
           type="button"
           onClick={copy}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-subtext0 transition-colors duration-150 hover:bg-accent/10 hover:text-accent"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border-input text-subtext1 transition-colors duration-150 hover:border-accent hover:text-accent-ink"
           title={copied ? 'Copied!' : 'Copy embed code'}
           aria-label="Copy embed code"
         >

@@ -54,7 +54,7 @@ export default function EditorialText({ text }: { text: string }) {
         if (block.kind === 'h2') {
           // A step below the section's own <h2> so the two do not compete.
           return (
-            <h2 key={i} className="mt-8 !text-xl first:mt-0 sm:!text-2xl">
+            <h2 key={i} className="mt-8 mb-3 text-xl first:mt-0 sm:text-2xl">
               {block.lines[0]}
             </h2>
           )
@@ -63,7 +63,7 @@ export default function EditorialText({ text }: { text: string }) {
           return (
             <ul
               key={i}
-              className="mb-6 list-disc space-y-2 pl-6 font-sans text-base leading-relaxed text-subtext1 md:text-lg"
+              className="mb-6 list-disc space-y-2 pl-6 font-sans text-body text-subtext1"
             >
               {block.lines.map((item, j) => (
                 <li key={j}>{item}</li>
@@ -71,7 +71,11 @@ export default function EditorialText({ text }: { text: string }) {
             </ul>
           )
         }
-        return <p key={i}>{block.lines.join(' ')}</p>
+        return (
+          <p key={i} className="max-w-[65ch] text-subtext1">
+            {block.lines.join(' ')}
+          </p>
+        )
       })}
     </>
   )
@@ -87,7 +91,7 @@ export function AboutSection({ title, text }: { title: string; text: string }) {
   return (
     <section className="section-container mb-14">
       <h2>{title}</h2>
-      <div className="max-w-3xl [&>p:last-child]:mb-0 [&>ul:last-child]:mb-0">
+      <div className="max-w-[65ch] [&>p:last-child]:mb-0 [&>ul:last-child]:mb-0">
         <EditorialText text={text} />
       </div>
     </section>
