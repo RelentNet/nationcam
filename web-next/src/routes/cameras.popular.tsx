@@ -67,6 +67,7 @@ function PopularCamerasPage() {
                 return (
                   <PosterTile
                     key={video.video_id}
+                    as="h2"
                     rank={index + 1}
                     title={video.title}
                     meta={video.sublocation_name || video.state_name}

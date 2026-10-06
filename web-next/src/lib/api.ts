@@ -619,7 +619,11 @@ async function fetchServedAd(path: string): Promise<ServedAd | null> {
       headers: { Accept: 'application/json' },
     })
     if (res.status === 204 || !res.ok) return null
-    return (await res.json()) as ServedAd
+    const ad = (await res.json()) as ServedAd
+    // A creative stored with an http:// URL is mixed content on an https page.
+    if (ad.video_url.startsWith('http://'))
+      ad.video_url = `https://${ad.video_url.slice('http://'.length)}`
+    return ad
   } catch {
     return null
   }

@@ -58,6 +58,9 @@ interface PosterTileProps {
   link?: LinkTarget
   /** Popularity rank — draws the orange "#n" chip beside the title. */
   rank?: number
+  /** Heading level of the title; h3 by default, h2 directly under the page
+   *  h1 (no section heading between), h4 beneath an h3. */
+  as?: 'h2' | 'h3' | 'h4'
 }
 
 /**
@@ -75,6 +78,7 @@ export default function PosterTile({
   tick = 0,
   link,
   rank,
+  as: Title = 'h3',
 }: PosterTileProps) {
   const src = poster && tick ? `${poster}?t=${tick}` : poster
   const className = `group block overflow-hidden rounded-xl border bg-surface0 no-underline transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_0_0_3px_var(--color-accent-glow)] ${
@@ -108,9 +112,9 @@ export default function PosterTile({
       </div>
       <div className="px-3 py-2.5">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="mb-0 line-clamp-1 font-display text-[15px] leading-[1.3] font-semibold tracking-tight text-text transition-colors group-hover:text-accent-ink">
+          <Title className="mb-0 line-clamp-1 font-display text-[15px] leading-[1.3] font-semibold tracking-tight text-text transition-colors group-hover:text-accent-ink">
             {title}
-          </h4>
+          </Title>
           {rank !== undefined && (
             <span className="shrink-0 rounded-full bg-accent px-[7px] py-[5px] font-mono text-xs leading-none font-bold text-on-accent">
               #{rank}
