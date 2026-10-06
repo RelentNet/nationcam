@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Building2, CheckCircle, Minus, Plus } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import FieldOfView from './FieldOfView'
-import OptionCard from './OptionCard'
+import OptionCard, { OptionGroup } from './OptionCard'
+import { Section } from './ConstructionIntro'
 import { SummaryBar, SummarySidebar } from './QuoteSummary'
 import HowItWorks from './HowItWorks'
 import QuoteForm from './QuoteForm'
 import type { Acquisition, QuoteConfig } from '@/lib/constructionPricing'
+import SectionHead from '@/components/ui/SectionHead'
 import {
   FOREVER_VIDEO_MONTHLY,
   MAX_CAMERAS,
@@ -24,6 +26,11 @@ import {
   styles,
 } from '@/lib/constructionPricing'
 
+// Option columns. Three-up groups drop to one column between 1024 and 1180px,
+// where the 300px summary takes its share of the row.
+const COLS_3 = 'sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3'
+const COLS_2 = 'sm:grid-cols-2'
+
 /**
  * The construction quote builder: six steps on one page, a running estimate,
  * "How it works" written from the picks and the contact form that sends it
@@ -37,22 +44,18 @@ export default function QuoteBuilder() {
 
   return (
     <>
-      <section
-        id="builder"
-        aria-labelledby="builder-heading"
-        className="scroll-mt-20"
-      >
-        <h2 id="builder-heading" className="text-center">
-          Build your quote
-        </h2>
-        <p className="mx-auto max-w-2xl text-center">
-          Pick a plan, a camera, internet and add-ons. The estimate updates as
-          you go, and you can send the whole setup to us at the end.
-        </p>
+      <Section id="builder" labelledBy="builder-heading">
+        <SectionHead
+          id="builder-heading"
+          number="03"
+          eyebrow="Quote builder"
+          title="Build your quote"
+          body="Pick a plan, a camera, internet and add-ons. The estimate updates as you go, and you can send the whole setup to us at the end."
+        />
 
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
-            <div className="space-y-14">
+            <div className="grid min-w-0 gap-16">
               <PlanStep config={config} set={set} />
               <CameraStep config={config} set={set} />
               <StyleStep config={config} set={set} />
@@ -64,27 +67,22 @@ export default function QuoteBuilder() {
           </div>
           <SummarySidebar config={config} />
         </div>
-      </section>
+      </Section>
 
-      <HowItWorks config={config} />
+      <Section labelledBy="how-it-works-heading">
+        <HowItWorks config={config} />
+      </Section>
 
-      <section
-        id="quote"
-        aria-labelledby="quote-heading"
-        className="mx-auto max-w-3xl scroll-mt-24"
-      >
-        <div className="mb-6 text-center">
-          <div className="mb-3 inline-flex items-center gap-2 text-accent">
-            <Building2 size={18} />
-          </div>
-          <h2 id="quote-heading">Make it happen</h2>
-          <p className="mb-0">
-            Send us your setup and your details, and we will get back to you
-            with a quote.
-          </p>
-        </div>
+      <Section id="quote" labelledBy="quote-heading">
+        <SectionHead
+          id="quote-heading"
+          number="05"
+          eyebrow="Quote request"
+          title="Make it happen"
+          body="Send us your setup and your details, and we will get back to you with a quote."
+        />
         <QuoteForm config={config} />
-      </section>
+      </Section>
     </>
   )
 }
@@ -106,18 +104,16 @@ function Step({
   children: React.ReactNode
 }) {
   return (
-    <fieldset className="min-w-0">
-      <legend className="mb-4 w-full">
-        <span className="flex items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 font-mono text-sm font-semibold text-accent">
-            {n}
-          </span>
-          <span className="font-display text-xl font-bold text-text sm:text-2xl">
-            {title}
-          </span>
+    <fieldset className="m-0 min-w-0 border-0 p-0">
+      <legend className="mb-5 grid w-full grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1 p-0">
+        <span className="rounded-sm border border-accent bg-accent-glow px-1.5 py-[5px] font-mono text-xs leading-none font-semibold tracking-[0.02em] text-accent-ink">
+          {n}/6
+        </span>
+        <span className="font-display text-lg leading-tight font-bold tracking-tight text-text">
+          {title}
         </span>
         {hint && (
-          <span className="mt-1.5 block text-sm text-subtext0">{hint}</span>
+          <span className="col-start-2 text-sm text-subtext1">{hint}</span>
         )}
       </legend>
       {children}
@@ -127,20 +123,26 @@ function Step({
 
 function Title({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-display text-lg leading-snug font-semibold text-text">
+    <span className="pr-7 font-display text-body leading-snug font-semibold tracking-tight text-text group-has-[:checked]/opt:text-accent-ink">
       {children}
     </span>
   )
 }
 
 function Body({ children }: { children: React.ReactNode }) {
-  return <span className="mt-1 block text-sm text-subtext0">{children}</span>
+  return (
+    <span className="mt-1.5 block text-sm leading-normal text-subtext1">
+      {children}
+    </span>
+  )
 }
 
 function PriceLine({ children }: { children: React.ReactNode }) {
   return (
-    <span className="mt-auto block border-t border-overlay0 pt-3 text-sm font-medium text-text">
-      {children}
+    <span className="mt-auto block pt-3.5">
+      <span className="block border-t border-border pt-3 font-mono text-[13px] leading-snug font-medium text-text">
+        {children}
+      </span>
     </span>
   )
 }
@@ -148,7 +150,7 @@ function PriceLine({ children }: { children: React.ReactNode }) {
 function PlanStep({ config, set }: StepProps) {
   return (
     <Step n={1} title="Plan" hint="Priced per camera, per month.">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      <OptionGroup className={COLS_3}>
         {plans.map((p) => (
           <OptionCard
             key={p.id}
@@ -159,32 +161,37 @@ function PlanStep({ config, set }: StepProps) {
             onChange={() => set({ plan: p.id })}
           >
             <Title>{p.name}</Title>
-            <span className="mt-2 mb-4 flex flex-wrap items-baseline gap-x-1.5">
-              <span className="text-sm text-subtext0">from</span>
-              <span className="font-display text-4xl leading-none font-extrabold text-text">
+            <span className="mt-3.5 mb-4 flex flex-wrap items-baseline gap-x-1.5">
+              <span className="text-sm text-subtext1">from</span>
+              <span
+                className={`font-display text-[40px] leading-none font-extrabold tracking-tight ${
+                  config.plan === p.id ? 'text-accent-fg' : 'text-text'
+                }`}
+              >
                 {formatUSD(p.monthly)}
               </span>
-              <span className="text-sm text-subtext0">per camera / month</span>
+              <span className="font-mono text-xs text-subtext1">
+                per camera / month
+              </span>
             </span>
             {p.lead && (
               <span className="mb-2 block text-sm font-medium text-text">
                 {p.lead}
               </span>
             )}
-            <span className="block space-y-2">
+            <span className="grid gap-2">
               {p.features.map((f) => (
-                <span key={f} className="flex items-start gap-2">
-                  <CheckCircle
-                    size={16}
-                    className="mt-0.5 shrink-0 text-accent"
-                  />
-                  <span className="text-sm text-subtext0">{f}</span>
+                <span
+                  key={f}
+                  className="grid grid-cols-[14px_1fr] gap-2.5 text-sm leading-snug text-subtext1 before:mt-2.5 before:h-px before:w-2.5 before:bg-accent before:content-['']"
+                >
+                  {f}
                 </span>
               ))}
             </span>
           </OptionCard>
         ))}
-      </div>
+      </OptionGroup>
     </Step>
   )
 }
@@ -200,7 +207,7 @@ function CameraStep({ config, set }: StepProps) {
   const cameras = clampCameras(config.cameras)
   return (
     <Step n={2} title="Camera" hint="Buy it, rent it, or use one you have.">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      <OptionGroup className={COLS_3}>
         {acquisitions.map((a) => (
           <OptionCard
             key={a.id}
@@ -212,30 +219,29 @@ function CameraStep({ config, set }: StepProps) {
           >
             <Title>{a.title}</Title>
             <Body>{a.text}</Body>
-            <span className="mt-3 block" />
             <PriceLine>{priceFor(a.id)}</PriceLine>
           </OptionCard>
         ))}
-      </div>
+      </OptionGroup>
 
       <div
         role="group"
         aria-labelledby="camera-count-label"
-        className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-overlay0 bg-surface0 px-4 py-3 sm:px-5"
+        className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface0 px-5 py-4"
       >
         <div className="min-w-0">
           <div
             id="camera-count-label"
-            className="text-sm font-semibold text-text"
+            className="text-sm font-medium text-text"
           >
             Number of cameras
           </div>
-          <div className="text-xs text-subtext0">
+          <div className="text-xs text-subtext1">
             Every camera gets the same setup. Up to {MAX_CAMERAS} here; ask us
             for more.
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <StepperButton
             label="One camera fewer"
             disabled={cameras <= MIN_CAMERAS}
@@ -246,7 +252,7 @@ function CameraStep({ config, set }: StepProps) {
           <output
             aria-live="polite"
             aria-label={`${cameras} ${cameras === 1 ? 'camera' : 'cameras'}`}
-            className="w-10 text-center font-display text-xl font-extrabold text-text tabular-nums"
+            className="w-11 text-center font-display text-2xl leading-none font-extrabold tracking-tight text-accent-fg tabular-nums"
           >
             {cameras}
           </output>
@@ -280,7 +286,7 @@ function StepperButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-10 items-center justify-center rounded-lg border border-overlay0 text-text transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-overlay0"
+      className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-border-input bg-surface0 text-text transition-colors hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-input disabled:hover:text-text"
     >
       {children}
     </button>
@@ -289,7 +295,7 @@ function StepperButton({
 
 function NotNeeded() {
   return (
-    <div className="rounded-xl border border-dashed border-overlay0 px-4 py-4 text-sm text-subtext0 sm:px-5">
+    <div className="rounded-xl border border-dashed border-border-strong px-5 py-4 text-sm text-subtext1">
       Not needed when you bring your own camera.
     </div>
   )
@@ -311,7 +317,7 @@ function StyleStep({ config, set }: StepProps) {
       {own ? (
         <NotNeeded />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <OptionGroup className={COLS_2}>
           {styles.map((s) => {
             const from = styleFromPrice(s.id, mode)
             return (
@@ -328,12 +334,12 @@ function StyleStep({ config, set }: StepProps) {
                   })
                 }
               >
-                <FieldOfView kind={s.id} />
-                <span className="mt-3 block">
-                  <Title>{s.title}</Title>
+                <span className="mb-3.5 block w-28 text-subtext1">
+                  <FieldOfView kind={s.id} />
                 </span>
+                <Title>{s.title}</Title>
                 <Body>{s.sees}</Body>
-                <span className="mt-2 mb-3 block text-sm text-subtext0">
+                <span className="mt-2.5 block text-sm leading-normal text-subtext1">
                   <span className="font-medium text-text">Best for:</span>{' '}
                   {s.bestFor}
                   <span className="mt-1 block">
@@ -349,7 +355,7 @@ function StyleStep({ config, set }: StepProps) {
               </OptionCard>
             )
           })}
-        </div>
+        </OptionGroup>
       )}
     </Step>
   )
@@ -368,7 +374,7 @@ function ResolutionStep({ config, set }: StepProps) {
       {own ? (
         <NotNeeded />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OptionGroup>
           {style.resolutions.map((r) => (
             <OptionCard
               key={r.id}
@@ -378,16 +384,17 @@ function ResolutionStep({ config, set }: StepProps) {
               checked={config.resolution === r.id}
               onChange={() => set({ resolution: r.id })}
             >
-              <Title>{r.label}</Title>
-              <span className="mt-3 block" />
-              <PriceLine>
-                {buy
-                  ? `Buy from ${formatUSD(r.buy)}`
-                  : `Rent from ${formatUSD(r.rent)} / month`}
-              </PriceLine>
+              <span className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pr-7">
+                <span className="font-medium text-text">{r.label}</span>
+                <span className="font-mono text-[13px] font-medium text-text group-has-[:checked]/opt:text-accent-ink">
+                  {buy
+                    ? `Buy from ${formatUSD(r.buy)}`
+                    : `Rent from ${formatUSD(r.rent)} / month`}
+                </span>
+              </span>
             </OptionCard>
           ))}
-        </div>
+        </OptionGroup>
       )}
     </Step>
   )
@@ -395,8 +402,12 @@ function ResolutionStep({ config, set }: StepProps) {
 
 function InternetStep({ config, set }: StepProps) {
   return (
-    <Step n={5} title="Internet">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <Step
+      n={5}
+      title="Internet"
+      hint="Charged once per site, whatever the camera count."
+    >
+      <OptionGroup className={COLS_2}>
         {internetOptions.map((i) => (
           <OptionCard
             key={i.id}
@@ -408,7 +419,6 @@ function InternetStep({ config, set }: StepProps) {
           >
             <Title>{i.title}</Title>
             <Body>{i.text}</Body>
-            <span className="mt-3 block" />
             <PriceLine>
               {i.monthly > 0
                 ? `Starting at ${formatUSD(i.monthly)} / month per site`
@@ -416,7 +426,7 @@ function InternetStep({ config, set }: StepProps) {
             </PriceLine>
           </OptionCard>
         ))}
-      </div>
+      </OptionGroup>
     </Step>
   )
 }
@@ -425,7 +435,7 @@ function AddOnsStep({ config, set }: StepProps) {
   const premium = config.plan === 'premium'
   return (
     <Step n={6} title="Add-ons" hint="Optional. Pick any, or none.">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <OptionGroup className={COLS_2}>
         <OptionCard
           type="checkbox"
           name="forever-video"
@@ -435,7 +445,6 @@ function AddOnsStep({ config, set }: StepProps) {
         >
           <Title>Forever video</Title>
           <Body>Keep every recorded day permanently, on any plan.</Body>
-          <span className="mt-3 block" />
           <PriceLine>
             +{formatUSD(FOREVER_VIDEO_MONTHLY)} per camera / month
           </PriceLine>
@@ -451,17 +460,16 @@ function AddOnsStep({ config, set }: StepProps) {
           <Body>
             A weather station at your site, with its readings in your dashboard.
           </Body>
-          <span className="mt-3 block" />
           <PriceLine>
             {premium
               ? 'Service included with Premium'
               : `+${formatUSD(WEATHER_STATION_MONTHLY)} / month per site`}
-            <span className="block font-normal text-subtext0">
+            <span className="block font-normal text-subtext1">
               Station {formatUSD(WEATHER_STATION_UPFRONT)} one-time
             </span>
           </PriceLine>
         </OptionCard>
-      </div>
+      </OptionGroup>
     </Step>
   )
 }
