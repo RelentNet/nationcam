@@ -18,6 +18,7 @@ import NowPanel from '@/components/NowPanel'
 import { buttonClasses } from '@/components/Button'
 import Eyebrow from '@/components/ui/Eyebrow'
 import Panel from '@/components/ui/Panel'
+import RuledGrid, { RuledCell } from '@/components/ui/RuledGrid'
 import SectionHead from '@/components/ui/SectionHead'
 import { pickFeatured } from '@/lib/featured'
 import { seo, streamPoster } from '@/lib/seo'
@@ -63,6 +64,7 @@ export const Route = createFileRoute('/')({
       : [null, null, []]
     return {
       featured,
+      videos,
       states,
       sublocations,
       popularVideos,
@@ -85,6 +87,7 @@ export const Route = createFileRoute('/')({
 function HomePage() {
   const {
     featured,
+    videos,
     states,
     sublocations,
     popularVideos,
@@ -122,6 +125,7 @@ function HomePage() {
           />
         </section>
       )}
+      <NetworkSection videos={videos} />
       <FAQSection />
       <JoinCTA />
     </div>
@@ -286,6 +290,57 @@ function MostWatchedSection({
           See the full ranking &rarr;
         </Link>
       </div>
+    </section>
+  )
+}
+
+/* ──────────────────── Our growing network ──────────────────── */
+
+function NetworkSection({ videos }: { videos: Array<Video> }) {
+  const activeVideos = videos.filter((v) => v.status === 'active')
+  const stateCount = new Set(activeVideos.map((v) => v.state_id)).size
+  const locationCount = new Set(
+    activeVideos
+      .filter((v) => v.sublocation_id !== null)
+      .map((v) => v.sublocation_id),
+  ).size
+
+  const stats = [
+    {
+      value: activeVideos.length,
+      label: `Live Camera${activeVideos.length === 1 ? '' : 's'}`,
+    },
+    {
+      value: stateCount,
+      label: `State${stateCount === 1 ? '' : 's'} With Cameras`,
+    },
+    {
+      value: locationCount,
+      label: `Location${locationCount === 1 ? '' : 's'} Hosting Cameras`,
+    },
+  ]
+
+  return (
+    <section className="measure section-y" aria-labelledby="home-network">
+      <SectionHead
+        id="home-network"
+        number="03"
+        eyebrow="Coverage"
+        title="Our Growing Network"
+        body="Building a nationwide network of live cameras, one location at a time."
+      />
+      <RuledGrid cols={3}>
+        {stats.map((stat) => (
+          <RuledCell key={stat.label}>
+            <div className="font-display text-h1 leading-none font-extrabold tracking-tight text-accent-fg tabular-nums">
+              {stat.value}
+            </div>
+            <div className="mt-3 font-mono text-xs tracking-[0.02em] text-label uppercase">
+              {stat.label}
+            </div>
+          </RuledCell>
+        ))}
+      </RuledGrid>
     </section>
   )
 }
