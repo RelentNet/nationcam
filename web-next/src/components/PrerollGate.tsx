@@ -100,6 +100,7 @@ export default function PrerollGate({
         ad={ad}
         videoId={videoId}
         className={className}
+        poster={poster}
         onDone={() => setPhase('live')}
       />
     )
@@ -112,8 +113,16 @@ export default function PrerollGate({
   return (
     <div className={`stream-player aspect-video ${className}`}>
       <div className="absolute inset-0 bg-crust">
+        {/* Usually the page's largest paint: fetched ahead of the scripts so
+            LCP is this still, not the pre-roll's first decoded frame. */}
         {poster && (
-          <img src={poster} alt="" className="h-full w-full object-cover" />
+          <img
+            src={poster}
+            alt=""
+            fetchPriority="high"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         )}
       </div>
     </div>
@@ -124,11 +133,13 @@ function PrerollAd({
   ad,
   videoId,
   className = '',
+  poster,
   onDone,
 }: {
   ad: ServedAd
   videoId: number
   className?: string
+  poster?: string
   onDone: () => void
 }) {
   const [secondsLeft, setSecondsLeft] = useState(SKIP_AFTER_S)
@@ -171,6 +182,19 @@ function PrerollAd({
 
   return (
     <div className={`stream-player group aspect-video ${className}`}>
+      {/* The camera's still stays in frame while the creative buffers (the
+          video starts at opacity 0) — the image the placeholder just showed,
+          so there is no flash, and the page's LCP is that still rather than
+          the ad's first decoded frame, which can be megabytes away. */}
+      {poster && (
+        <img
+          src={poster}
+          alt=""
+          fetchPriority="high"
+          decoding="async"
+          className="stream-poster absolute inset-0"
+        />
+      )}
       <video
         src={ad.video_url}
         autoPlay
@@ -184,7 +208,7 @@ function PrerollAd({
         // `.stream-player video` starts at opacity 0; reveal on load like the
         // live player does, so the ad fades in instead of popping.
         onLoadedData={(e) => e.currentTarget.classList.add('stream-ready')}
-        className={`h-full w-full object-cover ${ad.click_url ? 'cursor-pointer' : ''}`}
+        className={`relative h-full w-full object-cover ${ad.click_url ? 'cursor-pointer' : ''}`}
       />
 
       {/* "Ad" marker */}
