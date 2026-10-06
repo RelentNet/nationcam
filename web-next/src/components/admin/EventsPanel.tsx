@@ -8,7 +8,7 @@ import type {
   Video,
 } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
-import Dropdown from '@/components/Dropdown'
+import Field, { Input } from '@/components/ui/Field'
 import {
   AboutField,
   ActionBtn,
@@ -23,6 +23,7 @@ import {
   PER_PAGE,
   PaginationBar,
   PanelHeader,
+  SelectField,
   staggerStyle,
   toISO,
   toLocalInput,
@@ -373,7 +374,7 @@ function EventFields({
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Dropdown
+        <SelectField
           label="State (filter)"
           options={states.map((s) => ({ value: s.state_id, label: s.name }))}
           selectedValue={form.stateId}
@@ -382,7 +383,7 @@ function EventFields({
           }
         />
         {form.stateId !== '' && (
-          <Dropdown
+          <SelectField
             label="Sublocation"
             options={filteredSubs.map((s) => ({
               value: s.sublocation_id,
@@ -393,7 +394,7 @@ function EventFields({
           />
         )}
         {form.sublocationId !== '' && (
-          <Dropdown
+          <SelectField
             label="Camera (optional)"
             options={[
               { value: '', label: 'None — no “Watch here” link' },
@@ -409,28 +410,20 @@ function EventFields({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-subtext0">
-            Starts at
-          </label>
-          <input
+        <Field label="Starts at">
+          <Input
             type="datetime-local"
             value={form.startsAt}
             onChange={(e) => update({ startsAt: e.target.value })}
-            className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-subtext0">
-            Ends at (optional)
-          </label>
-          <input
+        </Field>
+        <Field label="Ends at (optional)">
+          <Input
             type="datetime-local"
             value={form.endsAt}
             onChange={(e) => update({ endsAt: e.target.value })}
-            className="w-full rounded-lg border border-overlay0 bg-base px-3.5 py-2.5 font-sans text-sm text-text transition-[border-color,box-shadow] duration-200 focus:border-accent focus:ring-2 focus:ring-accent-glow focus:outline-none"
           />
-        </div>
+        </Field>
       </div>
 
       <FormField
@@ -468,15 +461,13 @@ function EventRow({
 }) {
   return (
     <div
-      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5"
+      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5"
       style={staggerStyle(index)}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <CalendarDays size={18} className="text-accent" />
-      </div>
+      <CalendarDays size={18} className="text-accent" />
 
       <div className="min-w-0 flex-1">
-        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
           {ev.title}
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">

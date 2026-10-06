@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Check, Code, Copy, Film, Pencil, Trash2 } from 'lucide-react'
 import type { State, Sublocation, Video } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
-import Dropdown from '@/components/Dropdown'
 import {
   AboutField,
   ActionBtn,
@@ -17,6 +16,7 @@ import {
   PER_PAGE,
   PaginationBar,
   PanelHeader,
+  SelectField,
   StatusDot,
   staggerStyle,
   useAutoHide,
@@ -229,13 +229,13 @@ export default function CamerasPanel({
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Dropdown
+                <SelectField
                   label="Video Type"
                   options={VIDEO_TYPE_OPTIONS}
                   selectedValue={type}
                   onSelect={(v) => setType(String(v))}
                 />
-                <Dropdown
+                <SelectField
                   label="State"
                   options={states.map((s) => ({
                     value: s.state_id,
@@ -248,7 +248,7 @@ export default function CamerasPanel({
                   }}
                 />
                 {filteredSubs.length > 0 ? (
-                  <Dropdown
+                  <SelectField
                     label="Sublocation"
                     options={filteredSubs.map((s) => ({
                       value: s.sublocation_id,
@@ -260,7 +260,7 @@ export default function CamerasPanel({
                 ) : (
                   <div />
                 )}
-                <Dropdown
+                <SelectField
                   label="Status"
                   options={STATUS_OPTIONS}
                   selectedValue={status}
@@ -383,15 +383,13 @@ function VideoRow({
 
   return (
     <div style={staggerStyle(index)}>
-      <div className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5">
+      <div className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5">
         {/* Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-          <Film size={18} className="text-accent" />
-        </div>
+        <Film size={18} className="text-accent" />
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
             {video.title}
           </p>
           <div className="mt-0.5 flex items-center gap-2">
@@ -523,13 +521,13 @@ function EditVideoModal({
           onChange={setSrc}
           placeholder="Stream URL"
         />
-        <Dropdown
+        <SelectField
           label="Video Type"
           options={VIDEO_TYPE_OPTIONS}
           selectedValue={type}
           onSelect={(v) => setType(String(v))}
         />
-        <Dropdown
+        <SelectField
           label="State"
           options={states.map((s) => ({ value: s.state_id, label: s.name }))}
           selectedValue={stateId}
@@ -539,7 +537,7 @@ function EditVideoModal({
           }}
         />
         {filteredSubs.length > 0 && (
-          <Dropdown
+          <SelectField
             label="Sublocation"
             options={filteredSubs.map((s) => ({
               value: s.sublocation_id,
@@ -549,7 +547,7 @@ function EditVideoModal({
             onSelect={(v) => setSublocationId(Number(v))}
           />
         )}
-        <Dropdown
+        <SelectField
           label="Status"
           options={STATUS_OPTIONS}
           selectedValue={status}
@@ -604,7 +602,7 @@ function DirectoryLinks({
   }
 
   return (
-    <div className="mb-5 rounded-xl border border-overlay0 bg-base p-3.5">
+    <div className="mb-5 rounded-xl border border-border bg-base p-3.5">
       <p className="mb-2.5 text-xs font-medium text-subtext0">
         Webcam directory links (Windy, Ventusky)
       </p>

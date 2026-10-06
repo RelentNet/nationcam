@@ -27,6 +27,8 @@ import type {
 } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/Button'
+import Panel from '@/components/ui/Panel'
+import SectionHead from '@/components/ui/SectionHead'
 import {
   fetchAds,
   fetchAllEvents,
@@ -146,27 +148,18 @@ function AdminPage() {
             animation: 'scale-fade-in 400ms var(--spring-poppy) forwards',
           }}
         >
-          <div className="overflow-hidden rounded-2xl border border-overlay0 bg-surface0 shadow-xl">
-            <div className="h-1 bg-gradient-to-r from-accent via-accent/50 to-transparent" />
-            <div className="p-8">
-              <div className="mb-6 flex flex-col items-center gap-3 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10">
-                  <LogIn size={24} className="text-accent" />
-                </div>
-                <h4 className="mb-0 font-display">Admin access</h4>
-                <p className="mb-0 text-sm text-subtext0">
-                  Sign in to reach the admin console.
-                </p>
-              </div>
-              <Button
-                text="Sign In"
-                variant="primary"
-                size="lg"
-                className="w-full"
-                onClick={login}
-              />
+          <Panel accentTop padding="lg">
+            <div className="mb-6 flex flex-col items-center gap-3 text-center">
+              <LogIn size={24} className="text-accent" />
+              <h2 className="mb-0 font-display text-h3">Admin access</h2>
+              <p className="mb-0 text-sm text-subtext1">
+                Sign in to reach the admin console.
+              </p>
             </div>
-          </div>
+            <Button size="lg" block onClick={login}>
+              Sign In
+            </Button>
+          </Panel>
         </div>
       </div>
     )
@@ -351,22 +344,15 @@ function AdminConsole({ userName }: { userName: string | null }) {
             animation: 'scale-fade-in 400ms var(--spring-poppy) forwards',
           }}
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-live/10">
-            <ClipboardCheck size={28} className="text-live" />
-          </div>
+          <ClipboardCheck size={28} className="text-live" />
           <div className="text-center">
-            <h4 className="mb-1 font-display">Connection lost</h4>
-            <p className="mb-0 max-w-xs text-sm text-subtext0">
+            <h2 className="mb-1 font-display text-h3">Connection lost</h2>
+            <p className="mb-0 max-w-xs text-sm text-subtext1">
               Could not reach the NationCam API. Check your connection and try
               again.
             </p>
           </div>
-          <button
-            onClick={fetchOverview}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-crust transition-all duration-200 hover:bg-accent-hover active:scale-95"
-          >
-            Retry
-          </button>
+          <Button onClick={fetchOverview}>Retry</Button>
         </div>
       </div>
     )
@@ -375,89 +361,56 @@ function AdminConsole({ userName }: { userName: string | null }) {
   return (
     <div className="page-container space-y-6">
       {/* ── Header ── */}
-      <div
-        className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"
-        style={{
-          opacity: 0,
-          animation: 'blur-in 500ms var(--spring-ease-out) forwards',
-        }}
-      >
-        <div>
-          <p className="mb-1 font-mono text-[11px] font-medium tracking-[0.2em] text-accent uppercase">
-            Admin Console
-          </p>
-          <h1 className="!mb-0 !text-2xl sm:!text-3xl">
-            {userName ? (
-              <>
-                Hello, <span className="text-accent">{userName}</span>
-              </>
-            ) : (
-              'Admin Console'
-            )}
-          </h1>
-        </div>
-        {!dataLoading && (
-          <p
-            className="mb-0 font-mono text-[11px] text-subtext0"
-            style={{
-              opacity: 0,
-              animation: 'fade-in 600ms var(--spring-ease-out) 300ms forwards',
-            }}
-          >
-            {allVideos.length} cameras &middot; {allStates.length} states
-            &middot; {allStreams.length} streams
-          </p>
-        )}
-      </div>
+      <SectionHead
+        as="h1"
+        eyebrow="Admin Console"
+        title={
+          userName ? (
+            <>
+              Hello, <span className="text-accent-ink">{userName}</span>
+            </>
+          ) : (
+            'Admin Console'
+          )
+        }
+        body={
+          !dataLoading ? (
+            <p className="mono-label">
+              {allVideos.length} cameras &middot; {allStates.length} states
+              &middot; {allStreams.length} streams
+            </p>
+          ) : undefined
+        }
+      />
 
       {/* ── Tab Bar ── */}
-      <div
-        className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3"
-        style={{
-          opacity: 0,
-          animation: 'float-up 500ms var(--spring-bounce) 100ms forwards',
-        }}
-      >
-        {TABS.map((tab, i) => {
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6">
+        {TABS.map((tab) => {
           const isActive = activeTab === tab.id
           const count = dataLoading ? null : (tabCounts[tab.id] ?? null)
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-xl border px-2 py-3 transition-all duration-300 ease-[var(--spring-snappy)] sm:gap-1 sm:px-4 sm:py-4 ${
+              aria-pressed={isActive}
+              className={`group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-xl border px-2 py-3 transition-colors duration-150 sm:gap-1 sm:px-4 sm:py-4 ${
                 isActive
-                  ? 'border-accent/30 bg-accent/8 text-accent shadow-sm'
-                  : 'border-overlay0/50 bg-surface0/60 text-subtext0 hover:border-overlay0 hover:bg-surface0 hover:text-text'
+                  ? 'border-accent bg-accent/8 text-accent-ink shadow-[inset_0_2px_0_var(--color-accent)]'
+                  : 'border-border bg-surface0 text-subtext1 hover:border-border-input hover:text-text'
               }`}
-              style={{
-                opacity: 0,
-                animation: `scale-fade-in 350ms var(--spring-poppy) ${150 + i * 60}ms forwards`,
-              }}
             >
-              {/* Accent glow on active */}
-              {isActive && (
-                <div className="absolute inset-x-0 -top-px h-0.5 bg-gradient-to-r from-transparent via-accent to-transparent" />
-              )}
-
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <tab.icon
-                  size={15}
-                  className={
-                    isActive
-                      ? 'text-accent'
-                      : 'text-subtext0 transition-colors group-hover:text-text'
-                  }
-                />
+                <tab.icon size={15} />
                 {count !== null ? (
-                  <span className="font-display text-xl font-bold leading-none sm:text-2xl">
+                  <span className="font-display text-xl leading-none font-bold sm:text-2xl">
                     {count}
                   </span>
                 ) : dataLoading ? (
                   <span className="inline-block h-5 w-6 animate-pulse rounded bg-surface1 sm:h-6 sm:w-8" />
                 ) : null}
               </div>
-              <span className="font-mono text-[9px] leading-tight tracking-[0.15em] uppercase sm:text-[10px]">
+              <span className="mono-label leading-tight text-inherit">
                 {tab.label}
               </span>
             </button>
@@ -466,13 +419,7 @@ function AdminConsole({ userName }: { userName: string | null }) {
       </div>
 
       {/* ── Tab Content ── */}
-      <div
-        key={activeTab}
-        style={{
-          opacity: 0,
-          animation: 'fade-in 200ms var(--spring-ease-out) forwards',
-        }}
-      >
+      <div key={activeTab}>
         {activeTab === 'cameras' && (
           <CamerasPanel
             videos={allVideos}

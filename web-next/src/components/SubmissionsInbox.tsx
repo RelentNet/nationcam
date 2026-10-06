@@ -469,10 +469,10 @@ export default function SubmissionsInbox() {
               role="tab"
               aria-selected={active}
               onClick={() => selectTab(t.id)}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
+              className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 text-[13px] font-semibold transition-colors duration-150 ${
                 active
-                  ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-overlay0/60 bg-base text-subtext0 hover:border-accent hover:text-accent'
+                  ? 'border-accent bg-accent/10 text-accent-ink'
+                  : 'border-border-input bg-surface0 text-subtext1 hover:border-accent hover:text-accent-ink'
               }`}
             >
               {t.label}
@@ -498,7 +498,7 @@ export default function SubmissionsInbox() {
         emptyText="No submissions yet"
         toolbar={
           !loading && current.length > 0 ? (
-            <div className="flex items-center border-b border-overlay0/30">
+            <div className="flex items-center border-b border-border">
               <div className="min-w-0 flex-1 [&>div]:border-b-0">
                 <ListToolbar
                   search={search}
@@ -544,19 +544,17 @@ export default function SubmissionsInbox() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-max border-collapse text-left text-xs">
                 <thead>
-                  <tr className="border-b border-overlay0/40 text-subtext0">
+                  <tr className="border-b border-border text-subtext0">
                     <th className="w-8 px-2 py-2" aria-label="Expand" />
                     {columns.map((c) => (
                       <th
                         key={c.key}
-                        className="px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wide whitespace-nowrap"
+                        className="mono-label px-3 py-3 whitespace-nowrap"
                       >
                         {c.label}
                       </th>
                     ))}
-                    <th className="px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-wide">
-                      Handled
-                    </th>
+                    <th className="mono-label px-3 py-3">Handled</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -632,7 +630,7 @@ function SubmissionTableRow({
     <Fragment>
       <tr
         onClick={onOpen}
-        className={`cursor-pointer border-b border-overlay0/30 align-top text-subtext0 transition-colors duration-150 hover:bg-surface1/50 ${
+        className={`cursor-pointer border-b border-border align-top text-subtext0 transition-colors duration-150 hover:bg-surface1/40 ${
           s.handled ? 'opacity-70' : ''
         }`}
       >
@@ -666,10 +664,10 @@ function SubmissionTableRow({
               onToggle()
             }}
             disabled={toggling}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 ${
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50 ${
               s.handled
                 ? 'bg-teal/10 text-teal hover:bg-teal/20'
-                : 'border border-overlay0 bg-base text-subtext0 hover:border-accent hover:text-accent'
+                : 'border border-border bg-base text-subtext0 hover:border-accent hover:text-accent'
             }`}
           >
             {toggling ? (
@@ -682,7 +680,7 @@ function SubmissionTableRow({
         </td>
       </tr>
       {open && (
-        <tr className="border-b border-overlay0/30 bg-surface1/30">
+        <tr className="border-b border-border bg-surface1/30">
           <td colSpan={columns.length + 2} className="px-4 py-4">
             <SubmissionDetail submission={s} />
           </td>

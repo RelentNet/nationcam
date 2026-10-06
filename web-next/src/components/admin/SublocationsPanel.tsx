@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Landmark, Pencil, Trash2 } from 'lucide-react'
 import type { ConditionsOverride, Host, State, Sublocation } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
-import Dropdown from '@/components/Dropdown'
 import {
   AboutField,
   ActionBtn,
@@ -18,6 +17,7 @@ import {
   PER_PAGE,
   PaginationBar,
   PanelHeader,
+  SelectField,
   staggerStyle,
   useAutoHide,
   useBranding,
@@ -87,7 +87,7 @@ function HostFields({
   update: (patch: Partial<HostForm>) => void
 }) {
   return (
-    <div className="space-y-4 rounded-lg border border-overlay0/60 bg-base/40 p-4">
+    <div className="space-y-4 rounded-lg border border-border bg-base/40 p-4">
       <p className="mb-0 text-xs font-semibold tracking-wide text-subtext0 uppercase">
         Host &amp; visit
       </p>
@@ -184,7 +184,7 @@ function ConditionsOverrideFields({
   update: (patch: Partial<ConditionsOverrideForm>) => void
 }) {
   return (
-    <div className="space-y-4 rounded-lg border border-overlay0/60 bg-base/40 p-4">
+    <div className="space-y-4 rounded-lg border border-border bg-base/40 p-4">
       <p className="mb-0 text-xs font-semibold tracking-wide text-subtext0 uppercase">
         Conditions overrides
       </p>
@@ -411,7 +411,7 @@ export default function SublocationsPanel({
                   onChange={setName}
                   placeholder="e.g. Miami Beach"
                 />
-                <Dropdown
+                <SelectField
                   label="Parent State"
                   options={states.map((s) => ({
                     value: s.state_id,
@@ -535,14 +535,12 @@ function SublocationRow({
 }) {
   return (
     <div
-      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5"
+      className="group flex items-center gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5"
       style={staggerStyle(index)}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <Landmark size={18} className="text-accent" />
-      </div>
+      <Landmark size={18} className="text-accent" />
       <div className="min-w-0 flex-1">
-        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+        <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
           {sublocation.name}
         </p>
         <div className="mt-0.5 flex items-center gap-2">
@@ -635,7 +633,7 @@ function EditSublocationModal({
           onChange={setName}
           placeholder="e.g. Miami Beach"
         />
-        <Dropdown
+        <SelectField
           label="Parent State"
           options={states.map((s) => ({ value: s.state_id, label: s.name }))}
           selectedValue={stateId}

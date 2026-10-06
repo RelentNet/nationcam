@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Landmark, Pencil, Trash2 } from 'lucide-react'
 import type { OwnerSublocation, State } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
-import Dropdown from '@/components/Dropdown'
 import {
   ActionBtn,
   ConfirmDeleteDialog,
@@ -12,6 +11,7 @@ import {
   FormFooter,
   ModalShell,
   PanelHeader,
+  SelectField,
   staggerStyle,
   useAutoHide,
 } from '@/components/dashboardUi'
@@ -206,7 +206,7 @@ export default function MyLocationsPanel() {
                   onChange={(v) => update({ name: v })}
                   placeholder="e.g. Miami Beach"
                 />
-                <Dropdown
+                <SelectField
                   label="State"
                   options={states.map((s) => ({
                     value: s.state_id,
@@ -342,15 +342,13 @@ function LocationRow({
 }) {
   return (
     <div
-      className="flex items-start gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/50 sm:px-5"
+      className="flex items-start gap-4 px-4 py-4 transition-colors duration-150 hover:bg-surface1/40 sm:px-5"
       style={staggerStyle(index)}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10">
-        <Landmark size={18} className="text-accent" />
-      </div>
+      <Landmark size={18} className="text-accent" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-base">
+          <p className="mb-0 truncate font-display text-sm font-semibold text-text sm:text-body">
             {location.name}
           </p>
           <StatusPill status={location.status} />
@@ -444,7 +442,7 @@ function EditLocationModal({
           onChange={(v) => update({ name: v })}
           placeholder="e.g. Miami Beach"
         />
-        <Dropdown
+        <SelectField
           label="State"
           options={states.map((s) => ({ value: s.state_id, label: s.name }))}
           selectedValue={form.stateId}
