@@ -1,12 +1,67 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { getRequestHeader } from '@tanstack/react-start/server'
 import { useEffect, useState } from 'react'
 import type { HeatStressLevel, Weather } from '@/lib/types'
-import { fetchCamera, fetchLightning, fetchWeather } from '@/lib/api'
+import {
+  fetchCamera,
+  fetchLightning,
+  fetchSublocationBySlug,
+  fetchWeather,
+} from '@/lib/api'
 import { SITE_URL, streamPoster } from '@/lib/seo'
 import { LightningCard } from '@/components/NowPanel'
 import LiveBadge from '@/components/LiveBadge'
 import StreamPlayer from '@/components/StreamPlayer'
 import { Wordmark } from '@/components/BrandMark'
+import Panel from '@/components/ui/Panel'
+import Eyebrow from '@/components/ui/Eyebrow'
+
+/** What the SSR request says about who is framing this page. */
+interface FrameContext {
+  referrer: string
+  /** `Sec-Fetch-Dest` — 'iframe' when framed, 'document' when opened directly. */
+  dest: string
+}
+
+/**
+ * Reads the Referer and Sec-Fetch-Dest of the incoming document request. A
+ * server function because a route loader has no request object of its own.
+ */
+const getFrameContext = createServerFn({ method: 'GET' }).handler(
+  (): FrameContext => ({
+    referrer: getRequestHeader('referer') ?? '',
+    dest: getRequestHeader('sec-fetch-dest') ?? '',
+  }),
+)
+
+function hostOf(raw: string): string {
+  const withScheme = raw.includes('://') ? raw : `https://${raw}`
+  try {
+    return new URL(withScheme).hostname.toLowerCase().replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
+const ALWAYS_LICENSED = new Set(['nationcam.com', 'localhost', '127.0.0.1'])
+
+/**
+ * Licence rule (DAN-241): a sublocation with a `host_url` may only be framed
+ * by that host's domain (or by nationcam.com itself); one without a
+ * `host_url` — free-camera hosts — may be embedded anywhere. A page opened
+ * directly (not inside a frame) is always shown. A framed page whose parent
+ * sent no Referer cannot prove it is the licensed host, so it is refused.
+ */
+function isEmbedLicensed(hostUrl: string, ctx: FrameContext): boolean {
+  const licensedHost = hostOf(hostUrl)
+  if (!licensedHost) return true
+  const framed = ctx.dest ? ctx.dest === 'iframe' : ctx.referrer !== ''
+  if (!framed) return true
+  const host = hostOf(ctx.referrer)
+  if (!host) return false
+  return host === licensedHost || ALWAYS_LICENSED.has(host)
+}
 
 /**
  * Only the non-default values are ever present — same convention as
@@ -62,11 +117,35 @@ export const Route = createFileRoute(
     ).catch(() => null)
     if (!detail) throw notFound()
 
+    // Who is framing us? SSR reads the request; a client-side navigation
+    // reads the document. Only the licensed host (or nationcam.com) may show
+    // the camera when the sublocation has a host_url.
+    const sublocation = await fetchSublocationBySlug(
+      params.sublocationSlug,
+    ).catch(() => null)
+    const ctx: FrameContext =
+      typeof document === 'undefined'
+        ? await getFrameContext()
+        : {
+            referrer: document.referrer,
+            dest: window.self !== window.top ? 'iframe' : 'document',
+          }
+    if (!isEmbedLicensed(sublocation?.host_url ?? '', ctx)) {
+      return {
+        licensed: false as const,
+        camera: detail.camera,
+        weather: null,
+        lightning: null,
+        minute: 0,
+      }
+    }
+
     const [weather, lightning] = await Promise.all([
       fetchWeather(params.sublocationSlug),
       fetchLightning(params.sublocationSlug),
     ])
     return {
+      licensed: true as const,
       camera: detail.camera,
       weather,
       lightning,
@@ -207,12 +286,33 @@ function EmbedStill({
 function EmbedPage() {
   const { slug, sublocationSlug, cameraSlug } = Route.useParams()
   const { player } = Route.useSearch()
-  const { camera, weather, lightning, minute } = Route.useLoaderData()
+  const { camera, weather, lightning, minute, licensed } = Route.useLoaderData()
 
   const isLive = camera.status === 'active'
   const poster = streamPoster(camera.src, isLive)
   const cameraPath = `${slug}/${sublocationSlug}/${cameraSlug}`
   const cameraPageUrl = `${SITE_URL}/locations/${cameraPath}`
+
+  if (!licensed) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-surface0 p-2.5 text-text">
+        <Panel className="w-full text-center">
+          <Eyebrow className="justify-center">Not licensed</Eyebrow>
+          <p className="mb-3 text-body text-subtext1">
+            This camera is not licensed for this site.
+          </p>
+          <a
+            href={cameraPageUrl}
+            target="_blank"
+            rel="noopener"
+            className="font-mono text-[11px] font-medium text-accent-ink hover:underline"
+          >
+            Watch it on NationCam &rarr;
+          </a>
+        </Panel>
+      </div>
+    )
+  }
 
   return (
     // `overflow-y-auto` is the fallback, not the plan: the sizes/spacing below

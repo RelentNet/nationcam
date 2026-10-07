@@ -32,6 +32,9 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 					return
 				}
+				for i := range rows {
+					rows[i].Src = hlsPublicSrc(rows[i].VideoID, rows[i].Src)
+				}
 				writeJSON(w, http.StatusOK, rows)
 			})(w, r)
 			return
@@ -50,6 +53,9 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 					return
 				}
+				for i := range rows {
+					rows[i].Src = hlsPublicSrc(rows[i].VideoID, rows[i].Src)
+				}
 				writeJSON(w, http.StatusOK, rows)
 			})(w, r)
 			return
@@ -67,6 +73,9 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 					return
 				}
+				for i := range rows {
+					rows[i].Src = hlsPublicSrc(rows[i].VideoID, rows[i].Src)
+				}
 				writeJSON(w, http.StatusOK, rows)
 			})(w, r)
 			return
@@ -76,6 +85,9 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 				if err != nil {
 					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 					return
+				}
+				for i := range rows {
+					rows[i].Src = hlsPublicSrc(rows[i].VideoID, rows[i].Src)
 				}
 				writeJSON(w, http.StatusOK, rows)
 			})(w, r)
@@ -87,6 +99,9 @@ func ListVideos(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
+			}
+			for i := range rows {
+				rows[i].Src = hlsPublicSrc(rows[i].VideoID, rows[i].Src)
 			}
 			writeJSON(w, http.StatusOK, rows)
 		})(w, r)
@@ -140,6 +155,10 @@ func GetVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 				return
 			}
 
+			camera.Src = hlsPublicSrc(camera.VideoID, camera.Src)
+			for i := range related {
+				related[i].Src = hlsPublicSrc(related[i].VideoID, related[i].Src)
+			}
 			writeJSON(w, http.StatusOK, cameraPage{Camera: camera, Related: related})
 		})
 
@@ -287,6 +306,17 @@ func UpdateVideo(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 		if msg := req.normalizeAbout(); msg != "" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 			return
+		}
+
+		// The public list hands out the HLS proxy URL as src (DAN-241); an edit
+		// that sends it back unchanged must not overwrite the stored Restreamer URL.
+		if hlsProxySrc.MatchString(req.Src) {
+			cur, err := db.New(pool).GetVideoByID(r.Context(), int32(id))
+			if err != nil {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "video not found"})
+				return
+			}
+			req.Src = cur.Src
 		}
 
 		if err := db.New(pool).UpdateVideo(r.Context(), db.UpdateVideoParams{

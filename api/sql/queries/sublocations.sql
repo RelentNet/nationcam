@@ -105,3 +105,8 @@ LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'acti
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 ORDER BY sub.name
 LIMIT $1 OFFSET $2;
+
+-- ListLicensedHostURLs feeds the HLS proxy's licensed-embed-host allow-list
+-- (DAN-241): the host_url of every approved sublocation that has one.
+-- name: ListLicensedHostURLs :many
+SELECT host_url FROM sublocations WHERE status = 'approved' AND host_url <> '';

@@ -82,6 +82,25 @@ func (q *Queries) DeleteVideo(ctx context.Context, videoID int32) error {
 	return err
 }
 
+const getPublicVideoSource = `-- name: GetPublicVideoSource :one
+SELECT v.src
+FROM videos v
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.video_id = $1
+  AND v.status IN ('active', 'paused')
+  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+`
+
+// GetPublicVideoSource backs the HLS proxy (DAN-241): the stored (raw) src of
+// a camera that is publicly visible — same predicate as GetVideoBySlug — so a
+// pending, inactive or rejected camera never streams. Returns no row otherwise.
+func (q *Queries) GetPublicVideoSource(ctx context.Context, videoID int32) (string, error) {
+	row := q.db.QueryRow(ctx, getPublicVideoSource, videoID)
+	var src string
+	err := row.Scan(&src)
+	return src, err
+}
+
 const getVideoByID = `-- name: GetVideoByID :one
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.about, v.owner_id, v.stream_id, v.review_note,

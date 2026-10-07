@@ -56,10 +56,11 @@ const config = defineConfig({
     devtools(),
     nitro({
       rollupConfig: { external: [/^@sentry\//] },
-      // The embed widget (DAN-33) is meant to sit inside another site's
-      // `<iframe>`, so only that route gets a permissive frame-ancestors CSP
-      // (and no X-Frame-Options is ever set — Nitro doesn't add one by
-      // default) — every other route keeps today's headers unchanged.
+      // Framing (DAN-241): no NationCam page may be iframed on another origin
+      // except the embed widget (DAN-33), which is meant to sit inside another
+      // site's `<iframe>`. `/**` gets `frame-ancestors 'self'`; the more specific
+      // `/embed/**` rule overrides it with `*`. No X-Frame-Options is ever
+      // set — Nitro doesn't add one by default.
       //
       // Cache lifetimes (DAN-239). Hashed bundles under /assets/ already get
       // `max-age=31536000, immutable` from Nitro's static handler; HTML gets
@@ -67,6 +68,9 @@ const config = defineConfig({
       // frames are immutable by construction (a new file gets a new name),
       // so browsers may keep them for a year too.
       routeRules: {
+        '/**': {
+          headers: { 'Content-Security-Policy': "frame-ancestors 'self'" },
+        },
         '/embed/**': {
           headers: { 'Content-Security-Policy': 'frame-ancestors *' },
         },
