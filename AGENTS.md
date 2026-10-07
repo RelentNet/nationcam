@@ -105,6 +105,11 @@ OPS_API_KEY=<32+ random chars — X-API-Key for /api/admin/* endpoints>
 # Optional — satellite lightning (NOAA GOES GLM, public S3, no credentials)
 LIGHTNING_ENABLED=true          # false turns the job off; the endpoint then answers 503
 LIGHTNING_BUCKET=noaa-goes19    # GOES-East; noaa-goes18 (GOES-West) has the same layout
+
+# Signed HLS URLs (DAN-242) — set it in production
+HLS_SIGNING_KEY=<32+ random chars — HMAC key for /api/hls tokens and signed URLs>
+                                # unset: random per-process key + one WARN line; streams play,
+                                # but issued URLs die on restart and differ across replicas
 ```
 
 **First deploy steps:**
@@ -348,9 +353,10 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos?sublocation_id=N`       | Videos by sublocation          | None          |
 | GET    | `/videos/{state}/{sub}/{slug}`   | Single camera + related cameras | None         |
 | GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky. `?w=320` or `?w=640` returns a JPEG resized to that width (aspect kept, never upscaled; cached 60s per width; any other `w` is 400) | None |
-| GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 to the camera's HLS manifest (the `/api/hls` proxy URL for Restreamer cameras) | None |
-| GET    | `/hls/{video_id}/index.m3u8`     | Proxied HLS manifest, segment URIs rewritten; 403 unless Referer/Origin is nationcam.com, localhost or a licensed host; 404 unless the camera is public | Referer/Origin |
-| GET    | `/hls/{video_id}/{segment}`      | Proxied variant playlist / segment, same gate | Referer/Origin |
+| GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 (`Cache-Control: no-store`) to a **signed** `/api/hls/{id}/index.m3u8?exp=&sig=` valid 12 h, whose rewrite carries signed segment URIs — works in any plain HLS player; 404 for non-Restreamer cameras | None |
+| GET    | `/videos/{id}/stream-token`      | Uncached (`no-store`) player token: `{ video_id, token, header: "X-HLS-Token", expires_at, ttl_seconds: 300, manifest_url, signed_manifest_url, native_ttl_seconds: 3600 }`; 404 unless the camera is public and proxied. DAN-205 adds its permission check here | None |
+| GET    | `/hls/{video_id}/index.m3u8`     | Proxied HLS manifest, URIs rewritten; 403 without a valid unexpired signature (player token + Referer/Origin, or a signed URL); 404 unless the camera is public | Signed (see "HLS proxy") |
+| GET    | `/hls/{video_id}/{segment}`      | Proxied variant playlist / segment, same gate | Signed |
 | GET    | `/hls/{video_id}/poster.jpg`     | Latest watermarked still for a Restreamer camera | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames?day=YYYY-MM-DD` | Archived stills for one local day (default today), sorted by time | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
@@ -748,7 +754,8 @@ this site" card with a link to the camera page and no player, still or
 conditions. A sublocation with no `host_url` (free-camera hosts) may be
 embedded anywhere, and a page opened directly is always shown. The live
 player inside a licensed embed streams through `/api/hls/...` (see "HLS
-proxy" below); the player runs on nationcam.com, so its Referer passes. `EmbedSnippet.tsx` builds the `<iframe>` snippet
+proxy" below); the player runs on nationcam.com, so its Referer passes, and
+fetches its own short-lived token at mount like every other player. `EmbedSnippet.tsx` builds the `<iframe>` snippet
 (400×360 default) and a copy-to-clipboard box shown behind "Embed this
 camera" on the camera page and an "Embed code" button on Dashboard →
 Cameras. Embed pages are not in the sitemap and set
@@ -758,10 +765,9 @@ Cameras. Embed pages are not in the sitemap and set
 
 Restreamer-backed cameras are never handed out by their public Restreamer URL
 (DAN-241). Every public video response — `GET /videos...`, the camera page,
-related cameras, and the 302 of `.../stream.m3u8` — carries `src` =
-`/api/hls/{video_id}/index.m3u8` (`hlsPublicSrc` in `handler/hls.go`), so
-`StreamPlayer` needs no URL logic. External HLS/MP4 sources are left as
-stored. `snapshot.jpg`, the snapshot archive and `first_src` keep reading
+related cameras — carries `src` = `/api/hls/{video_id}/index.m3u8`
+(`hlsPublicSrc` in `handler/hls.go`); that URL plays nothing by itself — see
+"Signed URLs" below. External HLS/MP4 sources are left as stored. `snapshot.jpg`, the snapshot archive and `first_src` keep reading
 Restreamer directly server-side and stay public (Windy/Ventusky). Admin
 `PUT /videos/{id}` treats a `src` equal to the proxy form as "unchanged" and
 keeps the stored URL, since the admin list reads the public endpoint.
@@ -776,16 +782,61 @@ keeps the stored URL, since the admin list reads the public endpoint.
   anything else is 404), the segment resolves to a file beside the manifest,
   redirects are not followed. Manifests (≤1 MB) are rewritten so each URI
   becomes `/api/hls/{id}/{file}` (URIs leaving the directory/host are
-  dropped); segments are streamed (≤50 MB, 15 s timeout) with
-  `Cache-Control: private` and `Vary: Origin, Referer`.
-- **Referer/Origin gate** (`hlsGuard`, the single verification hook DAN-242
-  extends with HMAC signing): a request must carry a Referer or Origin and
+  dropped); segments are streamed (≤50 MB, 15 s timeout) through one pooled
+  32 KB buffer (`hlsCopy`, no body buffering) with `Cache-Control: private`
+  and `Vary: Origin, Referer`. id → src is memoized in memory for 10 s
+  (`hlsSrcCache`), so a segment costs no Postgres round trip; a rejected or
+  paused camera stops being served within that window. The upstream client
+  has its own transport (256 idle conns per host — the default 2 would open
+  a new connection per segment under load).
+- **Signed URLs** (DAN-242, `handler/hlssign.go`; `hlsGuard` is the single
+  verification hook). HMAC-SHA256 with `HLS_SIGNING_KEY` over
+  `(video_id, path, exp)`, compared constant-time, accepted up to 30 s past
+  `exp` (clock skew) and never with an `exp` further out than 12 h + 1 min.
+  A request carries one of two shapes, else 403 (`missing stream signature`
+  / `invalid stream signature` / `stream link expired`):
+  - **Player token** — header `X-HLS-Token: {exp}.{sig}` signed over path
+    `*` (any file of that camera), 5 min, from the uncached
+    `GET /videos/{id}/stream-token`. `StreamPlayer` fetches it at mount for any
+    `/api/hls/{id}/index.m3u8` src, attaches it to every manifest/segment
+    request via hls.js `xhrSetup`, renews it 60 s before expiry, and renews
+    immediately on a fatal network error (a laptop waking from sleep). These
+    requests must **also** pass the Referer/Origin gate below (defence in
+    depth). A live viewer watches for hours; a copied URL carries no token,
+    and a copied token is dead within ~5 min.
+  - **Signed URL** — `?exp=&sig=` signed over that exact file name. Used by the
+    `stream.m3u8` 302 (manifest valid **12 h**) and by `StreamPlayer`'s
+    native-HLS fallback for browsers without MSE/MMS (`signed_manifest_url`,
+    1 h). The proxy rewrites such a manifest with a signed URI per entry:
+    playlists inherit the manifest's `exp`, segments/init maps get
+    `min(now + 2 min, manifest exp)`, re-signed on every manifest fetch, so a
+    plain HLS player keeps playing while a copied segment URL dies in 2 min.
+    These requests **skip** the Referer gate on purpose: their consumers
+    (third-party players behind `stream.m3u8`) send no nationcam Referer, and
+    the file-bound, expiring signature is the gate. Why 12 h: consumers
+    re-resolve the stable `stream.m3u8` URL each time they start playback, so
+    the window only has to cover one long session (a wall display through a
+    working day) while a URL copied out of the redirect still dies the same
+    day. The redirect is public, so its signature buys expiry, not exclusivity.
+  - Unset `HLS_SIGNING_KEY` → random per-process key + one WARN at boot; URLs
+    die on restart and differ across replicas (fails closed). Rotating the key
+    ends every outstanding token/URL; live players recover by renewing.
+  - `/hls/{id}/poster.jpg`, `snapshot.jpg` and the snapshot archive stay
+    unsigned and public. Admin/owner/review previews play the raw `src` from
+    `/review` and `/me` through `/api/stream-proxy`, unchanged.
+- **Referer/Origin gate** (player-token requests only): a request must carry a
+  Referer or Origin and
   every one it carries must be nationcam.com / www.nationcam.com, localhost /
   127.0.0.1 (dev), or a licensed embed host; otherwise 403. Licensed hosts are
   the `host_url` domains of approved sublocations
   (`ListLicensedHostURLs`), compared without `www.`, cached in memory for 5
   minutes (same TTL as the stream-proxy allow-list, stale set kept if a refresh
-  fails). Header spoofing is a known limit.
+  fails). Spoofing the header alone no longer fetches anything.
+- **Load** (`hls_load_test.go`): `HLS_LOAD=1 go test ./internal/handler -run
+  TestHLSLoadHarness -v` relays a 512 KB segment from a fake upstream through
+  the proxy at 50 and 200 concurrent clients and compares with direct upstream
+  fetches; `go test ./internal/handler -run '^$' -bench HLSSegment -benchmem`
+  reports per-segment allocations.
 
 ### Stream Management
 

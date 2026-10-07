@@ -12,7 +12,9 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type HlsType from 'hls.js'
+import type { StreamToken } from '@/lib/api'
 import LiveBadge from '@/components/LiveBadge'
+import { fetchStreamToken, hlsProxyVideoId } from '@/lib/api'
 
 interface StreamPlayerProps {
   /** Video source URL — supports HLS (.m3u8), MP4, WebM, etc. */
@@ -52,6 +54,10 @@ interface AudioStation {
 const LOAD_TIMEOUT_MS = 15_000
 /** How many fatal HLS errors we tolerate before giving up. */
 const MAX_RETRIES = 3
+/** Renew the stream token this many seconds before it expires (DAN-242). */
+const TOKEN_RENEW_EARLY_S = 60
+/** After a failed renewal, try again this many seconds later. */
+const TOKEN_RETRY_S = 15
 
 /** Digital zoom limits and step sizes (locked decisions, DAN-46). */
 const MIN_ZOOM = 1
@@ -72,8 +78,10 @@ function detectType(src: string): string {
 }
 
 /**
- * Route an HLS URL through the Go API stream proxy so that hls.js
- * can fetch manifests and segments without CORS issues.
+ * Route an external (or raw Restreamer, in admin/owner previews) HLS URL
+ * through the Go API stream proxy so that hls.js can fetch manifests and
+ * segments without CORS issues. Proxied `/api/hls/...` srcs never go through
+ * here — they are same-origin and signed (see the init effect).
  */
 function proxyHlsUrl(src: string): string {
   return `/api/stream-proxy?url=${encodeURIComponent(src)}`
@@ -212,16 +220,68 @@ export default function StreamPlayer({
     if (isHls) {
       // Dynamically import hls.js — it's ~300KB and only needed for HLS streams.
       let cancelled = false
-      import('hls.js').then(({ default: Hls }) => {
+      // A Restreamer camera arrives as /api/hls/{id}/index.m3u8 and plays
+      // through our signed proxy (DAN-242): it needs a short-lived token from
+      // the API, attached to every manifest/segment request and renewed
+      // before it expires. Anything else (external sources, the raw src in
+      // admin/owner previews) keeps going through /api/stream-proxy.
+      const proxyVideoId = hlsProxyVideoId(src)
+      let token: StreamToken | null = null
+      let renewTimer: ReturnType<typeof setTimeout> | null = null
+      let renewing: Promise<void> | null = null
+
+      const renewToken = (): Promise<void> => {
+        if (proxyVideoId === null) return Promise.resolve()
+        if (!renewing) {
+          renewing = fetchStreamToken(proxyVideoId)
+            .then((t) => {
+              if (cancelled) return
+              token = t
+              scheduleRenew(Math.max(t.ttl_seconds - TOKEN_RENEW_EARLY_S, 15))
+            })
+            .catch(() => {
+              // Keep the current token and try again shortly; segments
+              // only start failing once it is actually past expiry.
+              if (!cancelled) scheduleRenew(TOKEN_RETRY_S)
+            })
+            .finally(() => {
+              renewing = null
+            })
+        }
+        return renewing
+      }
+      function scheduleRenew(seconds: number) {
+        if (renewTimer) clearTimeout(renewTimer)
+        renewTimer = setTimeout(() => {
+          void renewToken()
+        }, seconds * 1000)
+      }
+
+      const ready =
+        proxyVideoId === null
+          ? Promise.resolve()
+          : renewToken().then(() => {
+              if (!token) throw new Error('no stream token')
+            })
+
+      Promise.all([import('hls.js'), ready]).then(([{ default: Hls }]) => {
         if (cancelled) return
 
         if (Hls.isSupported()) {
-          const proxiedSrc = proxyHlsUrl(src)
           const hls = new Hls({
             enableWorker: true,
             lowLatencyMode: true,
+            xhrSetup:
+              proxyVideoId === null
+                ? undefined
+                : (xhr, url) => {
+                    // Headers can only be set on an opened request; hls.js
+                    // opens it itself afterwards when we have not.
+                    if (!xhr.readyState) xhr.open('GET', url, true)
+                    if (token) xhr.setRequestHeader(token.header, token.token)
+                  },
           })
-          hls.loadSource(proxiedSrc)
+          hls.loadSource(proxyVideoId === null ? proxyHlsUrl(src) : src)
           hls.attachMedia(video)
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             markReady()
@@ -244,7 +304,11 @@ export default function StreamPlayer({
                 return
               }
               if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                hls.startLoad()
+                // A 403 here is most likely an expired token (a laptop that
+                // slept through the renewal): fetch a fresh one first.
+                void renewToken().then(() => {
+                  if (!cancelled) hls.startLoad()
+                })
               } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                 hls.recoverMediaError()
               } else {
@@ -254,17 +318,24 @@ export default function StreamPlayer({
           })
           hlsRef.current = hls
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Safari native HLS
-          video.src = proxyHlsUrl(src)
+          // Safari native HLS (no MSE/MMS) cannot attach a header, so it
+          // plays a signed manifest URL whose segment URIs the proxy signs.
+          video.src =
+            proxyVideoId === null || !token
+              ? proxyHlsUrl(src)
+              : token.signed_manifest_url
           video.addEventListener('loadedmetadata', markReady)
           video.addEventListener('error', markError)
         } else {
           markError()
         }
+      }, () => {
+        if (!cancelled) markError()
       })
 
       return () => {
         cancelled = true
+        if (renewTimer) clearTimeout(renewTimer)
         cleanup()
       }
     } else {

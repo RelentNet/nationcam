@@ -74,6 +74,8 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	r.Get("/hls/{video_id}/index.m3u8", hlsManifest)
 	r.Get("/hls/{video_id}/poster.jpg", hlsPoster)
 	r.Get("/hls/{video_id}/{segment}", hlsSegment)
+	// DAN-242 — short-lived player token for the proxy above (never cached).
+	r.Get("/videos/{id}/stream-token", HLSStreamToken(pool))
 
 	// Audio channels — DB-backed stations (DAN-47) merged with the AzuraCast
 	// station list for the player's audio picker. Returns [] (never an error)

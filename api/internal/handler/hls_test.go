@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -62,8 +63,19 @@ func hlsTestServer(t *testing.T) (*chi.Mux, *httptest.Server) {
 	return r, up
 }
 
+// hlsGet requests target. Unless hdr names X-HLS-Token itself (an empty value
+// sends none), a valid player token for the camera in the path is attached,
+// as StreamPlayer does (DAN-242), so these DAN-241 tests keep exercising the
+// Referer gate and the rewriting behind the signature check.
 func hlsGet(r http.Handler, target string, hdr map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, target, nil)
+	if _, ok := hdr[hlsTokenHeader]; !ok {
+		if parts := strings.Split(target, "/"); len(parts) > 2 {
+			if id, err := strconv.ParseInt(parts[2], 10, 32); err == nil {
+				req.Header.Set(hlsTokenHeader, currentHLSSigner().playerToken(int32(id), hlsNow().Add(hlsTokenTTL).Unix()))
+			}
+		}
+	}
 	for k, v := range hdr {
 		req.Header.Set(k, v)
 	}

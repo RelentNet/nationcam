@@ -118,8 +118,12 @@ func CameraStream(pool *pgxpool.Pool) http.HandlerFunc {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no stream for this camera"})
 			return
 		}
-		// Through the HLS proxy (DAN-241), so the Restreamer URL is never handed out.
-		http.Redirect(w, r, hlsPublicSrc(camera.VideoID, camera.Src), http.StatusFound)
+		// Through the HLS proxy (DAN-241), so the Restreamer URL is never handed
+		// out, on a signed manifest URL valid hlsRedirectTTL whose rewrite
+		// carries signed segment URIs (DAN-242), so a plain HLS player works
+		// without our token flow. Never cached: the target expires.
+		w.Header().Set("Cache-Control", "no-store")
+		http.Redirect(w, r, hlsSignedManifestURL(camera.VideoID, hlsRedirectTTL), http.StatusFound)
 	}
 }
 
