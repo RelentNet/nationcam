@@ -917,3 +917,23 @@ from `main.go` runs on the server's root context and stops with it:
 | `redis/go-redis/v9`      | Redis client                         |
 | `go-jose/go-jose/v4`     | JWT/JWKS validation                  |
 | `batchatco/go-native-netcdf` | Pure-Go NetCDF4/HDF5 reader for GOES GLM files (no CGO) |
+
+## Home
+
+Rules learned while running Home sessions on this repo; every worker reads them.
+
+- **Trace public API field changes to the frontend before opening a PR.** The local
+  preview proxies the *production* API, so a new API behaviour is invisible there. When
+  a PR changes a field the browser consumes (`src`, poster URLs, image URLs), grep its
+  consumers (`StreamPlayer.tsx`, `lib/seo.ts`, `PosterTile.tsx`, `CameraPlayer.tsx`,
+  the embed route) and update them in the same PR. DAN-241 shipped a relative
+  `/api/hls/...` `src` that `StreamPlayer` wrapped in `/api/stream-proxy?url=`, which
+  400s on a relative URL; DAN-242 had to fix it.
+- **No Docker on the dev machine.** The Go API cannot run locally (no Postgres/Redis);
+  API changes are verified with `go test` and then in production after deploy. Say so
+  in the PR body instead of skipping the acceptance line silently.
+- **Deploy order for API-plus-frontend changes is api first, then web-next.** A
+  frontend that asks for an endpoint the API does not have yet 404s every tile.
+- **New env vars** go in `api/internal/config`, `docker-compose.yml`, `.env.example`
+  and the env list at the top of this file, and are called out in the PR body so they
+  are set in Coolify before the deploy (`HLS_SIGNING_KEY`, 2026-10-07).
