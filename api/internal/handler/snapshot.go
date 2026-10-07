@@ -118,7 +118,8 @@ func CameraStream(pool *pgxpool.Pool) http.HandlerFunc {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no stream for this camera"})
 			return
 		}
-		http.Redirect(w, r, camera.Src, http.StatusFound)
+		// Through the HLS proxy (DAN-241), so the Restreamer URL is never handed out.
+		http.Redirect(w, r, hlsPublicSrc(camera.VideoID, camera.Src), http.StatusFound)
 	}
 }
 

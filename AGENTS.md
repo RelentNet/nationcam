@@ -348,7 +348,10 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos?sublocation_id=N`       | Videos by sublocation          | None          |
 | GET    | `/videos/{state}/{sub}/{slug}`   | Single camera + related cameras | None         |
 | GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky. `?w=320` or `?w=640` returns a JPEG resized to that width (aspect kept, never upscaled; cached 60s per width; any other `w` is 400) | None |
-| GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 to the camera's current HLS manifest | None |
+| GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 to the camera's HLS manifest (the `/api/hls` proxy URL for Restreamer cameras) | None |
+| GET    | `/hls/{video_id}/index.m3u8`     | Proxied HLS manifest, segment URIs rewritten; 403 unless Referer/Origin is nationcam.com, localhost or a licensed host; 404 unless the camera is public | Referer/Origin |
+| GET    | `/hls/{video_id}/{segment}`      | Proxied variant playlist / segment, same gate | Referer/Origin |
+| GET    | `/hls/{video_id}/poster.jpg`     | Latest watermarked still for a Restreamer camera | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames?day=YYYY-MM-DD` | Archived stills for one local day (default today), sorted by time | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
 | GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header). `?w=320` or `?w=640` serves a resized copy, made on first request and kept at `{video_id}/{day}/thumbs/{HHMM}.w{W}.jpg` (retention deletes thumbs with the frame; other `w` is 400) | None |
@@ -732,13 +735,57 @@ so every viewer of a host's page sees the same theme. Fetching the camera is
 what records the view (same endpoint the camera page loader uses), and there
 is no ad slot in the card, so an embed load never touches the ad-impression
 path. `web-next/vite.config.ts`'s `nitro({ routeRules })` sets
-`Content-Security-Policy: frame-ancestors *` for `/embed/**` only — every
-other route keeps today's headers (no `X-Frame-Options` is set anywhere,
-including `/embed/*`). `EmbedSnippet.tsx` builds the `<iframe>` snippet
+`Content-Security-Policy: frame-ancestors 'self'` on `/**` and
+`frame-ancestors *` on `/embed/**` (the more specific rule wins), so no
+NationCam page except the embed can be iframed on another origin (DAN-241; no
+`X-Frame-Options` is set anywhere). **Licensing rule:** the route's loader
+reads the framing page from the SSR request (`Referer`, plus `Sec-Fetch-Dest`
+to tell a frame from a direct visit; `document.referrer` on a client
+navigation) and compares its host (ignoring `www.`) to the sublocation's
+`host_url` domain; nationcam.com and localhost always pass. A mismatch — or a
+framed request with no Referer — renders a "This camera is not licensed for
+this site" card with a link to the camera page and no player, still or
+conditions. A sublocation with no `host_url` (free-camera hosts) may be
+embedded anywhere, and a page opened directly is always shown. The live
+player inside a licensed embed streams through `/api/hls/...` (see "HLS
+proxy" below); the player runs on nationcam.com, so its Referer passes. `EmbedSnippet.tsx` builds the `<iframe>` snippet
 (400×360 default) and a copy-to-clipboard box shown behind "Embed this
 camera" on the camera page and an "Embed code" button on Dashboard →
 Cameras. Embed pages are not in the sitemap and set
 `<meta name="robots" content="noindex">`.
+
+### HLS proxy
+
+Restreamer-backed cameras are never handed out by their public Restreamer URL
+(DAN-241). Every public video response — `GET /videos...`, the camera page,
+related cameras, and the 302 of `.../stream.m3u8` — carries `src` =
+`/api/hls/{video_id}/index.m3u8` (`hlsPublicSrc` in `handler/hls.go`), so
+`StreamPlayer` needs no URL logic. External HLS/MP4 sources are left as
+stored. `snapshot.jpg`, the snapshot archive and `first_src` keep reading
+Restreamer directly server-side and stay public (Windy/Ventusky). Admin
+`PUT /videos/{id}` treats a `src` equal to the proxy form as "unchanged" and
+keeps the stored URL, since the admin list reads the public endpoint.
+
+- **Routes**: `/hls/{video_id}/index.m3u8` (manifest), `/hls/{video_id}/{segment}`
+  (variant playlists, segments, init maps — filename must match
+  `^[A-Za-z0-9][A-Za-z0-9._-]*\.(m3u8|ts|m4s|mp4|aac|mp3|vtt|webvtt)$`) and
+  `/hls/{video_id}/poster.jpg` (watermarked still, public, 60 s Redis cache;
+  what `streamPoster` returns for a proxied src).
+- **Upstream is pinned**: the URL comes from `videos.src` (via
+  `GetPublicVideoSource`, the same visibility predicate as `GetVideoBySlug`;
+  anything else is 404), the segment resolves to a file beside the manifest,
+  redirects are not followed. Manifests (≤1 MB) are rewritten so each URI
+  becomes `/api/hls/{id}/{file}` (URIs leaving the directory/host are
+  dropped); segments are streamed (≤50 MB, 15 s timeout) with
+  `Cache-Control: private` and `Vary: Origin, Referer`.
+- **Referer/Origin gate** (`hlsGuard`, the single verification hook DAN-242
+  extends with HMAC signing): a request must carry a Referer or Origin and
+  every one it carries must be nationcam.com / www.nationcam.com, localhost /
+  127.0.0.1 (dev), or a licensed embed host; otherwise 403. Licensed hosts are
+  the `host_url` domains of approved sublocations
+  (`ListLicensedHostURLs`), compared without `www.`, cached in memory for 5
+  minutes (same TTL as the stream-proxy allow-list, stale set kept if a refresh
+  fails). Header spoofing is a known limit.
 
 ### Stream Management
 

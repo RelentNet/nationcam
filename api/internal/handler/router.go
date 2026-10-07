@@ -69,6 +69,12 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// Stream proxy — proxies known HLS manifests/segments to bypass CORS.
 	r.Get("/stream-proxy", StreamProxy(pool, proxyExtraHosts))
 
+	// HLS proxy (DAN-241) — Restreamer manifests/segments, Referer/Origin-gated.
+	hlsManifest, hlsSegment, hlsPoster := HLS(pool, c)
+	r.Get("/hls/{video_id}/index.m3u8", hlsManifest)
+	r.Get("/hls/{video_id}/poster.jpg", hlsPoster)
+	r.Get("/hls/{video_id}/{segment}", hlsSegment)
+
 	// Audio channels — DB-backed stations (DAN-47) merged with the AzuraCast
 	// station list for the player's audio picker. Returns [] (never an error)
 	// when both are unset/unreachable. AudioStations does its own Redis

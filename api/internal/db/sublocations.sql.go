@@ -319,6 +319,32 @@ func (q *Queries) GetSublocationBySlug(ctx context.Context, slug string) (GetSub
 	return i, err
 }
 
+const listLicensedHostURLs = `-- name: ListLicensedHostURLs :many
+SELECT host_url FROM sublocations WHERE status = 'approved' AND host_url <> ''
+`
+
+// ListLicensedHostURLs feeds the HLS proxy's licensed-embed-host allow-list
+// (DAN-241): the host_url of every approved sublocation that has one.
+func (q *Queries) ListLicensedHostURLs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listLicensedHostURLs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var host_url string
+		if err := rows.Scan(&host_url); err != nil {
+			return nil, err
+		}
+		items = append(items, host_url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSublocationsByState = `-- name: ListSublocationsByState :many
 
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,

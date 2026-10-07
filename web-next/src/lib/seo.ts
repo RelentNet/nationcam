@@ -25,6 +25,10 @@ export function streamPoster(
 ): string | undefined {
   // `src` can be missing on a cached API row from before a field was added.
   if (!isLive || !src) return undefined
+  // Restreamer cameras are served as the API's HLS proxy URL (DAN-241); the
+  // proxy exposes the same watermarked still beside it.
+  const hls = src.match(/^\/api\/hls\/(\d+)\/index\.m3u8$/)
+  if (hls) return `${SITE_URL}/api/hls/${hls[1]}/poster.jpg`
   const m = src.match(/^(https?:\/\/[^?]+\/memfs\/[^/?]+)\.m3u8/)
   return m ? `${m[1]}.jpg` : undefined
 }
