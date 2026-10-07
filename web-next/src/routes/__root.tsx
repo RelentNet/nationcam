@@ -14,7 +14,7 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import GrainOverlay from '@/components/GrainOverlay'
 import ThemeProvider, { themeInitScript } from '@/components/ThemeProvider'
-import LogtoProvider from '@/components/LogtoProvider'
+import AuthBridge from '@/components/auth/AuthBridge'
 import PostHogInit from '@/lib/posthog'
 import { afterLoadIdle } from '@/lib/afterLoadIdle'
 
@@ -202,17 +202,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <PostHogInit />
         <AdSenseLoader />
-        {/* Logto's browser client is SSR-safe (its storage no-ops without a
-            `window`) and starts in the loading state on both sides, so the
-            provider can wrap the server-rendered shell without a mismatch. */}
-        <LogtoProvider>
+        {/* The Logto SDK is loaded lazily by AuthBridge, never in this bundle. */}
+        <AuthBridge>
           <ThemeProvider>
             <DeferredGrain />
             <Navbar />
             <PageBody>{children}</PageBody>
             <Footer />
           </ThemeProvider>
-        </LogtoProvider>
+        </AuthBridge>
         <TanStackDevtools
           config={{
             position: 'bottom-right',
