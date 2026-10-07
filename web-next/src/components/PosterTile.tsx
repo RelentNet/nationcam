@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { Pause, Video } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import LiveBadge from '@/components/LiveBadge'
+import { cameraStill, cameraStillSrcSet } from '@/lib/stills'
 
 /** How often poster frames are re-fetched while the tab is visible. */
 const POSTER_REFRESH_MS = 30_000
@@ -80,7 +81,22 @@ export default function PosterTile({
   rank,
   as: Title = 'h3',
 }: PosterTileProps) {
-  const src = poster && tick ? `${poster}?t=${tick}` : poster
+  // A camera tile resizes its still through the API (320/640 wide, DAN-244)
+  // instead of pulling the full-size Restreamer JPEG. A sublocation tile has
+  // no camera slug, so it keeps the poster URL it was handed.
+  const cam =
+    link && 'cameraSlug' in link.params
+      ? { ...link.params, cameraSlug: link.params.cameraSlug }
+      : undefined
+  const resized = poster && cam
+  const src = resized
+    ? cameraStill(cam.slug, cam.sublocationSlug, cam.cameraSlug, 640, tick)
+    : poster && tick
+      ? `${poster}?t=${tick}`
+      : poster
+  const srcSet = resized
+    ? cameraStillSrcSet(cam.slug, cam.sublocationSlug, cam.cameraSlug, tick)
+    : undefined
   const className = `group block overflow-hidden rounded-xl border bg-surface0 no-underline transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_0_0_3px_var(--color-accent-glow)] ${
     selected
       ? 'border-accent shadow-[0_0_0_3px_var(--color-accent-glow)]'
@@ -92,6 +108,10 @@ export default function PosterTile({
         {src ? (
           <img
             src={src}
+            srcSet={srcSet}
+            sizes="(min-width: 960px) 33vw, (min-width: 560px) 50vw, 100vw"
+            width={640}
+            height={360}
             alt={`${title} live view`}
             loading="lazy"
             className="h-full w-full object-cover"

@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"bytes"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -100,11 +103,39 @@ func ServeSnapshots(store *archive.Store) http.Handler {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+		tw, ok := parseThumbWidth(r)
+		if !ok {
+			badWidth(w)
+			return
+		}
 		rel := strings.TrimPrefix(r.URL.Path, "/snapshots/")
 		path, err := store.Resolve(rel)
 		if err != nil {
 			http.NotFound(w, r)
 			return
+		}
+		if tw != 0 {
+			// Resized copies are made on first request and kept beside the
+			// originals; the original is only ever read.
+			tp := archive.ThumbPath(path, tw)
+			if _, err := os.Stat(tp); err != nil {
+				orig, err := os.ReadFile(path)
+				if err != nil {
+					http.NotFound(w, r)
+					return
+				}
+				b, err := resizeJPEG(orig, tw)
+				if err != nil {
+					http.Error(w, "could not resize", http.StatusInternalServerError)
+					return
+				}
+				if err := archive.WriteAtomic(tp, b); err != nil {
+					slog.Warn("write thumb failed", "path", tp, "error", err)
+					serveImmutable(w, r, "thumb.jpg", time.Now(), bytes.NewReader(b))
+					return
+				}
+			}
+			path = tp
 		}
 		f, err := os.Open(path)
 		if err != nil {
@@ -117,8 +148,12 @@ func ServeSnapshots(store *archive.Store) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+		serveImmutable(w, r, info.Name(), info.ModTime(), f)
 	})
+}
+
+func serveImmutable(w http.ResponseWriter, r *http.Request, name string, mod time.Time, f io.ReadSeeker) {
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	http.ServeContent(w, r, name, mod, f)
 }

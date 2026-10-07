@@ -3,6 +3,7 @@ import { ArrowRight, Pause, Play, Repeat, Sunrise, Sunset } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Frame } from '@/lib/types'
 import { afterLoadIdle } from '@/lib/afterLoadIdle'
+import { archiveStill } from '@/lib/stills'
 import SectionHead from '@/components/ui/SectionHead'
 
 /** A `Frame` that also knows whether it came from yesterday's archive. */
@@ -155,7 +156,7 @@ export default function SnapshotStrip({
       img.onload = img.onerror = () => {
         inFlightRef.current -= 1
       }
-      img.src = frame.url
+      img.src = archiveStill(frame.url, 640)
     }
   }, [playing, index, frames])
 
@@ -227,7 +228,7 @@ export default function SnapshotStrip({
         <div className="relative aspect-video bg-crust">
           <img
             key={selected.url}
-            src={selected.url}
+            src={archiveStill(selected.url, 640)}
             alt={`${sublocationName} at ${timeLabel(selected.time)}${selected.yesterday ? ' (yesterday)' : ''}`}
             width={PREVIEW_W}
             height={PREVIEW_H}
@@ -350,7 +351,7 @@ export default function SnapshotStrip({
               }`}
             >
               <img
-                src={thumbsReady ? frame.url : undefined}
+                src={thumbsReady ? archiveStill(frame.url, 320) : undefined}
                 alt=""
                 width={THUMB_W}
                 height={THUMB_H}

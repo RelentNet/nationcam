@@ -347,11 +347,11 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos?state_id=N`             | Videos by state                | None          |
 | GET    | `/videos?sublocation_id=N`       | Videos by sublocation          | None          |
 | GET    | `/videos/{state}/{sub}/{slug}`   | Single camera + related cameras | None         |
-| GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky | None |
+| GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky. `?w=320` or `?w=640` returns a JPEG resized to that width (aspect kept, never upscaled; cached 60s per width; any other `w` is 400) | None |
 | GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 to the camera's current HLS manifest | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames?day=YYYY-MM-DD` | Archived stills for one local day (default today), sorted by time | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
-| GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header) | None |
+| GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header). `?w=320` or `?w=640` serves a resized copy, made on first request and kept at `{video_id}/{day}/thumbs/{HHMM}.w{W}.jpg` (retention deletes thumbs with the frame; other `w` is 400) | None |
 | POST   | `/videos`                        | Create video                   | Admin (Logto) |
 | GET    | `/me`                            | `{ user_id, is_admin, limits: { max_cameras, per_day }, counts: { sublocations, videos } }` | User (Logto) |
 | GET    | `/me/sublocations`               | The caller's sublocations, any status, with `review_note` | User (Logto) |

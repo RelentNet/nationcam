@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/brandon-relentnet/nationcam/api/internal/archive"
@@ -52,9 +53,23 @@ func CameraSnapshot(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 	client := NewSnapshotClient()
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		tw, ok := parseThumbWidth(r)
+		if !ok {
+			badWidth(w)
+			return
+		}
 		params := cameraParams(r)
 		// Under videos: so any camera write invalidates it along with the rest.
 		key := "videos:snapshot:" + params.StateSlug + ":" + params.SublocationSlug + ":" + params.Slug
+
+		// A resized still is cached per width beside the full-size one.
+		thumbKey := key + ":w" + strconv.Itoa(tw)
+		if tw != 0 {
+			if img, _ := c.Get(ctx, thumbKey); img != "" {
+				writeStill(w, img)
+				return
+			}
+		}
 
 		img, _ := c.Get(ctx, key)
 		if img == "" {
@@ -73,10 +88,24 @@ func CameraSnapshot(pool *pgxpool.Pool, c *cache.Cache) http.HandlerFunc {
 			_ = c.Set(ctx, key, img, snapshotTTL)
 		}
 
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "public, max-age=60")
-		_, _ = io.WriteString(w, img)
+		if tw != 0 {
+			b, err := resizeJPEG([]byte(img), tw)
+			if err != nil {
+				slog.Warn("snapshot resize failed", "key", key, "error", err)
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": "snapshot unavailable"})
+				return
+			}
+			img = string(b)
+			_ = c.Set(ctx, thumbKey, img, snapshotTTL)
+		}
+		writeStill(w, img)
 	}
+}
+
+func writeStill(w http.ResponseWriter, img string) {
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "public, max-age=60")
+	_, _ = io.WriteString(w, img)
 }
 
 // CameraStream handles GET /videos/{stateSlug}/{sublocationSlug}/{slug}/stream.m3u8
