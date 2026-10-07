@@ -32,17 +32,25 @@ import (
 // domain). The check is on the Referer / Origin header, which a determined
 // client can forge; it stops casual hotlinking, not a scripted scraper.
 //
+// DAN-242 puts an HMAC signature in front of that (see hlssign.go): every
+// manifest and segment request needs a valid, unexpired player token or signed
+// URL, so a spoofed Referer alone no longer fetches anything.
+//
 // The upstream URL always comes from the database (videos.src), never from the
 // request, and the segment name is a strict filename, so the handler cannot be
 // steered to another host or path.
-//
-// DAN-242 adds HMAC-signed URLs on top: swap hlsGuard for a verifier.
 
 const (
 	hlsManifestMaxBytes = 1 << 20 // a playlist is a few KB; 1 MB is generous
 	hlsTimeout          = 15 * time.Second
 	hlsPathPrefix       = "/api/hls"
 	posterTTL           = 60 * time.Second
+	// hlsSrcTTL caches id -> upstream src in memory so a segment request (one
+	// every few seconds per viewer) does not cost a Postgres round trip. A
+	// camera rejected or paused stops being served within this window.
+	hlsSrcTTL = 10 * time.Second
+	// hlsCopyBufSize is the relay buffer for segments (pooled, see hlsCopy).
+	hlsCopyBufSize = 32 << 10
 )
 
 // hlsSegmentName is the only shape accepted for {segment}: a plain filename
@@ -189,68 +197,165 @@ func (a *hlsHostAllowlist) refererAllowed(r *http.Request) bool {
 // HLS serves the proxy routes. c may be nil only in tests that never hit the
 // poster.
 func HLS(pool *pgxpool.Pool, c *cache.Cache) (manifest, segment, poster http.HandlerFunc) {
-	return newHLSHandlers(pgHLSStore{pool}, c, &http.Client{
-		Timeout: hlsTimeout,
+	return newHLSHandlers(pgHLSStore{pool}, c, newHLSClient())
+}
+
+// newHLSClient is the upstream client for the proxy. Its own transport keeps
+// enough idle connections to Restreamer for every concurrent viewer: the
+// default transport keeps 2 per host, so under load most segment fetches would
+// open a fresh TCP (and TLS) connection.
+func newHLSClient() *http.Client {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConns = 512
+	t.MaxIdleConnsPerHost = 256
+	t.IdleConnTimeout = 90 * time.Second
+	return &http.Client{
+		Timeout:   hlsTimeout,
+		Transport: t,
 		// An upstream redirect is never followed: the target would escape the
 		// DB-derived URL this handler is pinned to.
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	})
+	}
+}
+
+// hlsSrcCache memoizes PublicVideoSource hits for hlsSrcTTL. Misses and errors
+// are never cached.
+type hlsSrcCache struct {
+	store hlsStore
+	mu    sync.RWMutex
+	m     map[int32]hlsSrcEntry
+}
+
+type hlsSrcEntry struct {
+	src string
+	at  time.Time
+}
+
+func (c *hlsSrcCache) get(ctx context.Context, id int32) (string, error) {
+	c.mu.RLock()
+	e, ok := c.m[id]
+	c.mu.RUnlock()
+	if ok && time.Since(e.at) < hlsSrcTTL {
+		return e.src, nil
+	}
+	src, err := c.store.PublicVideoSource(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	c.mu.Lock()
+	if c.m == nil || len(c.m) > 10000 {
+		c.m = make(map[int32]hlsSrcEntry)
+	}
+	c.m[id] = hlsSrcEntry{src: src, at: time.Now()}
+	c.mu.Unlock()
+	return src, nil
+}
+
+// hlsAccess is what the guard established about a request.
+type hlsAccess struct {
+	// signedExp is non-zero when the request came in on a signed URL
+	// (?exp=&sig=): a manifest served to it gets signed URIs that expire no
+	// later than this.
+	signedExp int64
+}
+
+var hlsCopyBufs = sync.Pool{New: func() any { b := make([]byte, hlsCopyBufSize); return &b }}
+
+// hlsWriterOnly hides http.ResponseWriter's ReaderFrom so io.CopyBuffer uses
+// our pooled buffer. Otherwise the copy goes through net.TCPConn.ReadFrom,
+// which for a source that is neither a file nor a socket (an HTTP response
+// body) falls back to io.Copy with a fresh 32 KB buffer per segment.
+type hlsWriterOnly struct{ io.Writer }
+
+// hlsCopy relays body to w through one pooled buffer: no body buffering and
+// no per-segment buffer allocation.
+func hlsCopy(w io.Writer, body io.Reader) (int64, error) {
+	bp := hlsCopyBufs.Get().(*[]byte)
+	defer hlsCopyBufs.Put(bp)
+	return io.CopyBuffer(hlsWriterOnly{w}, body, *bp)
 }
 
 func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manifest, segment, poster http.HandlerFunc) {
 	allow := &hlsHostAllowlist{store: store}
+	srcs := &hlsSrcCache{store: store}
+
+	forbid := func(w http.ResponseWriter, err error) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden", "detail": err.Error()})
+	}
 
 	// hlsGuard is the single verification hook: it runs before any upstream
-	// work. DAN-242 replaces the Referer check with (or adds) a signature check
-	// here.
-	hlsGuard := func(w http.ResponseWriter, r *http.Request, videoID int32) bool {
+	// work. A request needs either a signed URL bound to this exact file
+	// (?exp=&sig=, the stream.m3u8 / native-HLS path, no Referer needed) or a
+	// player token in X-HLS-Token plus an allowed Referer/Origin (our player).
+	// See hlssign.go.
+	hlsGuard := func(w http.ResponseWriter, r *http.Request, videoID int32, file string) (hlsAccess, bool) {
+		signer := currentHLSSigner()
+		now := hlsNow()
+		q := r.URL.Query()
+		if q.Has("sig") || q.Has("exp") {
+			exp, err := strconv.ParseInt(q.Get("exp"), 10, 64)
+			if err != nil {
+				forbid(w, errHLSBadSig)
+				return hlsAccess{}, false
+			}
+			if err := signer.verify(videoID, file, exp, q.Get("sig"), now); err != nil {
+				forbid(w, err)
+				return hlsAccess{}, false
+			}
+			return hlsAccess{signedExp: exp}, true
+		}
+		if err := signer.verifyPlayerToken(videoID, r.Header.Get(hlsTokenHeader), now); err != nil {
+			forbid(w, err)
+			return hlsAccess{}, false
+		}
 		if !allow.refererAllowed(r) {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden", "detail": "stream not available from this site"})
-			return false
+			return hlsAccess{}, false
 		}
-		return true
+		return hlsAccess{}, true
 	}
 
 	// lookup resolves {video_id} to the raw upstream src, or writes the error.
-	lookup := func(w http.ResponseWriter, r *http.Request) (int32, *url.URL, bool) {
+	lookup := func(w http.ResponseWriter, r *http.Request, file string) (int32, *url.URL, hlsAccess, bool) {
 		id, err := strconv.ParseInt(chi.URLParam(r, "video_id"), 10, 32)
 		if err != nil || id <= 0 {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
-			return 0, nil, false
+			return 0, nil, hlsAccess{}, false
 		}
-		if !hlsGuard(w, r, int32(id)) {
-			return 0, nil, false
+		access, ok := hlsGuard(w, r, int32(id), file)
+		if !ok {
+			return 0, nil, hlsAccess{}, false
 		}
-		src, err := store.PublicVideoSource(r.Context(), int32(id))
+		src, err := srcs.get(r.Context(), int32(id))
 		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				slog.Warn("hls: source lookup failed", "video_id", id, "err", err)
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "lookup failed"})
-				return 0, nil, false
+				return 0, nil, hlsAccess{}, false
 			}
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
-			return 0, nil, false
+			return 0, nil, hlsAccess{}, false
 		}
 		if !memfsHLS.MatchString(src) {
 			// External sources are played directly, never through here.
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
-			return 0, nil, false
+			return 0, nil, hlsAccess{}, false
 		}
 		u, err := url.Parse(src)
 		if err != nil {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
-			return 0, nil, false
+			return 0, nil, hlsAccess{}, false
 		}
 		u.RawQuery = ""
-		return int32(id), u, true
+		return int32(id), u, access, true
 	}
 
 	manifest = func(w http.ResponseWriter, r *http.Request) {
-		id, upstream, ok := lookup(w, r)
+		id, upstream, access, ok := lookup(w, r, "index.m3u8")
 		if !ok {
 			return
 		}
-		serveHLSUpstream(w, r, client, id, upstream)
+		serveHLSUpstream(w, r, client, id, upstream, access)
 	}
 
 	segment = func(w http.ResponseWriter, r *http.Request) {
@@ -259,13 +364,13 @@ func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manife
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 			return
 		}
-		id, base, ok := lookup(w, r)
+		id, base, access, ok := lookup(w, r, name)
 		if !ok {
 			return
 		}
 		u := *base
 		u.Path = path.Join(path.Dir(base.Path), name)
-		serveHLSUpstream(w, r, client, id, &u)
+		serveHLSUpstream(w, r, client, id, &u, access)
 	}
 
 	// poster is the camera's latest watermarked still, public like snapshot.jpg
@@ -309,7 +414,7 @@ func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manife
 
 // serveHLSUpstream fetches one upstream file and relays it. Playlists are
 // buffered (bounded) and rewritten; everything else is streamed.
-func serveHLSUpstream(w http.ResponseWriter, r *http.Request, client *http.Client, videoID int32, upstream *url.URL) {
+func serveHLSUpstream(w http.ResponseWriter, r *http.Request, client *http.Client, videoID int32, upstream *url.URL, access hlsAccess) {
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, upstream.String(), nil)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "could not build upstream request"})
@@ -347,7 +452,11 @@ func serveHLSUpstream(w http.ResponseWriter, r *http.Request, client *http.Clien
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to read upstream response"})
 			return
 		}
-		out := rewriteHLSManifest(body, videoID, upstream)
+		var sign func(file string) string
+		if access.signedExp != 0 {
+			sign = hlsURISigner(videoID, access.signedExp)
+		}
+		out := rewriteHLSManifest(body, videoID, upstream, sign)
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Vary", "Origin, Referer")
@@ -366,18 +475,39 @@ func serveHLSUpstream(w http.ResponseWriter, r *http.Request, client *http.Clien
 		w.Header().Set("Content-Range", cr)
 	}
 	// private: a shared cache would hand a segment to a client that never
-	// passed the Referer check.
+	// passed the signature check.
 	w.Header().Set("Cache-Control", "private, max-age=60")
 	w.Header().Set("Vary", "Origin, Referer")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, io.LimitReader(resp.Body, proxyMaxBodySize))
+	_, _ = hlsCopy(w, io.LimitReader(resp.Body, proxyMaxBodySize))
+}
+
+// hlsURISigner signs the URIs of a manifest served on a signed URL whose
+// signature expires at manifestExp: playlists inherit manifestExp (a native
+// player reloads them for as long as the manifest is valid), segments and
+// init maps get min(now+hlsSegmentURLTTL, manifestExp). Every manifest fetch
+// re-signs, so a live player always holds fresh segment URIs.
+func hlsURISigner(videoID int32, manifestExp int64) func(file string) string {
+	signer := currentHLSSigner()
+	segExp := hlsNow().Add(hlsSegmentURLTTL).Unix()
+	if segExp > manifestExp {
+		segExp = manifestExp
+	}
+	return func(file string) string {
+		exp := segExp
+		if strings.HasSuffix(strings.ToLower(file), ".m3u8") {
+			exp = manifestExp
+		}
+		return signer.signedURL(videoID, file, exp)
+	}
 }
 
 // rewriteHLSManifest points every URI in a playlist back at this proxy. A URI
 // that resolves to a file in the same directory as the manifest becomes
-// /api/hls/{id}/{file}; anything else (another host or directory) is dropped
-// from the URI line so it can never be fetched around the proxy.
-func rewriteHLSManifest(body []byte, videoID int32, manifestURL *url.URL) []byte {
+// /api/hls/{id}/{file}, or sign(file) (a signed URL) when sign is non-nil;
+// anything else (another host or directory) is dropped from the URI line so it
+// can never be fetched around the proxy.
+func rewriteHLSManifest(body []byte, videoID int32, manifestURL *url.URL, sign func(file string) string) []byte {
 	proxied := func(raw string) (string, bool) {
 		ref, err := url.Parse(strings.TrimSpace(raw))
 		if err != nil {
@@ -390,6 +520,9 @@ func rewriteHLSManifest(body []byte, videoID int32, manifestURL *url.URL) []byte
 		name := path.Base(abs.Path)
 		if !hlsSegmentName.MatchString(name) {
 			return "", false
+		}
+		if sign != nil {
+			return sign(name), true
 		}
 		return fmt.Sprintf("%s/%d/%s", hlsPathPrefix, videoID, name), true
 	}

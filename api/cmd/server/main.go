@@ -127,6 +127,21 @@ func run() error {
 		}
 	}
 
+	// ── Signed HLS URLs (DAN-242) ──────────────────────────────────
+	// Never logs the key. Unset: a random per-process key, so streams still
+	// play (tokens are issued and checked by this process) but every issued
+	// URL dies on restart and fails on any other replica.
+	generated, err := handler.SetHLSSigningKey(cfg.HLSSigningKey)
+	if err != nil {
+		slog.Error("hls signing key", "error", err)
+		os.Exit(1)
+	}
+	if generated {
+		slog.Warn("HLS_SIGNING_KEY not set: using a random per-process key; signed stream URLs stop working on restart and across replicas")
+	} else if len(cfg.HLSSigningKey) < 32 {
+		slog.Warn("HLS_SIGNING_KEY is shorter than 32 characters; use 32+ random characters")
+	}
+
 	router := handler.NewRouter(pool, redisCache, auth, cfg.CORSOrigins, rc, cfg.StreamerAPIKey, proxyExtraHosts, cfg.AzuracastURL, uploadsDir, snapshots, logtoAdminClient, cfg.OpsAPIKey, lightningStore)
 
 	// ── Snapshot archive job ───────────────────────────────────────

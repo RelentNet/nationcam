@@ -218,14 +218,16 @@ function HomeHero({
                 />
               </PrerollGate>
             ) : (
-              <StreamPlayer
-                src="https://streamer.nationcam.com/memfs/4cdb363f-2bfa-4a0a-b954-ac9b16200665.m3u8"
-                autoplay
-                muted
-                live
-                fluid
-                audioChannels
-              />
+              // No public camera to feature: an empty frame rather than a
+              // hand-built Restreamer URL (DAN-242: every stream is signed
+              // through the API, so a hard-coded one would never play).
+              <div className="stream-player aspect-video">
+                <div className="absolute inset-0 flex items-center justify-center bg-crust">
+                  <p className="mb-0 font-mono text-xs text-subtext0">
+                    No live camera right now
+                  </p>
+                </div>
+              </div>
             )}
             <figcaption className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 font-mono text-xs tracking-[0.02em] text-label uppercase">
               <span className="min-w-0 truncate">Featured camera</span>

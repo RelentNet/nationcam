@@ -377,6 +377,43 @@ export async function fetchConditions(
  * "Lightning data unavailable" card). Used by the route loaders for the
  * server render and by the card's 60-second client-side poll.
  */
+/** `GET /videos/{id}/stream-token` (DAN-242). */
+export interface StreamToken {
+  video_id: number
+  /** Sent in `header` on every manifest/segment request through `/api/hls`. */
+  token: string
+  header: string
+  expires_at: string
+  ttl_seconds: number
+  manifest_url: string
+  /** For players that cannot set a header (native HLS): a signed URL. */
+  signed_manifest_url: string
+  native_ttl_seconds: number
+}
+
+/** `/api/hls/{id}/index.m3u8` — the proxied src the API hands out for Restreamer cameras. */
+const HLS_PROXY_SRC = /^\/api\/hls\/(\d+)\/index\.m3u8$/
+
+/** The camera id of a proxied HLS src, or null for any other src. */
+export function hlsProxyVideoId(src: string): number | null {
+  const m = src.match(HLS_PROXY_SRC)
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * A short-lived playback token for a proxied camera. Browser-only and never
+ * cached: the player calls it at mount and again before the token expires.
+ * Throws the API's message on failure.
+ */
+export async function fetchStreamToken(videoId: number): Promise<StreamToken> {
+  const res = await fetch(`/api/videos/${videoId}/stream-token`, {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`stream token: ${res.status}`)
+  return (await res.json()) as StreamToken
+}
+
 export async function fetchLightning(slug: string): Promise<LightningResult> {
   try {
     const res = await fetch(`${API_BASE}/sublocations/${slug}/lightning`, {

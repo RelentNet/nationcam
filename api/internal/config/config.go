@@ -45,6 +45,11 @@ type Config struct {
 	// noaa-goes19 — GOES-East).
 	LightningEnabled bool
 	LightningBucket  string
+
+	// HLSSigningKey is the HMAC key for signed HLS proxy URLs and player
+	// tokens (DAN-242). Empty means a random per-process key: URLs work
+	// until the next restart and never across replicas.
+	HLSSigningKey string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -86,6 +91,8 @@ func Load() (*Config, error) {
 
 		LightningEnabled: envBool("LIGHTNING_ENABLED", true),
 		LightningBucket:  envOr("LIGHTNING_BUCKET", "noaa-goes19"),
+
+		HLSSigningKey: os.Getenv("HLS_SIGNING_KEY"),
 	}, nil
 }
 

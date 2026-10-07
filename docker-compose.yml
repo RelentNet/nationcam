@@ -67,6 +67,10 @@ services:
       # S3, no credentials. Set LIGHTNING_ENABLED=false to turn the job off.
       LIGHTNING_ENABLED: ${LIGHTNING_ENABLED:-true}
       LIGHTNING_BUCKET: ${LIGHTNING_BUCKET:-noaa-goes19}
+      # HMAC key for signed HLS stream URLs (DAN-242), 32+ random chars. Unset:
+      # a random per-process key — streams play, but every issued URL dies on
+      # restart. Set it in production.
+      HLS_SIGNING_KEY: ${HLS_SIGNING_KEY:-}
     volumes:
       - uploads:/app/data/uploads
       - snapshots:/app/data/snapshots
