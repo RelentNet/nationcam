@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { Pause } from 'lucide-react'
 import type { Video } from '@/lib/types'
 import { streamPoster } from '@/lib/seo'
+import { cameraStill } from '@/lib/stills'
 import PrerollGate from '@/components/PrerollGate'
 import StreamPlayer from '@/components/StreamPlayer'
 
@@ -18,7 +19,18 @@ export default function CameraPlayer({ camera }: { camera: Video }) {
     return <PausedPlaceholder camera={camera} />
   }
 
-  const poster = streamPoster(camera.src, camera.status === 'active')
+  // The still behind the player loads as a 640-wide API rendition (DAN-244),
+  // not the full-size Restreamer JPEG, when the camera knows its page slugs.
+  const rawPoster = streamPoster(camera.src, camera.status === 'active')
+  const poster =
+    rawPoster && camera.state_slug && camera.sublocation_slug
+      ? cameraStill(
+          camera.state_slug,
+          camera.sublocation_slug,
+          camera.slug,
+          640,
+        )
+      : rawPoster
   return (
     <PrerollGate
       videoId={camera.video_id}
@@ -55,7 +67,12 @@ export default function CameraPlayer({ camera }: { camera: Video }) {
 function PausedPlaceholder({ camera }: { camera: Video }) {
   const stillUrl =
     camera.state_slug && camera.sublocation_slug
-      ? `/api/videos/${camera.state_slug}/${camera.sublocation_slug}/${camera.slug}/snapshot.jpg`
+      ? cameraStill(
+          camera.state_slug,
+          camera.sublocation_slug,
+          camera.slug,
+          640,
+        )
       : undefined
   const sublocationName = camera.sublocation_name || 'this location'
 

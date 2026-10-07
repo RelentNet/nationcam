@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -83,10 +84,12 @@ func (s *Store) Prune(now time.Time) PruneResult {
 						slog.Warn("archive prune: remove frame", "file", n, "dir", dayDir, "error", err)
 						continue
 					}
+					removeThumbs(dayDir, n)
 					res.FramesDeleted++
 				}
 				if keep == "" {
 					// Nothing to keep: only stray files, or nothing at all.
+					_ = os.RemoveAll(filepath.Join(dayDir, ThumbsDir))
 					if err := os.Remove(dayDir); err == nil {
 						res.DaysDeleted++
 					}
@@ -119,6 +122,17 @@ func NoonFrame(names []string) string {
 		}
 	}
 	return best
+}
+
+// removeThumbs deletes every resized copy of the frame named n ("HHMM.jpg") in
+// dayDir, and the thumbs directory once it is empty.
+func removeThumbs(dayDir, n string) {
+	dir := filepath.Join(dayDir, ThumbsDir)
+	matches, _ := filepath.Glob(filepath.Join(dir, strings.TrimSuffix(n, ".jpg")+".w*.jpg"))
+	for _, m := range matches {
+		_ = os.Remove(m)
+	}
+	_ = os.Remove(dir) // fails harmlessly while other thumbs remain
 }
 
 // removeDay deletes a whole day directory, returning how many frames it held.

@@ -110,27 +110,46 @@ func (s *Store) FramePath(videoID int32, t time.Time) string {
 // atomic (temp file + rename) so a reader never sees a half-written JPEG.
 func (s *Store) Write(videoID int32, t time.Time, jpeg []byte) (string, error) {
 	path := s.FramePath(videoID, t)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
-	if err != nil {
-		return "", err
-	}
-	if _, err := tmp.Write(jpeg); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmp.Name())
-		return "", err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmp.Name())
-		return "", err
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		_ = os.Remove(tmp.Name())
+	if err := WriteAtomic(path, jpeg); err != nil {
 		return "", err
 	}
 	return path, nil
+}
+
+// WriteAtomic writes data to path via a temp file in the same directory and a
+// rename, creating parent directories as needed.
+func WriteAtomic(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	return nil
+}
+
+// ThumbsDir is the per-day directory holding resized copies of that day's
+// frames, a sibling of the originals: {day}/thumbs/{HHMM}.w{width}.jpg.
+const ThumbsDir = "thumbs"
+
+// ThumbPath is where the width-w copy of the frame at framePath lives.
+func ThumbPath(framePath string, w int) string {
+	dir, file := filepath.Split(framePath)
+	return filepath.Join(dir, ThumbsDir, strings.TrimSuffix(file, ".jpg")+".w"+strconv.Itoa(w)+".jpg")
 }
 
 // Days lists the days that hold at least one frame for videoID, newest first.
