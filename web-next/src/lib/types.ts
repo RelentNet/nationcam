@@ -660,6 +660,67 @@ export interface Me {
   is_admin: boolean
   limits: { max_cameras: number; per_day: number }
   counts: { sublocations: number; videos: number }
+  personal_account_id?: number | null
+  accounts?: Array<MyAccount>
+}
+
+/* ──── Accounts and members (DAN-381/DAN-382) ──── */
+
+export type AccountRole = 'admin' | 'viewer'
+
+/** One row of `GET /me/accounts` — an account the caller belongs to, with
+ *  the caller's own role and camera access in it. */
+export interface MyAccount {
+  account_id: number
+  name: string
+  personal: boolean
+  role: AccountRole
+  all_cameras: boolean
+  sublocation_count: number
+  video_count: number
+}
+
+/** `GET /accounts/{id}/members` row. Members are known by Logto `sub` only. */
+export interface AccountMember {
+  account_id: number
+  user_id: string
+  role: AccountRole
+  all_cameras: boolean
+  video_ids: Array<number>
+  created_at: string
+  updated_at: string
+}
+
+/** Body of `PUT /accounts/{id}/members/{user_id}` and `POST .../invites`. */
+export interface MemberSelectionInput {
+  role: AccountRole
+  all_cameras: boolean
+  video_ids: Array<number>
+}
+
+/** `POST /accounts/{id}/invites` — `token` is returned this once only. */
+export interface CreatedInvite {
+  invite_id: number
+  account_id: number
+  token: string
+  role: AccountRole
+  all_cameras: boolean
+  video_ids: Array<number>
+  expires_at: string
+}
+
+/** `GET /accounts` row (NationCam admins). */
+export interface AdminAccount {
+  account_id: number
+  name: string
+  personal: boolean
+  personal_owner_id?: string
+  created_by: string
+  created_at: string
+  updated_at: string
+  member_count: number
+  sublocation_count: number
+  video_count: number
 }
 
 export type SublocationStatus = 'pending' | 'approved' | 'rejected'
@@ -689,6 +750,8 @@ export interface OwnerSublocation {
   state_name: string
   state_slug: string
   video_count: number
+  /** The owning account (DAN-381); null on legacy admin-owned rows. */
+  account_id?: number | null
 }
 
 export type OwnerVideoStatus =
@@ -721,10 +784,15 @@ export interface OwnerVideo {
   sublocation_name: string
   sublocation_slug: string
   sublocation_status: string
+  /** The owning account (DAN-381); null on legacy admin-owned rows. */
+  account_id?: number | null
 }
 
 /** Body of `POST`/`PUT /me/sublocations`. */
 export interface OwnerSublocationInput {
+  /** Create only: the account to file the location under (caller must be
+   *  its admin). Omitted = the caller's personal account. */
+  account_id?: number
   name: string
   description?: string
   state_id: number

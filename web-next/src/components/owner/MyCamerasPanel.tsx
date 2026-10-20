@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Film,
   Loader2,
@@ -19,6 +19,7 @@ import {
   FormFooter,
   ModalShell,
   PanelHeader,
+  PanelHeaderStatic,
   SelectField,
   staggerStyle,
   useAutoHide,
@@ -27,8 +28,6 @@ import { ReviewNote, StatusPill } from '@/components/owner/ownerUi'
 import {
   createMyVideo,
   deleteMyVideo,
-  fetchMySublocations,
-  fetchMyVideos,
   pauseMyVideo,
   resumeMyVideo,
   updateMyVideo,
@@ -45,47 +44,28 @@ import EmbedSnippet from '@/components/EmbedSnippet'
    ════════════════════════════════════════════════ */
 
 export default function MyCamerasPanel({
-  onLimitsChange,
+  videos,
+  locations,
+  canEdit,
+  loading,
+  loadError,
+  onChanged,
 }: {
-  /** Called after any write that could change the owner's camera count, so
-   *  the dashboard route's "3 of 10 cameras" line (from GET /me) stays
-   *  current without this panel needing to know about limits itself. */
-  onLimitsChange: () => void
+  /** This account's cameras only (the dashboard fetches and filters). */
+  videos: Array<OwnerVideo>
+  /** This account's locations, for the add form's picker. */
+  locations: Array<OwnerSublocation>
+  /** False for a viewer: no add, edit, pause, resume, delete or embed. */
+  canEdit: boolean
+  loading: boolean
+  loadError: string | null
+  /** Re-fetch the dashboard's owner data (cameras, locations, limits line)
+   *  after a write. */
+  onChanged: () => Promise<void>
 }) {
   const { getToken } = useAuth()
 
-  const [videos, setVideos] = useState<Array<OwnerVideo>>([])
-  const [locations, setLocations] = useState<Array<OwnerSublocation>>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-
-  const load = async () => {
-    try {
-      const token = await getToken()
-      const [vids, locs] = await Promise.all([
-        fetchMyVideos(token),
-        fetchMySublocations(token),
-      ])
-      setVideos(vids)
-      setLocations(locs)
-      setLoadError(null)
-    } catch (err) {
-      setLoadError(
-        err instanceof Error ? err.message : 'Failed to load your cameras.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
-
-  const refresh = async () => {
-    await load()
-    onLimitsChange()
-  }
+  const refresh = onChanged
 
   const [showCreate, setShowCreate] = useState(false)
   const [title, setTitle] = useState('')
@@ -187,18 +167,25 @@ export default function MyCamerasPanel({
   return (
     <>
       <div className="space-y-4">
-        <PanelHeader
-          title="My cameras"
-          subtitle="Cameras you've added — new ones enter review before going live"
-          showCreate={showCreate}
-          onToggleCreate={() => {
-            setShowCreate(!showCreate)
-            setMsg(null)
-          }}
-          createLabel="Add Camera"
-        />
+        {canEdit ? (
+          <PanelHeader
+            title="Cameras"
+            subtitle="Cameras in this account — new ones enter review before going live"
+            showCreate={showCreate}
+            onToggleCreate={() => {
+              setShowCreate(!showCreate)
+              setMsg(null)
+            }}
+            createLabel="Add Camera"
+          />
+        ) : (
+          <PanelHeaderStatic
+            title="Cameras"
+            subtitle="Cameras you can watch in this account"
+          />
+        )}
 
-        {showCreate && (
+        {canEdit && showCreate && (
           <CreatePanel>
             {locations.length === 0 ? (
               <p className="mb-0 text-sm text-subtext0">
@@ -258,13 +245,18 @@ export default function MyCamerasPanel({
           loading={loading}
           empty={!loadError && sortedVideos.length === 0}
           emptyIcon={Film}
-          emptyText="No cameras yet — add one to get started"
+          emptyText={
+            canEdit
+              ? 'No cameras yet — add one to get started'
+              : 'No cameras to show'
+          }
         >
           {sortedVideos.map((v, i) => (
             <CameraRow
               key={v.video_id}
               video={v}
               index={i}
+              canEdit={canEdit}
               busy={busyId === v.video_id}
               onToggle={() => handleToggle(v)}
               onEdit={() => setEditing(v)}
@@ -304,6 +296,7 @@ export default function MyCamerasPanel({
 function CameraRow({
   video,
   index,
+  canEdit,
   busy,
   onToggle,
   onEdit,
@@ -311,6 +304,7 @@ function CameraRow({
 }: {
   video: OwnerVideo
   index: number
+  canEdit: boolean
   busy: boolean
   onToggle: () => void
   onEdit: () => void
@@ -319,6 +313,7 @@ function CameraRow({
   const [showEmbed, setShowEmbed] = useState(false)
   const canToggle = video.status === 'active' || video.status === 'paused'
   const canEmbed =
+    canEdit &&
     video.status !== 'pending' &&
     video.status !== 'rejected' &&
     Boolean(video.sublocation_slug)
@@ -349,23 +344,27 @@ function CameraRow({
             </button>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {canToggle && (
+        {canEdit && (
+          <div className="flex shrink-0 items-center gap-1">
+            {canToggle && (
+              <ActionBtn
+                icon={video.status === 'active' ? PauseCircle : PlayCircle}
+                onClick={onToggle}
+                label={video.status === 'active' ? 'Pause' : 'Resume'}
+              />
+            )}
+            {busy && (
+              <Loader2 size={14} className="animate-spin text-subtext0" />
+            )}
+            <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
             <ActionBtn
-              icon={video.status === 'active' ? PauseCircle : PlayCircle}
-              onClick={onToggle}
-              label={video.status === 'active' ? 'Pause' : 'Resume'}
+              icon={Trash2}
+              onClick={onDelete}
+              label="Delete"
+              variant="danger"
             />
-          )}
-          {busy && <Loader2 size={14} className="animate-spin text-subtext0" />}
-          <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
-          <ActionBtn
-            icon={Trash2}
-            onClick={onDelete}
-            label="Delete"
-            variant="danger"
-          />
-        </div>
+          </div>
+        )}
       </div>
       {showEmbed && video.sublocation_slug && (
         <div className="px-4 pb-4 sm:px-5">

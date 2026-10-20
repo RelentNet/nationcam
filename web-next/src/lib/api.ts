@@ -1,6 +1,8 @@
 import type {
+  AccountMember,
   Ad,
   AdInput,
+  AdminAccount,
   AdminPost,
   AdminRolesResponse,
   AdminUserStats,
@@ -17,6 +19,7 @@ import type {
   CreateStreamInput,
   CreateSublocationInput,
   CreateVideoInput,
+  CreatedInvite,
   EventInput,
   EventItem,
   FramesResponse,
@@ -24,6 +27,8 @@ import type {
   Lightning,
   LightningResult,
   Me,
+  MemberSelectionInput,
+  MyAccount,
   OwnerSublocation,
   OwnerSublocationInput,
   OwnerVideo,
@@ -1077,6 +1082,136 @@ export function deleteMyVideo(
   token?: string | null,
 ): Promise<void> {
   return meWrite<void>('DELETE', `/me/videos/${id}`, undefined, token)
+}
+
+/* ──── Accounts, members and invites (DAN-381/DAN-382) ──── */
+
+/** `GET /me/accounts` — every account the caller belongs to. */
+export function fetchMyAccounts(
+  token?: string | null,
+): Promise<Array<MyAccount>> {
+  return meGet<Array<MyAccount>>('/me/accounts', token)
+}
+
+export function fetchAccountMembers(
+  accountId: number,
+  token?: string | null,
+): Promise<Array<AccountMember>> {
+  return meGet<Array<AccountMember>>(`/accounts/${accountId}/members`, token)
+}
+
+/** 409 when it would demote the account's last admin. */
+export function updateAccountMember(
+  accountId: number,
+  userId: string,
+  input: MemberSelectionInput,
+  token?: string | null,
+): Promise<AccountMember> {
+  return meWrite<AccountMember>(
+    'PUT',
+    `/accounts/${accountId}/members/${encodeURIComponent(userId)}`,
+    input,
+    token,
+  )
+}
+
+/** Removes a member; a member removing themselves is "leave". 409 for the
+ *  last admin. */
+export function removeAccountMember(
+  accountId: number,
+  userId: string,
+  token?: string | null,
+): Promise<void> {
+  return meWrite<void>(
+    'DELETE',
+    `/accounts/${accountId}/members/${encodeURIComponent(userId)}`,
+    undefined,
+    token,
+  )
+}
+
+/** The response carries the invite token, once — never stored by the API. */
+export function createAccountInvite(
+  accountId: number,
+  input: MemberSelectionInput,
+  token?: string | null,
+): Promise<CreatedInvite> {
+  return meWrite<CreatedInvite>(
+    'POST',
+    `/accounts/${accountId}/invites`,
+    input,
+    token,
+  )
+}
+
+/** Thrown by `acceptInvite` so the page can tell a dead invite (404 unknown,
+ *  409 used or already a member, 410 expired) from a transient failure. */
+export class InviteError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+/** `POST /invites/accept` — the token travels in the body, never the URL. */
+export async function acceptInvite(
+  inviteToken: string,
+  token?: string | null,
+): Promise<AccountMember> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}/invites/accept`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ token: inviteToken }),
+  })
+  if (!res.ok) throw new InviteError(await apiErrorMessage(res), res.status)
+  return res.json() as Promise<AccountMember>
+}
+
+/** `GET /accounts` — every account with counts (NationCam admins). */
+export function fetchAllAccounts(
+  token?: string | null,
+): Promise<Array<AdminAccount>> {
+  return meGet<Array<AdminAccount>>('/accounts', token)
+}
+
+export function createAccount(
+  input: { name: string; admin_user_id?: string },
+  token?: string | null,
+): Promise<AdminAccount> {
+  return meWrite<AdminAccount>('POST', '/accounts', input, token)
+}
+
+export function moveVideoToAccount(
+  videoId: number,
+  accountId: number,
+  token?: string | null,
+): Promise<unknown> {
+  return meWrite<unknown>(
+    'PUT',
+    `/videos/${videoId}/account`,
+    { account_id: accountId },
+    token,
+  )
+}
+
+/** Moves the location and every camera in it. */
+export function moveSublocationToAccount(
+  sublocationId: number,
+  accountId: number,
+  token?: string | null,
+): Promise<unknown> {
+  return meWrite<unknown>(
+    'PUT',
+    `/sublocations/${sublocationId}/account`,
+    { account_id: accountId },
+    token,
+  )
 }
 
 /* ──── Admin review queue (DAN-39/DAN-41) ──── */

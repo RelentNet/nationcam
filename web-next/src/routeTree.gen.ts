@@ -18,6 +18,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as FreeCameraRouteImport } from './routes/free-camera'
+import { Route as InviteRouteImport } from './routes/invite'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
@@ -77,6 +78,11 @@ const EventsRoute = EventsRouteImport.update({
 const FreeCameraRoute = FreeCameraRouteImport.update({
   id: '/free-camera',
   path: '/free-camera',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteRoute = InviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
   '/free-camera': typeof FreeCameraRoute
+  '/invite': typeof InviteRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
   '/free-camera': typeof FreeCameraRoute
+  '/invite': typeof InviteRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
   '/free-camera': typeof FreeCameraRoute
+  '/invite': typeof InviteRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/events'
     | '/free-camera'
+    | '/invite'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/events'
     | '/free-camera'
+    | '/invite'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/events'
     | '/free-camera'
+    | '/invite'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -330,6 +342,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   EventsRoute: typeof EventsRoute
   FreeCameraRoute: typeof FreeCameraRoute
+  InviteRoute: typeof InviteRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       path: '/free-camera'
       fullPath: '/free-camera'
       preLoaderRoute: typeof FreeCameraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite': {
+      id: '/invite'
+      path: '/invite'
+      fullPath: '/invite'
+      preLoaderRoute: typeof InviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -530,6 +550,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   EventsRoute: EventsRoute,
   FreeCameraRoute: FreeCameraRoute,
+  InviteRoute: InviteRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,

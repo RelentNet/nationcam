@@ -1,14 +1,18 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Info, LogIn, Shield } from 'lucide-react'
-import type { Me } from '@/lib/types'
+import type { Me, MyAccount, OwnerSublocation, OwnerVideo } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/Button'
 import Panel from '@/components/ui/Panel'
 import SectionHead from '@/components/ui/SectionHead'
-import { fetchMe } from '@/lib/api'
-import MyLocationsPanel from '@/components/owner/MyLocationsPanel'
-import MyCamerasPanel from '@/components/owner/MyCamerasPanel'
+import {
+  fetchMe,
+  fetchMyAccounts,
+  fetchMySublocations,
+  fetchMyVideos,
+} from '@/lib/api'
+import AccountSection from '@/components/owner/AccountSection'
 
 // Behind Logto sign-in, so no crawler ever sees it and there is nothing to
 // server-render — @logto/react is browser-only anyway.
@@ -96,15 +100,35 @@ function DashboardContent({ userName }: { userName: string | null }) {
   const { getToken, isAdmin, isAdminLoading } = useAuth()
 
   const [me, setMe] = useState<Me | null>(null)
-  const [meError, setMeError] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<Array<MyAccount>>([])
+  const [videos, setVideos] = useState<Array<OwnerVideo>>([])
+  const [locations, setLocations] = useState<Array<OwnerSublocation>>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const loadMe = async () => {
+  // One fetch of everything the caller can see; each account section picks
+  // out its own rows by account_id (DAN-382), so N accounts cost the same
+  // four requests as one.
+  const loadAll = async () => {
     try {
       const token = await getToken()
-      setMe(await fetchMe(token))
-      setMeError(null)
+      const [meData, accountData, vids, locs] = await Promise.all([
+        fetchMe(token),
+        fetchMyAccounts(token),
+        fetchMyVideos(token),
+        fetchMySublocations(token),
+      ])
+      setMe(meData)
+      setAccounts(accountData)
+      setVideos(vids)
+      setLocations(locs)
+      setLoadError(null)
     } catch (err) {
-      setMeError(err instanceof Error ? err.message : 'Failed to load limits.')
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to load your dashboard.',
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -112,8 +136,14 @@ function DashboardContent({ userName }: { userName: string | null }) {
   // SubmissionsInbox use, to avoid the Logto isLoading-flicker refetch loop
   // (see useAuth.ts).
   useEffect(() => {
-    loadMe()
+    loadAll()
   }, [])
+
+  // Personal account first, then shared ones by name.
+  const sortedAccounts = [...accounts].sort(
+    (a, b) =>
+      Number(b.personal) - Number(a.personal) || a.name.localeCompare(b.name),
+  )
 
   return (
     <div className="page-container space-y-6">
@@ -131,10 +161,8 @@ function DashboardContent({ userName }: { userName: string | null }) {
           )
         }
         body={
-          me ? (
-            <p className="mono-label">
-              {me.counts.videos} of {me.limits.max_cameras} cameras
-            </p>
+          accounts.length > 1 ? (
+            <p className="mono-label">{accounts.length} accounts</p>
           ) : undefined
         }
       />
@@ -157,19 +185,45 @@ function DashboardContent({ userName }: { userName: string | null }) {
         </Link>
       )}
 
-      {meError && (
+      {loadError && (
         <p
           role="alert"
           className="mb-0 rounded-r-md border-l-2 border-live bg-live-glow px-3 py-2 text-sm font-medium text-text"
         >
-          {meError}
+          {loadError}
         </p>
       )}
 
       <HowReviewWorks />
 
-      <MyLocationsPanel />
-      <MyCamerasPanel onLimitsChange={loadMe} />
+      {/* A brand-new user has no account yet: show an empty Personal one
+          (its first location creates the real account). */}
+      {sortedAccounts.length === 0 ? (
+        <AccountSection
+          account={null}
+          videos={videos}
+          locations={locations}
+          maxCameras={me?.limits.max_cameras ?? null}
+          currentUserId={me?.user_id ?? null}
+          loading={loading}
+          loadError={loadError}
+          onChanged={loadAll}
+        />
+      ) : (
+        sortedAccounts.map((a) => (
+          <AccountSection
+            key={a.account_id}
+            account={a}
+            videos={videos}
+            locations={locations}
+            maxCameras={me?.limits.max_cameras ?? null}
+            currentUserId={me?.user_id ?? null}
+            loading={loading}
+            loadError={loadError}
+            onChanged={loadAll}
+          />
+        ))
+      )}
     </div>
   )
 }
@@ -181,9 +235,9 @@ function HowReviewWorks() {
       <p className="mb-0 text-sm text-subtext1">
         <span className="font-medium text-text">How review works:</span> a new
         location or camera you add starts in review and stays private until an
-        admin approves it. You can pause, resume, edit or delete your own
-        cameras at any time; a rejected item shows the admin's note so you know
-        what to change.
+        admin approves it. Account admins can pause, resume, edit or delete an
+        account's cameras at any time and invite other people to it; a rejected
+        item shows the reviewer's note so you know what to change.
       </p>
     </Panel>
   )

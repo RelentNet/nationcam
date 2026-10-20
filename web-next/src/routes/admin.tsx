@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import {
+  Building2,
   CalendarDays,
   ClipboardCheck,
   Film,
@@ -49,6 +50,7 @@ import EventsPanel from '@/components/admin/EventsPanel'
 import AudioPanel from '@/components/admin/AudioPanel'
 import ReviewQueuePanel from '@/components/admin/ReviewQueuePanel'
 import UsersPanel from '@/components/admin/UsersPanel'
+import AccountsPanel from '@/components/admin/AccountsPanel'
 import SubmissionsInbox from '@/components/SubmissionsInbox'
 
 /* ────────────────────────────────────────────────
@@ -67,6 +69,7 @@ type Tab =
   | 'submissions'
   | 'review'
   | 'users'
+  | 'accounts'
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof Film }> = [
   { id: 'cameras', label: 'Cameras', icon: Film },
@@ -80,6 +83,7 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Film }> = [
   { id: 'submissions', label: 'Inbox', icon: Inbox },
   { id: 'review', label: 'Review', icon: ClipboardCheck },
   { id: 'users', label: 'Users', icon: Users },
+  { id: 'accounts', label: 'Accounts', icon: Building2 },
 ]
 
 // Behind Logto sign-in, so no crawler ever sees it and there is nothing to
@@ -501,6 +505,9 @@ function AdminConsole({ userName }: { userName: string | null }) {
         {activeTab === 'submissions' && <SubmissionsInbox />}
         {activeTab === 'review' && <ReviewQueuePanel />}
         {activeTab === 'users' && <UsersPanel />}
+        {activeTab === 'accounts' && (
+          <AccountsPanel videos={allVideos} sublocations={allSublocations} />
+        )}
       </div>
     </div>
   )

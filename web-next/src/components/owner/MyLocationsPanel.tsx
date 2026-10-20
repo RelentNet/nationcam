@@ -11,6 +11,7 @@ import {
   FormFooter,
   ModalShell,
   PanelHeader,
+  PanelHeaderStatic,
   SelectField,
   staggerStyle,
   useAutoHide,
@@ -19,15 +20,16 @@ import { ReviewNote, StatusPill } from '@/components/owner/ownerUi'
 import {
   createMySublocation,
   deleteMySublocation,
-  fetchMySublocations,
   fetchStates,
   updateMySublocation,
 } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 
 /* ════════════════════════════════════════════════
-   My Locations Panel (DAN-41) — the owner's own
-   sublocations, any status. Add form: name, state,
+   My Locations Panel (DAN-41, per account since DAN-382) —
+   one account's sublocations, any status; the dashboard
+   fetches and filters them. Viewers get a read-only
+   list. Add form: name, state,
    description, address, optional coordinates, host
    name/url. Delete only while it has no cameras (the
    API 409s otherwise; the message surfaces inline).
@@ -70,40 +72,39 @@ function locationToForm(s: OwnerSublocation): LocationForm {
   }
 }
 
-export default function MyLocationsPanel() {
+export default function MyLocationsPanel({
+  locations,
+  accountId,
+  canEdit,
+  loading,
+  loadError,
+  onChanged,
+}: {
+  /** This account's locations only (the dashboard fetches and filters). */
+  locations: Array<OwnerSublocation>
+  /** The account new locations are filed under; null = the caller's
+   *  personal account, which the API creates on first use. */
+  accountId: number | null
+  /** False for a viewer: the list is read-only, no create/edit/delete. */
+  canEdit: boolean
+  loading: boolean
+  loadError: string | null
+  /** Re-fetch the dashboard's owner data after a write. */
+  onChanged: () => Promise<void>
+}) {
   const { getToken } = useAuth()
 
-  const [locations, setLocations] = useState<Array<OwnerSublocation>>([])
   const [states, setStates] = useState<Array<State>>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const load = async () => {
-    try {
-      const token = await getToken()
-      const [locs, statesData] = await Promise.all([
-        fetchMySublocations(token),
-        fetchStates(),
-      ])
-      setLocations(locs)
-      setStates(statesData)
-      setLoadError(null)
-    } catch (err) {
-      setLoadError(
-        err instanceof Error ? err.message : 'Failed to load your locations.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Only the add/edit forms need the state list.
   useEffect(() => {
-    load()
-  }, [])
+    if (!canEdit) return
+    fetchStates()
+      .then(setStates)
+      .catch(() => {})
+  }, [canEdit])
 
-  const refresh = async () => {
-    await load()
-  }
+  const refresh = onChanged
 
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState<LocationForm>(emptyLocationForm)
@@ -128,6 +129,7 @@ export default function MyLocationsPanel() {
   )
 
   const buildInput = (f: LocationForm) => ({
+    account_id: accountId ?? undefined,
     name: f.name,
     description: f.description || undefined,
     state_id: Number(f.stateId),
@@ -185,18 +187,25 @@ export default function MyLocationsPanel() {
   return (
     <>
       <div className="space-y-4">
-        <PanelHeader
-          title="My locations"
-          subtitle="Places you've added — review takes place before they go public"
-          showCreate={showCreate}
-          onToggleCreate={() => {
-            setShowCreate(!showCreate)
-            setMsg(null)
-          }}
-          createLabel="Add Location"
-        />
+        {canEdit ? (
+          <PanelHeader
+            title="Locations"
+            subtitle="Places in this account — review takes place before they go public"
+            showCreate={showCreate}
+            onToggleCreate={() => {
+              setShowCreate(!showCreate)
+              setMsg(null)
+            }}
+            createLabel="Add Location"
+          />
+        ) : (
+          <PanelHeaderStatic
+            title="Locations"
+            subtitle="Places in this account — you can view them but not change them"
+          />
+        )}
 
-        {showCreate && (
+        {canEdit && showCreate && (
           <CreatePanel>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -287,13 +296,18 @@ export default function MyLocationsPanel() {
           loading={loading}
           empty={!loadError && sortedLocations.length === 0}
           emptyIcon={Landmark}
-          emptyText="No locations yet — add one to get started"
+          emptyText={
+            canEdit
+              ? 'No locations yet — add one to get started'
+              : 'No locations to show'
+          }
         >
           {sortedLocations.map((s, i) => (
             <LocationRow
               key={s.sublocation_id}
               location={s}
               index={i}
+              canEdit={canEdit}
               onEdit={() => setEditing(s)}
               onDelete={() =>
                 setConfirmDelete({ id: s.sublocation_id, name: s.name })
@@ -332,11 +346,13 @@ export default function MyLocationsPanel() {
 function LocationRow({
   location,
   index,
+  canEdit,
   onEdit,
   onDelete,
 }: {
   location: OwnerSublocation
   index: number
+  canEdit: boolean
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -359,19 +375,21 @@ function LocationRow({
         </p>
         <ReviewNote note={location.review_note} />
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
-        <ActionBtn
-          icon={Trash2}
-          onClick={onDelete}
-          label={
-            location.video_count > 0
-              ? 'Delete or move its cameras first'
-              : 'Delete'
-          }
-          variant="danger"
-        />
-      </div>
+      {canEdit && (
+        <div className="flex shrink-0 items-center gap-1">
+          <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
+          <ActionBtn
+            icon={Trash2}
+            onClick={onDelete}
+            label={
+              location.video_count > 0
+                ? 'Delete or move its cameras first'
+                : 'Delete'
+            }
+            variant="danger"
+          />
+        </div>
+      )}
     </div>
   )
 }
