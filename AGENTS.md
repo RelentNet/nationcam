@@ -556,35 +556,80 @@ user, so a customer's team can share them.
 
 ### Owner dashboard and admin console
 
-The frontend for the owner-accounts API above (DAN-41): a signed-in user gets
-an owner dashboard for only their own rows, and an admin gets the full
+The frontend for the owner-accounts API above (DAN-41) and the accounts API
+(DAN-382): a signed-in user gets an owner dashboard grouped by the accounts
+they belong to, and an admin gets the full
 console with a review queue and a users panel. Both routes are `ssr:false`
 (see Architecture) and live in `web-next/src/routes/`.
 
 - **`/dashboard`** (`routes/dashboard.tsx`) — owner dashboard. Behind the
-  same sign-in gate as before; any signed-in user lands here (Sign In always
-  redirects to `/dashboard`, see `routes/callback.tsx`). Sections: a limits
-  line from `GET /me` ("3 of 10 cameras"), a link to `/admin` when the
-  caller's token carries the admin scope, a "How review works" note,
-  **My locations** (`components/owner/MyLocationsPanel.tsx` — `GET/POST/PUT/
-  DELETE /me/sublocations`, status pill + review note, delete only while it
-  has no cameras) and **My cameras** (`components/owner/MyCamerasPanel.tsx`
-  — `GET/POST/PUT /me/videos` + pause/resume, status pill, a location picker
-  scoped to the owner's own `/me/sublocations`, an "Embed code" box once a
-  camera is not pending/rejected). `components/owner/ownerUi.tsx` holds the
-  shared `StatusPill`/`ReviewNote`.
+  same sign-in gate as before; any signed-in user lands here (Sign In
+  redirects to `/dashboard`, see `routes/callback.tsx`, except while an
+  invite token is parked, see `/invite`). It fetches `GET /me`,
+  `/me/accounts`, `/me/videos` and `/me/sublocations` once and groups the
+  panels **by account** (DAN-382): one `components/owner/AccountSection.tsx`
+  per account, personal account first, picking its own rows out of the shared
+  lists by `account_id`. A brand-new user with no account yet gets an empty
+  "Personal" section whose first location creates the personal account. Each
+  section has a header (name — "Personal" for the personal account — the
+  caller's role pill, "View only" for viewers, a limits line "3 of 10 cameras
+  · 2 locations" using `limits.max_cameras` from `/me`, and "Leave account"
+  for non-personal accounts), then **Locations**
+  (`components/owner/MyLocationsPanel.tsx` — `POST/PUT/DELETE
+  /me/sublocations`, creates under the section's `account_id`, status pill +
+  review note, delete only while it has no cameras), **Cameras**
+  (`components/owner/MyCamerasPanel.tsx` — `POST/PUT /me/videos` +
+  pause/resume, a location picker scoped to the account's locations, an "Embed
+  code" box once a camera is not pending/rejected) and, for account admins,
+  **Members** (`components/owner/MembersPanel.tsx`). A **viewer** gets the
+  same lists with no add, edit, pause, resume, delete or embed controls
+  (`canEdit` is false) and no Members section. The page also keeps the link to
+  `/admin` for NationCam admins and the "How review works" note.
+  `components/owner/ownerUi.tsx` holds the shared `StatusPill`/`RolePill`/
+  `ReviewNote`.
+- **Members and invites** (`MembersPanel.tsx`, admins of that account, or a
+  NationCam admin): the list from `GET /accounts/{id}/members` shows each
+  member by Logto `sub` only (names would need the Logto management
+  connection) with role and "All cameras" / "N picked cameras"; the edit
+  dialog sets role, "can watch every camera" and, for a restricted viewer, a
+  checkbox picker of **that account's** cameras (from the dashboard's
+  `/me/videos`) via `PUT /accounts/{id}/members/{user_id}`; remove is
+  `DELETE` on another member (the caller's own row has no remove — "Leave
+  account" in the section header is the same `DELETE`). A last-admin 409 and
+  every other API error shows the API's own message. **Invite someone**
+  (`POST /accounts/{id}/invites`) reveals the link once,
+  `${origin}/invite#t=<token>` — the token is in the URL **fragment**, never
+  the query string, lives only in component state (never stored, gone on
+  "Done"), with copy button and the 7-day, single-use note.
+- **`/invite`** (`routes/invite.tsx`, `ssr:false`) — accepting a link
+  (DAN-382). On mount it reads `#t=` (`lib/inviteToken.ts`), parks the token
+  in `sessionStorage` (`nc_invite_token`) and strips the fragment from the
+  address bar. Signed out it shows "Sign in to join"; `callback.tsx`'s
+  `CallbackRunner` (`components/auth/LogtoAuthSync.tsx`) sends the user to
+  `/invite` instead of `/dashboard` when a token is parked, so the Logto round
+  trip lands back here. Signed in it POSTs `/invites/accept` (token in the
+  body) once, clears the stored token and shows "You've joined" with a
+  `/dashboard` link; 404/409/410 show the API's message (and clear the token),
+  other failures offer "Try again". `/invite` is in `AuthBridge`'s auth-path
+  list so the Logto SDK loads there.
 - **`/admin`** (`routes/admin.tsx`) — the full console, guarded by `isAdmin`
   (`useAuth`'s token-scope check); a signed-in non-admin is redirected to
-  `/dashboard`, a signed-out visitor sees a sign-in prompt. Ten tabs: the
-  original Cameras/States/Sublocations/Streams/Ads/Notes/Events panels
+  `/dashboard`, a signed-out visitor sees a sign-in prompt. Twelve tabs: the
+  original Cameras/States/Sublocations/Streams/Ads/Notes/Events/Audio panels
   (moved, unchanged, into `components/admin/*Panel.tsx`), the existing
   `SubmissionsInbox`, **Review queue** (`components/admin/
   ReviewQueuePanel.tsx` — `GET /review`, an HLS preview of a pending camera
   via `StreamPlayer`, Approve / Reject-with-note calling the four
-  approve/reject endpoints) and **Users** (`components/admin/
-  UsersPanel.tsx` — `GET /admin/users(/stats)` + `/admin/roles`; renders
-  "Not configured" when those 404, since the Logto management connection is
-  optional server-side config).
+  approve/reject endpoints), **Users** (`components/admin/UsersPanel.tsx` —
+  `GET /admin/users(/stats)` + `/admin/roles`; renders "Not configured" when
+  those 404, since the Logto management connection is optional server-side
+  config) and **Accounts** (`components/admin/AccountsPanel.tsx`, DAN-382 —
+  `GET /accounts` list with member/location/camera counts, **Create Account**
+  with a name and an optional first-admin Logto user id (`POST /accounts`),
+  and two move forms: camera → account (`PUT /videos/{id}/account`) and
+  location with its cameras → account (`PUT /sublocations/{id}/account`); the
+  pickers list the public camera/location lists the console already loads, so
+  a still-pending camera is not offered until it is approved).
 - **Shared UI**: `components/dashboardUi.tsx` holds every building block
   used by more than one panel — `PanelHeader`, `CreatePanel`, `AboutField`,
   `FormField`/`FormFooter`, `ConfirmDeleteDialog`/`ModalShell`, `ToggleRow`,
@@ -596,7 +641,10 @@ console with a review queue and a users panel. Both routes are `ssr:false`
 - **Errors**: the owner/review/admin API functions in `lib/api.ts` (`fetchMe`,
   `fetchMy*`, `create/update/deleteMy*`, `pause/resumeMyVideo`,
   `fetchReviewQueue`, `approve/rejectVideo`, `approve/rejectSublocation`,
-  `fetchAdminUsers`/`fetchAdminUserStats`/`fetchAdminRoles`) throw the API's
+  `fetchAdminUsers`/`fetchAdminUserStats`/`fetchAdminRoles`,
+  `fetchMyAccounts`, `fetch/update/removeAccountMember`,
+  `createAccountInvite`, `acceptInvite`, `fetchAllAccounts`, `createAccount`,
+  `moveVideoToAccount`/`moveSublocationToAccount`) throw the API's
   own `detail`/`error` message (via `apiErrorMessage`) rather than a generic
   "request failed" string, so a 401/403/409/429 shows inline as the exact
   reason — a missing permission, a camera limit, an invalid status

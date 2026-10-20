@@ -1,4 +1,10 @@
-import { AlertTriangle, Check, Clock, PauseCircle } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  Clock,
+  PauseCircle,
+  ShieldCheck,
+} from 'lucide-react'
 
 /* ════════════════════════════════════════════════
    Shared — Owner dashboard primitives (DAN-41).
@@ -55,6 +61,22 @@ export function StatusPill({ status }: { status: string }) {
     >
       <Icon size={12} />
       {c.label}
+    </span>
+  )
+}
+
+/** A member's role in an account (DAN-382). */
+export function RolePill({ role }: { role: 'admin' | 'viewer' }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[11px] font-medium tracking-[0.02em] uppercase ${
+        role === 'admin'
+          ? 'bg-accent/10 text-accent'
+          : 'bg-surface2 text-subtext0'
+      }`}
+    >
+      {role === 'admin' && <ShieldCheck size={12} />}
+      {role === 'admin' ? 'Admin' : 'Viewer'}
     </span>
   )
 }

@@ -24,7 +24,8 @@ function isAuthPath(pathname: string): boolean {
     pathname.startsWith('/dashboard/') ||
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
-    pathname === '/callback'
+    pathname === '/callback' ||
+    pathname === '/invite'
   )
 }
 

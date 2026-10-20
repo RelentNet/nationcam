@@ -5,6 +5,7 @@ import type { IdTokenClaims } from '@logto/react'
 import type { AuthValue, UserInfo } from '@/hooks/useAuth'
 import LogtoProvider from '@/components/LogtoProvider'
 import { clearSignedInHint } from '@/lib/authHint'
+import { readStoredInviteToken } from '@/lib/inviteToken'
 
 const API_RESOURCE =
   import.meta.env['VITE_LOGTO_API_RESOURCE'] ?? 'https://api.nationcam.com'
@@ -149,11 +150,12 @@ function useRealAuth(): AuthValue {
   )
 }
 
-/** Navigates to /dashboard once the OIDC code exchange finishes. */
+/** Navigates once the OIDC code exchange finishes: back to /invite when an
+ *  invite token is parked in sessionStorage (DAN-382), else /dashboard. */
 function CallbackRunner() {
   const navigate = useNavigate()
   useHandleSignInCallback(() => {
-    navigate({ to: '/dashboard' })
+    navigate({ to: readStoredInviteToken() ? '/invite' : '/dashboard' })
   })
   return null
 }
@@ -165,7 +167,12 @@ interface SyncProps {
   onLoginHandled: () => void
 }
 
-function Sync({ onValue, isCallback, pendingLogin, onLoginHandled }: SyncProps) {
+function Sync({
+  onValue,
+  isCallback,
+  pendingLogin,
+  onLoginHandled,
+}: SyncProps) {
   const value = useRealAuth()
   useEffect(() => {
     onValue(value)
