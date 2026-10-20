@@ -192,7 +192,7 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// approves them from /review. Nothing under /me is Redis-cached (per
 	// user); every write flushes the public catalog caches. POST /me/videos
 	// creates a Restreamer process, so it shares the streams limiter pattern
-	// on top of the per-owner limits in status.go. rc may be nil (Restreamer
+	// on top of the per-account limits in status.go. rc may be nil (Restreamer
 	// not configured): creating a camera then answers 503, and pause/resume/
 	// delete on a camera that has a stream id do too.
 	owners := newOwnerStore(pool)
@@ -217,7 +217,23 @@ func mountOwnerRoutes(r chi.Router, owners ownerStore, c *cache.Cache, rc *restr
 		r.Post("/videos/{id}/pause", PauseMyVideo(owners, c, rc))
 		r.Post("/videos/{id}/resume", ResumeMyVideo(owners, c, rc))
 		r.Delete("/videos/{id}", DeleteMyVideo(owners, c, rc))
+		r.Get("/accounts", ListMyAccounts(owners))
 	})
+
+	// ── Accounts, members and invites (DAN-381) ──────────────────
+	// Signed-in users; the handlers check account-admin (or NationCam
+	// admin) themselves, and any member may remove themselves. Not cached.
+	r.With(mw.RequireUser).Get("/accounts/{id}/members", ListAccountMembers(owners))
+	r.With(mw.RequireUser).Put("/accounts/{id}/members/{user_id}", UpdateAccountMember(owners))
+	r.With(mw.RequireUser).Delete("/accounts/{id}/members/{user_id}", DeleteAccountMember(owners))
+	r.With(mw.RequireUser).Post("/accounts/{id}/invites", CreateInvite(owners))
+	r.With(mw.RequireUser, mw.RateLimit(mw.NewRateLimiter(30, time.Minute))).Post("/invites/accept", AcceptInvite(owners))
+	// NationCam admin: every account, new accounts, ownership moves (these
+	// two flush the public catalog caches).
+	r.With(mw.RequireAdmin).Get("/accounts", ListAllAccounts(owners))
+	r.With(mw.RequireAdmin).Post("/accounts", CreateAccount(owners))
+	r.With(mw.RequireAdmin).Put("/videos/{id}/account", AssignVideoAccount(owners, c))
+	r.With(mw.RequireAdmin).Put("/sublocations/{id}/account", AssignSublocationAccount(owners, c))
 
 	r.With(mw.RequireAdmin).Get("/review", ReviewQueue(owners))
 	r.With(mw.RequireAdmin).Post("/videos/{id}/approve", ApproveVideo(owners, c))

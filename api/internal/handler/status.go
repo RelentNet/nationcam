@@ -5,13 +5,14 @@ import (
 	"fmt"
 )
 
-// Owner-account limits (DAN-39). The one place they live; GET /me reports
+// Owner limits (DAN-39), counted per account since DAN-381. The one place
+// they live; GET /me reports
 // them so the dashboard can show "3 of 10 cameras" without hardcoding.
 const (
-	// ownerMaxCameras caps how many cameras one owner may have at once, any
+	// ownerMaxCameras caps how many cameras one account may have at once, any
 	// status. Deleting one frees a slot.
 	ownerMaxCameras = 10
-	// ownerCamerasPerDay caps how many cameras one owner may create in any
+	// ownerCamerasPerDay caps how many cameras one account may create in any
 	// rolling 24-hour window (anti-abuse; the per-IP limiter still applies).
 	ownerCamerasPerDay = 5
 )

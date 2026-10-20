@@ -2,7 +2,7 @@
 
 -- name: ListPendingSublocations :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.status, sub.owner_id, sub.review_note,
+       sub.status, sub.owner_id, sub.account_id, sub.review_note,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name, s.slug AS state_slug,
@@ -16,7 +16,7 @@ ORDER BY sub.created_at;
 
 -- name: ListPendingVideos :many
 SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
-       v.status, v.owner_id, v.stream_id, v.review_note, v.about,
+       v.status, v.owner_id, v.account_id, v.stream_id, v.review_note, v.about,
        v.created_at, v.updated_at,
        s.name AS state_name, s.slug AS state_slug,
        COALESCE(sub.name, '') AS sublocation_name,

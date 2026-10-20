@@ -44,7 +44,7 @@ code change.
 4. Frontend sends `Authorization: Bearer <token>` on admin write requests
 5. Go API validates JWT via Logto's JWKS endpoint (cached 1 hour), checking `exp`/`nbf`/`iss`/`aud`
 6. `RequireAdmin` requires the `admin` permission in the token's `scope` claim (space-delimited) — write endpoints fail closed with 403 without it
-7. `RequireUser` (the owner endpoints under `/me`) accepts any validated token that carries a `sub`, whatever its scope — the `sub` is the owner id — and answers 401 otherwise. See "Owner accounts and review" below
+7. `RequireUser` (the owner endpoints under `/me`, the account and invite endpoints) accepts any validated token that carries a `sub`, whatever its scope — the `sub` is the user id matched against account members — and answers 401 otherwise. See "Owner accounts and review" and "Accounts and members" below
 
 **Admin RBAC — required Logto console setup.** `RequireAdmin` keys on the `scope`
 claim of the API-resource access token. Logto only puts a permission there if it
@@ -199,6 +199,7 @@ new-nationcam/                        # Repo root
         ads.sql
         me.sql                        # Owner (/me) queries — DAN-39
         review.sql                    # Admin review queue + reject cascade — DAN-39
+        accounts.sql                  # Accounts, members, picks, invites, ownership moves — DAN-381
     internal/
       config/config.go                # Env var loading
       cache/redis.go                  # Redis client wrapper (GET/SET/Invalidate)
@@ -239,6 +240,8 @@ new-nationcam/                        # Repo root
         review.go                     # GET /review, approve/reject for videos and sublocations (DAN-39)
         status.go                     # Owner limits + the status transition tables (the one place they live)
         ownerstore.go                 # ownerStore interface (sqlc queries + Tx) so handler tests run on a fake
+        access.go                     # Account roles + CanViewCamera (the one access check) — DAN-381
+        accounts.go                   # /me/accounts, /accounts/*, /invites/accept, ownership moves — DAN-381
         admin_users.go                # GET /admin/users, /admin/users/stats, /admin/roles (Logto management)
         json.go                       # JSON read/write helpers
         cached.go                     # Response caching wrapper
@@ -309,11 +312,11 @@ new-nationcam/                        # Repo root
 
 ## Database Schema
 
-5 tables (no users table — Logto handles authentication):
+Tables (no users table — Logto handles authentication; accounts reference Logto `sub`s):
 
 - **states**: `state_id`, `name`, `description`, `slug`, `created_at`, `updated_at`
-- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `noaa_station_id`/`usgs_site_id` (nullable, pin or disable the conditions page's tide station / river gauge — see API Endpoints), `status` (`pending` | `approved` | `rejected`, default `approved`), `owner_id` (Logto `sub`; `''` = admin-owned), `review_note`, `created_at`, `updated_at`
-- **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status` (`pending` | `active` | `inactive` | `paused` | `rejected`), `owner_id` (Logto `sub`; `''` = admin-owned), `stream_id` (nullable — the Restreamer process UUID when the API created the ingest), `review_note`, `created_by`, `created_at`, `updated_at`
+- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `noaa_station_id`/`usgs_site_id` (nullable, pin or disable the conditions page's tide station / river gauge — see API Endpoints), `status` (`pending` | `approved` | `rejected`, default `approved`), `owner_id` (Logto `sub` of the creator; `''` = admin-owned), `account_id` (nullable FK → accounts, `ON DELETE SET NULL`; NULL = admin-owned), `review_note`, `created_at`, `updated_at`
+- **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status` (`pending` | `active` | `inactive` | `paused` | `rejected`), `owner_id` (Logto `sub` of the creator; `''` = admin-owned), `account_id` (nullable FK → accounts, `ON DELETE SET NULL`), `stream_id` (nullable — the Restreamer process UUID when the API created the ingest), `review_note`, `created_by`, `created_at`, `updated_at`
 - **ads**: `ad_id`, `name`, `video_url`, `click_url`, `weight`, `starts_at`, `ends_at`, `enabled`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs — at most one set, this is the targeting scope), `created_by`, `created_at`, `updated_at`
 - **ad_impressions**: `impression_id`, `ad_id` (FK), `video_id` (nullable FK), `kind` (`impression` | `click`), `created_at`
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `slug`, `view_count`, `created_by`, `created_at`, `updated_at`
@@ -321,6 +324,10 @@ new-nationcam/                        # Repo root
 - **events**: `event_id`, `title`, `description_md`, `starts_at` (`TIMESTAMPTZ NOT NULL`), `ends_at` (nullable), `url` (nullable), `sublocation_id` (FK, `NOT NULL ON DELETE CASCADE` — an event always belongs to one place), `video_id` (nullable FK, `ON DELETE SET NULL` — an optional "watch here" pointer to a camera in that sublocation), `created_by`, `created_at`, `updated_at`
 - **audio_stations**: `audio_station_id`, `name`, `stream_url` (https only), `enabled`, `sort_order`, `state_id` / `sublocation_id` (both nullable FKs, `ON DELETE CASCADE` — at most one set, optional single-level scope; no per-camera scope), `created_at`, `updated_at`
 
+- **accounts** (DAN-381): `account_id`, `name`, `personal_owner_id` (nullable, unique — the Logto `sub` whose personal account this is; NULL = shared account), `created_by`, `created_at`, `updated_at`
+- **account_members**: (`account_id` FK `ON DELETE CASCADE`, `user_id` Logto `sub`) primary key, `role` (`admin` | `viewer`), `all_cameras` (an admin is always TRUE — CHECK), `created_at`, `updated_at`
+- **account_member_videos**: (`account_id`, `user_id`, `video_id`) — a restricted viewer's picked cameras; cascades from the member and the video
+- **account_invites**: `invite_id`, `account_id` (FK, cascade), `token_hash` (unique hex SHA-256; the token is never stored), `role`, `all_cameras`, `video_ids` (`INT[]`), `created_by`, `expires_at`, `accepted_by`/`accepted_at` (NULL until used), `created_at`
 - **submissions**: `submission_id`, `name`, `email`, `message` (readable summary, always kept), `kind` (`construction` | `free-camera` | `camera` from /contact | default `contact`), `handled`, `company`, `phone`, `site_city`, `site_state` (all `TEXT NOT NULL DEFAULT ''`), `details` (`JSONB NOT NULL DEFAULT '{}'` — a flat object of readable per-form answers, DAN-226), `created_at`; index on `(kind, created_at DESC)`. The DAN-226 `ALTER ... ADD COLUMN IF NOT EXISTS` statements sit right after the table in its own schema.sql section (the "Column additions" section runs before the table exists on a fresh DB). Old rows keep the empty defaults.
 
 Video slugs are generated from `title` and are unique per `(state_id, sublocation_id)`;
@@ -362,13 +369,14 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
 | GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header). `?w=320` or `?w=640` serves a resized copy, made on first request and kept at `{video_id}/{day}/thumbs/{HHMM}.w{W}.jpg` (retention deletes thumbs with the frame; other `w` is 400) | None |
 | POST   | `/videos`                        | Create video                   | Admin (Logto) |
-| GET    | `/me`                            | `{ user_id, is_admin, limits: { max_cameras, per_day }, counts: { sublocations, videos } }` | User (Logto) |
-| GET    | `/me/sublocations`               | The caller's sublocations, any status, with `review_note` | User (Logto) |
-| POST   | `/me/sublocations`               | `{ name, description, state_id, address?, lat?, lng?, host_name?, host_url?, host_since? }` → status `pending` | User (Logto) |
-| PUT    | `/me/sublocations/{id}`          | Same fields; status unchanged (403 on someone else's) | User (Logto) |
+| GET    | `/me`                            | `{ user_id, is_admin, limits: { max_cameras, per_day }, counts: { sublocations, videos }, personal_account_id, accounts: [...] }` — counts are the personal account's; `accounts` as `/me/accounts` | User (Logto) |
+| GET    | `/me/accounts`                   | Every account the caller belongs to: `{ account_id, name, personal, role, all_cameras, sublocation_count, video_count }` | User (Logto) |
+| GET    | `/me/sublocations`               | Sublocations of the caller's accounts (a restricted viewer: only those holding a picked camera), any status, with `review_note` and `account_id` | User (Logto) |
+| POST   | `/me/sublocations`               | `{ name, description, state_id, account_id?, address?, lat?, lng?, host_name?, host_url?, host_since? }` → status `pending`, in `account_id` (must be an admin of it) or the caller's personal account (created on first use) | User (Logto) |
+| PUT    | `/me/sublocations/{id}`          | Same fields (not `account_id`); status unchanged (403 unless an admin of its account) | User (Logto) |
 | DELETE | `/me/sublocations/{id}`          | Only while it has no cameras (409 otherwise) | User (Logto) |
-| GET    | `/me/videos`                     | The caller's cameras, any status, with `review_note` and `sublocation_status` | User (Logto) |
-| POST   | `/me/videos`                     | `{ title, rtsp_url, sublocation_id (must be the caller's), about? }` → validates RTSP, creates the Restreamer ingest, status `pending`; 429 past 10 cameras or 5 per 24 h; 503 without Restreamer | User (Logto) |
+| GET    | `/me/videos`                     | Cameras the caller can view through their accounts (`CanViewCamera`), any status, with `review_note`, `account_id` and `sublocation_status` | User (Logto) |
+| POST   | `/me/videos`                     | `{ title, rtsp_url, sublocation_id (caller must be an admin of its account), about? }` → validates RTSP, creates the Restreamer ingest, status `pending`, same account as the sublocation; 429 past 10 cameras or 5 per 24 h **per account**; 503 without Restreamer | User (Logto) |
 | PUT    | `/me/videos/{id}`                | `{ title, about }`             | User (Logto) |
 | POST   | `/me/videos/{id}/pause`          | `active → paused`; Restreamer `stop` (409 otherwise) | User (Logto) |
 | POST   | `/me/videos/{id}/resume`         | `paused → active`; Restreamer `start` (409 otherwise) | User (Logto) |
@@ -378,6 +386,15 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/videos/{id}/reject`            | `{ note? }` — `pending`/`active`/`paused → rejected`; Restreamer process stopped (not deleted) | Admin (Logto) |
 | POST   | `/sublocations/{id}/approve`     | `pending → approved`; its cameras stay pending | Admin (Logto) |
 | POST   | `/sublocations/{id}/reject`      | `{ note? }` — `pending → rejected`; its pending cameras are rejected too and their processes stopped | Admin (Logto) |
+| GET    | `/accounts/{id}/members`         | `[{ account_id, user_id, role, all_cameras, video_ids, created_at, updated_at }]` | Account admin or Admin (Logto) |
+| PUT    | `/accounts/{id}/members/{user_id}` | `{ role: admin\|viewer, all_cameras?, video_ids? }` — picks must be the account's cameras (400); demoting the last admin is 409 | Account admin or Admin (Logto) |
+| DELETE | `/accounts/{id}/members/{user_id}` | Remove a member (any member may remove themselves); removing the last admin is 409 | Account admin, self, or Admin (Logto) |
+| POST   | `/accounts/{id}/invites`         | `{ role, all_cameras?, video_ids? }` → 201 `{ invite_id, account_id, token, role, all_cameras, video_ids, expires_at }`; the token is shown once (only its SHA-256 is stored), single use, 7 days | Account admin or Admin (Logto) |
+| POST   | `/invites/accept`                | `{ token }` → the new membership with the invite's role and picks; 404 unknown, 409 used or already a member, 410 expired (30/min limiter) | User (Logto) |
+| GET    | `/accounts`                      | Every account with member/sublocation/video counts | Admin (Logto) |
+| POST   | `/accounts`                      | `{ name, admin_user_id? }` — first admin is `admin_user_id` or the caller | Admin (Logto) |
+| PUT    | `/videos/{id}/account`           | `{ account_id }` — the camera now belongs to that account (`owner_id` untouched); flushes the catalog caches | Admin (Logto) |
+| PUT    | `/sublocations/{id}/account`     | `{ account_id }` — the location and every camera in it move to that account; flushes the catalog caches | Admin (Logto) |
 | POST   | `/submissions`                   | Public form submit (rate-limited, 16 KB cap): `{ name, email, message, kind?, company?, phone?, site_city?, site_state?, details? }`. Caps: company 200, phone 40, city 100, state 60 chars; `details` = flat object, ≤30 keys matching `^[a-z0-9_]{1,40}$`, values string (≤500) / number / boolean / array of ≤20 strings (≤100 each), else 400 | None |
 | GET    | `/submissions?kind=a,b`          | Latest 200 submissions, newest first, with the structured fields; optional comma-separated `kind` filter (each ≤40 chars) | Admin (Logto) |
 | PATCH  | `/submissions/{id}`              | `{ handled }`                  | Admin (Logto) |
@@ -425,9 +442,12 @@ everything else in the table above marked Admin) are unchanged.
 
 - **Auth**: `/me/*` is behind `RequireUser` — a validated token with a `sub`,
   any scope (the frontend must request an API-resource token for these calls
-  too). `owner_id` on a row is that `sub`; every `/me` lookup 403s on someone
-  else's row and 404s on none. Admin-owned legacy rows have `owner_id = ''`
-  and are unreachable under `/me` by construction. `GET /me` works for admins
+  too). Since DAN-381 a row belongs to an **account** (see "Accounts and
+  members" below); `owner_id` stays the creating user's `sub`. Every `/me`
+  write 403s unless the caller is an admin of the row's account (a viewer
+  gets "account viewers cannot change this …") and 404s on no row.
+  Admin-owned legacy rows have `owner_id = ''` and no account, so they are
+  unreachable under `/me` by construction. `GET /me` works for admins
   and reports `is_admin` from the scope claim. `/review` and the four
   approve/reject endpoints are `RequireAdmin`.
 - **Statuses** (tables in `handler/status.go`; anything not drawn is a 409):
@@ -468,9 +488,9 @@ everything else in the table above marked Admin) are unchanged.
   same `restreamer.ValidateRTSPURL` as `/streams`, creates the ingest through
   the same `createIngestStream` (passthrough codec, auto-reconnect, UI
   metadata), stores `stream_id` and `src = rc.HLSURL(id)`, and files it under
-  the sublocation's state. Limits are constants in `status.go`: **10 cameras
-  per owner** (any status; deleting frees a slot) and **5 creations per owner
-  per rolling 24 h**, both 429 with a clear message, checked before anything
+  the sublocation's state and account. Limits are constants in `status.go`:
+  **10 cameras per account** (any status, whoever created them; deleting
+  frees a slot) and **5 creations per account per rolling 24 h**, both 429 with a clear message, checked before anything
   is created on Restreamer; the same 10/min limiter as `/streams` sits in
   front. If the row insert fails after the process was created, the process
   is deleted again.
@@ -482,6 +502,57 @@ everything else in the table above marked Admin) are unchanged.
   and the fake Redis; `status_test.go` pins the transition tables;
   `sql/owner_review_test.go` checks the visibility predicate and the CHECKs
   against a scratch Postgres when `TEST_DATABASE_URL` is set.
+
+### Accounts and members
+
+DAN-381: a location and a camera belong to an **account**, not a single Logto
+user, so a customer's team can share them.
+
+- **Roles**: members are `admin` or `viewer` (several admins allowed, no
+  per-camera roles). Admins create, edit, pause, resume and delete the
+  account's locations and cameras, manage members and invites, and always
+  see every camera. A viewer with `all_cameras` sees every camera of the
+  account, including ones added later; a restricted viewer sees only the
+  cameras picked for them (`account_member_videos`). An account always keeps
+  at least one admin — removing or demoting the last one is a 409
+  (membership changes lock the account row).
+- **The access check** is `handler.CanViewCamera(ctx, q, userID, isAdmin,
+  videoID)` in `handler/access.go`: NationCam admins (admin scope) always
+  yes, otherwise the membership rule above. It is about account-only access,
+  not public visibility; DAN-205 calls it from `GET /videos/{id}/stream-token`.
+  `GET /me/videos` and `/me/sublocations` list by the same rule.
+- **Invites** are single-use links, valid 7 days, carrying the role and the
+  camera selection; no email, no Logto Management API. The 32-byte token is
+  returned once by `POST /accounts/{id}/invites`; only its hex SHA-256 is
+  stored. `POST /invites/accept` (token in the body, never the URL) marks it
+  accepted with a conditional `UPDATE … WHERE accepted_at IS NULL`, so two
+  concurrent accepts cannot both win. An existing member cannot accept (409,
+  the invite stays usable). Picks on an invite that no longer belong to the
+  account are dropped silently.
+- **Personal accounts and migration**: every distinct non-empty `owner_id`
+  gets one personal account (`accounts.personal_owner_id` = that `sub`) with
+  an admin membership, and its rows get that `account_id`; a new user's
+  personal account is created on their first `POST /me/sublocations`. The
+  migration is the last section of `schema.sql` and is idempotent (it runs on
+  every boot): only a freshly created personal account gets its membership,
+  so a removed member is never resurrected, and the backfill only fills
+  `account_id IS NULL` rows — which also catches rows the previous image
+  wrote after a rollback. `owner_id` is never dropped or rewritten, so
+  rolling back is redeploying the previous image. Admin-owned rows (`''`)
+  get no account. Deleting an account (no endpoint yet) sets its rows'
+  `account_id` to NULL.
+- **NationCam admins** list and create accounts and move an existing camera
+  (`PUT /videos/{id}/account`) or location with its cameras
+  (`PUT /sublocations/{id}/account`); a move drops viewers' now-stale picks.
+  They may also manage any account's members and invites.
+- **Caches**: nothing under `/me`, `/accounts` or `/invites` is cached. The
+  two ownership moves flush `videos:*`, `sublocations:*`, `states:*`;
+  member and invite changes touch no public data.
+- **Not here**: private visibility and capture interval per camera (DAN-205,
+  DAN-208); the dashboard screens (the sibling UI issue).
+- **Tests**: `handler/accounts_test.go` (on the same fake store, account half
+  in `account_fakes_test.go`) and `sql/accounts_test.go` (migration and
+  queries, `TEST_DATABASE_URL`).
 
 ### Owner dashboard and admin console
 

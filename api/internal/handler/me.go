@@ -17,12 +17,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Owner endpoints (DAN-39): everything under /me, mounted behind
-// middleware.RequireUser. The token's `sub` is the owner id; every row
-// lookup goes through loadOwnedSublocation / loadOwnedVideo, which 403 on
-// someone else's row (and 404 on none). Admin-owned legacy rows have
-// owner_id '' and are therefore never reachable here — RequireUser
-// guarantees a non-empty subject.
+// Owner endpoints (DAN-39, accounts DAN-381): everything under /me, mounted
+// behind middleware.RequireUser. Rows belong to an account; the token's
+// `sub` is matched against the account's members. Every row write goes
+// through loadOwnedSublocation / loadOwnedVideo, which answer 404 on no row
+// and 403 unless the caller is an admin of the row's account (a viewer is
+// told viewers cannot change it). owner_id stays the creating user. Admin-
+// owned legacy rows have no account and are therefore never reachable here.
 //
 // Nothing here is Redis-cached (responses are per user), but every write
 // flushes the public catalog caches: a sublocation edit changes the public
@@ -46,33 +47,41 @@ type meResponse struct {
 	IsAdmin bool     `json:"is_admin"`
 	Limits  meLimits `json:"limits"`
 	Counts  meCounts `json:"counts"`
+	// Added by DAN-381 (GET /me only gains fields): the caller's personal
+	// account (null until they create their first location) and every
+	// account they belong to with their role. limits apply per account.
+	PersonalAccountID *int32                 `json:"personal_account_id"`
+	Accounts          []db.ListMyAccountsRow `json:"accounts"`
 }
 
 // GetMe handles GET /me — who the caller is, whether the token carries the
-// admin scope, the owner limits, and how many rows they own. Works for
-// admins too: their own rows (if any) are counted the same way.
+// admin scope, the per-account limits, and the counts of their personal
+// account (for a migrated owner exactly the rows they owned before
+// accounts), plus every account they belong to. Works for admins too.
 func GetMe(store ownerStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		owner := middleware.UserID(ctx)
+		user := middleware.UserID(ctx)
 
-		subs, err := store.CountOwnerSublocations(ctx, owner)
+		accounts, err := store.ListMyAccounts(ctx, user)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		vids, err := store.CountOwnerVideos(ctx, owner)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
+		resp := meResponse{
+			UserID:   user,
+			IsAdmin:  middleware.IsAdmin(ctx),
+			Limits:   meLimits{MaxCameras: ownerMaxCameras, PerDay: ownerCamerasPerDay},
+			Accounts: accounts,
 		}
-
-		writeJSON(w, http.StatusOK, meResponse{
-			UserID:  owner,
-			IsAdmin: middleware.IsAdmin(ctx),
-			Limits:  meLimits{MaxCameras: ownerMaxCameras, PerDay: ownerCamerasPerDay},
-			Counts:  meCounts{Sublocations: subs, Videos: vids},
-		})
+		for _, a := range accounts {
+			if a.Personal {
+				id := a.AccountID
+				resp.PersonalAccountID = &id
+				resp.Counts = meCounts{Sublocations: a.SublocationCount, Videos: a.VideoCount}
+			}
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -85,6 +94,11 @@ type ownerSublocationRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	StateID     int32  `json:"state_id"`
+	// AccountID (create only, optional) files the location under an account
+	// the caller administers; omitted means their personal account. Ignored
+	// on update — moving a location between accounts is a NationCam admin
+	// action (PUT /sublocations/{id}/account).
+	AccountID *int32 `json:"account_id,omitempty"`
 	hostInput
 }
 
@@ -110,7 +124,7 @@ func (req *ownerSublocationRequest) normalize() string {
 }
 
 // ListMySublocations handles GET /me/sublocations — every sublocation the
-// caller owns, any status, with its review note.
+// caller can see through their accounts, any status, with its review note.
 func ListMySublocations(store ownerStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := store.ListOwnerSublocations(r.Context(), middleware.UserID(r.Context()))
@@ -123,7 +137,8 @@ func ListMySublocations(store ownerStore) http.HandlerFunc {
 }
 
 // CreateMySublocation handles POST /me/sublocations — a new sublocation in
-// status pending, owned by the caller.
+// status pending, created by the caller, in their personal account (made on
+// first use) or in the account_id they administer.
 func CreateMySublocation(store ownerStore, c *cache.Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req ownerSublocationRequest
@@ -137,6 +152,18 @@ func CreateMySublocation(store ownerStore, c *cache.Cache) http.HandlerFunc {
 		}
 
 		ctx := r.Context()
+		accountID := req.AccountID
+		if accountID == nil {
+			id, err := ensurePersonalAccount(ctx, store, middleware.UserID(ctx))
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			accountID = &id
+		}
+		if !requireAccountAdmin(w, r, store, accountID, "account") {
+			return
+		}
 		id, err := store.CreateOwnerSublocation(ctx, db.CreateOwnerSublocationParams{
 			Name:        req.Name,
 			Description: req.Description,
@@ -148,6 +175,7 @@ func CreateMySublocation(store ownerStore, c *cache.Cache) http.HandlerFunc {
 			HostUrl:     req.HostURL,
 			HostSince:   req.HostSince,
 			OwnerID:     middleware.UserID(ctx),
+			AccountID:   accountID,
 		})
 		if err != nil {
 			if isForeignKeyViolation(err) {
@@ -263,7 +291,8 @@ type updateMyVideoRequest struct {
 // ownerVideoMaxTitle bounds a camera title (it becomes the slug too).
 const ownerVideoMaxTitle = 120
 
-// ListMyVideos handles GET /me/videos — every camera the caller owns, any
+// ListMyVideos handles GET /me/videos — every camera the caller can see
+// through their accounts (see CanViewCamera), any
 // status, with its review note and sublocation.
 func ListMyVideos(store ownerStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -318,8 +347,8 @@ func createMyVideo(store ownerStore, c *cache.Cache, rc *restreamer.Client, now 
 		ctx := r.Context()
 		owner := middleware.UserID(ctx)
 
-		// The sublocation must be the caller's own — a camera can only be
-		// filed under a place they submitted (or that was approved for them).
+		// The sublocation must belong to an account the caller administers —
+		// the camera joins that same account.
 		sub, err := store.GetSublocationForOwner(ctx, req.SublocationID)
 		if err != nil {
 			if isNotFound(err) {
@@ -329,8 +358,7 @@ func createMyVideo(store ownerStore, c *cache.Cache, rc *restreamer.Client, now 
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		if sub.OwnerID != owner {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "not your sublocation"})
+		if !requireAccountAdmin(w, r, store, sub.AccountID, "sublocation") {
 			return
 		}
 		if sub.Status == statusRejected {
@@ -338,8 +366,8 @@ func createMyVideo(store ownerStore, c *cache.Cache, rc *restreamer.Client, now 
 			return
 		}
 
-		// Limits, before anything is created on Restreamer.
-		total, err := store.CountOwnerVideos(ctx, owner)
+		// Limits, per account, before anything is created on Restreamer.
+		total, err := store.CountAccountVideos(ctx, sub.AccountID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -350,8 +378,8 @@ func createMyVideo(store ownerStore, c *cache.Cache, rc *restreamer.Client, now 
 			})
 			return
 		}
-		today, err := store.CountOwnerVideosSince(ctx, db.CountOwnerVideosSinceParams{
-			OwnerID:   owner,
+		today, err := store.CountAccountVideosSince(ctx, db.CountAccountVideosSinceParams{
+			AccountID: sub.AccountID,
 			CreatedAt: now().Add(-24 * time.Hour),
 		})
 		if err != nil {
@@ -381,6 +409,7 @@ func createMyVideo(store ownerStore, c *cache.Cache, rc *restreamer.Client, now 
 			SublocationID: &subID,
 			About:         req.About,
 			OwnerID:       owner,
+			AccountID:     sub.AccountID,
 			StreamID:      pgtype.Text{String: streamID, Valid: true},
 			CreatedBy:     owner,
 		})
@@ -554,8 +583,7 @@ func loadOwnedSublocation(w http.ResponseWriter, r *http.Request, store ownerSto
 		}
 		return db.GetSublocationForOwnerRow{}, false
 	}
-	if row.OwnerID != middleware.UserID(r.Context()) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "not your sublocation"})
+	if !requireAccountAdmin(w, r, store, row.AccountID, "sublocation") {
 		return db.GetSublocationForOwnerRow{}, false
 	}
 	return row, true
@@ -577,8 +605,7 @@ func loadOwnedVideo(w http.ResponseWriter, r *http.Request, store ownerStore) (d
 		}
 		return db.GetVideoForOwnerRow{}, false
 	}
-	if row.OwnerID != middleware.UserID(r.Context()) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "not your camera"})
+	if !requireAccountAdmin(w, r, store, row.AccountID, "camera") {
 		return db.GetVideoForOwnerRow{}, false
 	}
 	return row, true

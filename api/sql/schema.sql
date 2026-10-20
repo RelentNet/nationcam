@@ -538,3 +538,117 @@ UPDATE videos SET slug = '' WHERE slug = '';
 -- Created after the backfill so it never sees duplicate slugs.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_videos_slug_scope
   ON videos (state_id, sublocation_id, slug) NULLS NOT DISTINCT;
+
+-- ────────────────────────────────────────────────
+-- Accounts and members — DAN-381
+--
+-- A location (sublocation) and a camera (video) belong to an account, not to
+-- a single Logto user. An account has members: 'admin' (manages the account's
+-- locations, cameras, members and invites; always sees every camera) or
+-- 'viewer'. A viewer with all_cameras sees every camera of the account,
+-- including ones added later; a restricted viewer (all_cameras = FALSE) sees
+-- only the cameras picked for them in account_member_videos. Members join
+-- through single-use invite links (account_invites) that carry the role and
+-- the camera selection; only a SHA-256 hash of the token is stored.
+--
+-- Migration from single owners: every distinct non-empty owner_id gets one
+-- personal account (personal_owner_id = that sub) with an admin membership,
+-- and its rows get that account_id. owner_id is never dropped or rewritten,
+-- so rolling back is redeploying the previous image; admin-owned rows
+-- (owner_id '') get no account. Self-contained and idempotent — it runs on
+-- every API boot: tables/columns/indexes are IF NOT EXISTS, the account
+-- insert is ON CONFLICT DO NOTHING (and only a freshly created personal
+-- account gets its admin membership, so a removed member is never
+-- resurrected), and the account_id backfill only touches rows still NULL —
+-- which also picks up rows the previous image wrote after a rollback.
+-- ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS accounts (
+  account_id        SERIAL PRIMARY KEY,
+  name              TEXT NOT NULL,
+  -- The Logto sub whose personal account this is; NULL for a shared account.
+  personal_owner_id TEXT UNIQUE CHECK (personal_owner_id <> ''),
+  created_by        TEXT NOT NULL DEFAULT '',
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS account_members (
+  account_id  INTEGER NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL CHECK (user_id <> ''),
+  role        TEXT NOT NULL CHECK (role IN ('admin', 'viewer')),
+  all_cameras BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, user_id),
+  -- Admins always see every camera; only a viewer can be restricted.
+  CONSTRAINT account_members_admin_all CHECK (role <> 'admin' OR all_cameras)
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_members_user_id ON account_members(user_id);
+
+-- The picked cameras of a restricted viewer. Removing the member or the
+-- camera removes the pick.
+CREATE TABLE IF NOT EXISTS account_member_videos (
+  account_id INTEGER NOT NULL,
+  user_id    TEXT NOT NULL,
+  video_id   INTEGER NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
+  PRIMARY KEY (account_id, user_id, video_id),
+  FOREIGN KEY (account_id, user_id) REFERENCES account_members(account_id, user_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_member_videos_video_id ON account_member_videos(video_id);
+
+CREATE TABLE IF NOT EXISTS account_invites (
+  invite_id   SERIAL PRIMARY KEY,
+  account_id  INTEGER NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
+  -- Hex SHA-256 of the token; the token itself is shown once and never stored.
+  token_hash  TEXT NOT NULL UNIQUE,
+  role        TEXT NOT NULL CHECK (role IN ('admin', 'viewer')),
+  all_cameras BOOLEAN NOT NULL DEFAULT TRUE,
+  video_ids   INTEGER[] NOT NULL DEFAULT '{}',
+  created_by  TEXT NOT NULL DEFAULT '',
+  expires_at  TIMESTAMPTZ NOT NULL,
+  accepted_by TEXT,
+  accepted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT account_invites_admin_all CHECK (role <> 'admin' OR all_cameras)
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_invites_account_id ON account_invites(account_id);
+
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(account_id) ON DELETE SET NULL;
+ALTER TABLE videos       ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(account_id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_sublocations_account_id ON sublocations(account_id);
+CREATE INDEX IF NOT EXISTS idx_videos_account_id ON videos(account_id);
+
+CREATE OR REPLACE TRIGGER trg_accounts_updated
+  BEFORE UPDATE ON accounts
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_account_members_updated
+  BEFORE UPDATE ON account_members
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Backfill: one personal account (+ admin membership) per distinct owner.
+WITH owners AS (
+  SELECT owner_id FROM sublocations WHERE owner_id <> ''
+  UNION
+  SELECT owner_id FROM videos WHERE owner_id <> ''
+), created AS (
+  INSERT INTO accounts (name, personal_owner_id, created_by)
+  SELECT 'Personal account', owner_id, owner_id FROM owners
+  ON CONFLICT (personal_owner_id) DO NOTHING
+  RETURNING account_id, personal_owner_id
+)
+INSERT INTO account_members (account_id, user_id, role, all_cameras)
+SELECT account_id, personal_owner_id, 'admin', TRUE FROM created
+ON CONFLICT DO NOTHING;
+
+UPDATE sublocations sub SET account_id = a.account_id
+FROM accounts a
+WHERE sub.account_id IS NULL AND sub.owner_id <> '' AND a.personal_owner_id = sub.owner_id;
+
+UPDATE videos v SET account_id = a.account_id
+FROM accounts a
+WHERE v.account_id IS NULL AND v.owner_id <> '' AND a.personal_owner_id = v.owner_id;
