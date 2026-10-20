@@ -168,18 +168,28 @@ func TestOwnerReviewVisibility(t *testing.T) {
 	}
 
 	// ── Owner and review queries ──
+	// The rows above were written owner_id-only, as before accounts; the
+	// schema's DAN-381 backfill (it runs on every boot) files them under
+	// owner-1's personal account.
+	if _, err := tx.Exec(ctx, Schema); err != nil {
+		t.Fatalf("re-apply schema: %v", err)
+	}
+	personal, err := q.GetPersonalAccountID(ctx, "owner-1")
+	if err != nil {
+		t.Fatalf("personal account: %v", err)
+	}
 	mine, _ := q.ListOwnerVideos(ctx, "owner-1")
 	if len(mine) != 4 {
 		t.Errorf("ListOwnerVideos = %d rows, want 4 (paused, pending, rejected, hidden)", len(mine))
 	}
-	if n, _ := q.CountOwnerVideos(ctx, "owner-1"); n != 4 {
-		t.Errorf("CountOwnerVideos = %d, want 4", n)
+	if n, _ := q.CountAccountVideos(ctx, &personal); n != 4 {
+		t.Errorf("CountAccountVideos = %d, want 4", n)
 	}
-	if n, _ := q.CountOwnerVideosSince(ctx, db.CountOwnerVideosSinceParams{OwnerID: "owner-1", CreatedAt: time.Now().Add(-time.Hour)}); n != 4 {
-		t.Errorf("CountOwnerVideosSince(1h) = %d, want 4", n)
+	if n, _ := q.CountAccountVideosSince(ctx, db.CountAccountVideosSinceParams{AccountID: &personal, CreatedAt: time.Now().Add(-time.Hour)}); n != 4 {
+		t.Errorf("CountAccountVideosSince(1h) = %d, want 4", n)
 	}
-	if n, _ := q.CountOwnerVideosSince(ctx, db.CountOwnerVideosSinceParams{OwnerID: "owner-1", CreatedAt: time.Now().Add(time.Hour)}); n != 0 {
-		t.Errorf("CountOwnerVideosSince(future) = %d, want 0", n)
+	if n, _ := q.CountAccountVideosSince(ctx, db.CountAccountVideosSinceParams{AccountID: &personal, CreatedAt: time.Now().Add(time.Hour)}); n != 0 {
+		t.Errorf("CountAccountVideosSince(future) = %d, want 0", n)
 	}
 	if n, _ := q.CountVideosInSublocation(ctx, &pendingSub); n != 1 {
 		t.Errorf("CountVideosInSublocation(pending place) = %d, want 1", n)

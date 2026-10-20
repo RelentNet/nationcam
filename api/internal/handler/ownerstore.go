@@ -16,19 +16,18 @@ import (
 // handler tests substitute an in-memory fake, which is what lets every
 // status transition, ownership check and cascade run without Postgres.
 type ownerQueries interface {
-	CountOwnerSublocations(ctx context.Context, ownerID string) (int32, error)
-	CountOwnerVideos(ctx context.Context, ownerID string) (int32, error)
-	CountOwnerVideosSince(ctx context.Context, arg db.CountOwnerVideosSinceParams) (int32, error)
+	CountAccountVideos(ctx context.Context, accountID *int32) (int32, error)
+	CountAccountVideosSince(ctx context.Context, arg db.CountAccountVideosSinceParams) (int32, error)
 	CountVideosInSublocation(ctx context.Context, sublocationID *int32) (int32, error)
 
-	ListOwnerSublocations(ctx context.Context, ownerID string) ([]db.ListOwnerSublocationsRow, error)
+	ListOwnerSublocations(ctx context.Context, userID string) ([]db.ListOwnerSublocationsRow, error)
 	GetSublocationForOwner(ctx context.Context, sublocationID int32) (db.GetSublocationForOwnerRow, error)
 	CreateOwnerSublocation(ctx context.Context, arg db.CreateOwnerSublocationParams) (int32, error)
 	UpdateOwnerSublocation(ctx context.Context, arg db.UpdateOwnerSublocationParams) error
 	DeleteSublocation(ctx context.Context, sublocationID int32) error
 	SetSublocationStatus(ctx context.Context, arg db.SetSublocationStatusParams) error
 
-	ListOwnerVideos(ctx context.Context, ownerID string) ([]db.ListOwnerVideosRow, error)
+	ListOwnerVideos(ctx context.Context, userID string) ([]db.ListOwnerVideosRow, error)
 	GetVideoForOwner(ctx context.Context, videoID int32) (db.GetVideoForOwnerRow, error)
 	CreateOwnerVideo(ctx context.Context, arg db.CreateOwnerVideoParams) (int32, error)
 	UpdateOwnerVideo(ctx context.Context, arg db.UpdateOwnerVideoParams) error
@@ -38,6 +37,32 @@ type ownerQueries interface {
 	ListPendingSublocations(ctx context.Context) ([]db.ListPendingSublocationsRow, error)
 	ListPendingVideos(ctx context.Context) ([]db.ListPendingVideosRow, error)
 	RejectPendingVideosInSublocation(ctx context.Context, arg db.RejectPendingVideosInSublocationParams) ([]db.RejectPendingVideosInSublocationRow, error)
+
+	// Accounts, members and invites (DAN-381).
+	GetAccount(ctx context.Context, accountID int32) (db.Account, error)
+	LockAccount(ctx context.Context, accountID int32) (int32, error)
+	ListAccounts(ctx context.Context) ([]db.ListAccountsRow, error)
+	CreateAccount(ctx context.Context, arg db.CreateAccountParams) (int32, error)
+	GetPersonalAccountID(ctx context.Context, userID string) (int32, error)
+	CreatePersonalAccount(ctx context.Context, userID string) (int32, error)
+	ListMyAccounts(ctx context.Context, userID string) ([]db.ListMyAccountsRow, error)
+	GetAccountMember(ctx context.Context, arg db.GetAccountMemberParams) (db.AccountMember, error)
+	ListAccountMembers(ctx context.Context, accountID int32) ([]db.ListAccountMembersRow, error)
+	CountAccountAdmins(ctx context.Context, accountID int32) (int32, error)
+	AddAccountMember(ctx context.Context, arg db.AddAccountMemberParams) error
+	UpdateAccountMember(ctx context.Context, arg db.UpdateAccountMemberParams) error
+	DeleteAccountMember(ctx context.Context, arg db.DeleteAccountMemberParams) error
+	ClearMemberVideos(ctx context.Context, arg db.ClearMemberVideosParams) error
+	AddMemberVideos(ctx context.Context, arg db.AddMemberVideosParams) error
+	CountAccountVideosIn(ctx context.Context, arg db.CountAccountVideosInParams) (int32, error)
+	GetMemberVideoAccess(ctx context.Context, arg db.GetMemberVideoAccessParams) (db.GetMemberVideoAccessRow, error)
+	CreateInvite(ctx context.Context, arg db.CreateInviteParams) (int32, error)
+	GetInviteByHash(ctx context.Context, tokenHash string) (db.AccountInvite, error)
+	MarkInviteAccepted(ctx context.Context, arg db.MarkInviteAcceptedParams) (int64, error)
+	AssignVideoAccount(ctx context.Context, arg db.AssignVideoAccountParams) error
+	AssignSublocationAccount(ctx context.Context, arg db.AssignSublocationAccountParams) error
+	AssignSublocationVideosAccount(ctx context.Context, arg db.AssignSublocationVideosAccountParams) error
+	DropStaleVideoPicks(ctx context.Context) error
 }
 
 // ownerStore is ownerQueries plus a transaction runner, for the writes that

@@ -1,36 +1,46 @@
--- Owner endpoints (DAN-39): everything under /me. Rows carry owner_id so the
--- handler can enforce ownership (403 on someone else's row); the two
--- Get*ForOwner queries take no owner filter on purpose so a foreign row is a
--- 403, not a 404. Nothing here is Redis-cached (responses are per user).
+-- Owner endpoints (DAN-39, accounts DAN-381): everything under /me. A row
+-- belongs to an account (account_id); the handler enforces membership and
+-- role (403 on a row the caller may not change). The two Get*ForOwner
+-- queries take no account filter on purpose so a foreign row is a 403, not a
+-- 404. owner_id is kept as the creating user and is never rewritten. Nothing
+-- here is Redis-cached (responses are per user).
 
--- name: CountOwnerSublocations :one
-SELECT COUNT(*)::int FROM sublocations WHERE owner_id = $1;
+-- name: CountAccountVideos :one
+SELECT COUNT(*)::int FROM videos WHERE account_id = $1;
 
--- name: CountOwnerVideos :one
-SELECT COUNT(*)::int FROM videos WHERE owner_id = $1;
+-- CountAccountVideosSince backs the per-day creation limit. It counts rows
+-- that still exist, so a delete frees a slot; the limit is anti-abuse, not
+-- billing.
+-- name: CountAccountVideosSince :one
+SELECT COUNT(*)::int FROM videos WHERE account_id = $1 AND created_at > $2;
 
--- CountOwnerVideosSince backs the per-day creation limit. It counts rows that
--- still exist, so a delete frees a slot; the limit is anti-abuse, not billing.
--- name: CountOwnerVideosSince :one
-SELECT COUNT(*)::int FROM videos WHERE owner_id = $1 AND created_at > $2;
-
+-- ListOwnerSublocations lists the locations the user can see through their
+-- memberships: every location of an account they administer or view in
+-- full, and for a restricted viewer only the locations holding a picked
+-- camera.
 -- name: ListOwnerSublocations :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.status, sub.owner_id, sub.review_note,
+       sub.status, sub.owner_id, sub.account_id, sub.review_note,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name, s.slug AS state_slug,
        COUNT(v.video_id)::int AS video_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
+JOIN account_members m ON m.account_id = sub.account_id AND m.user_id = sqlc.arg(user_id)::text
 LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id
-WHERE sub.owner_id = $1
+WHERE m.role = 'admin' OR m.all_cameras OR EXISTS (
+  SELECT 1 FROM account_member_videos mv
+  JOIN videos pv ON pv.video_id = mv.video_id
+  WHERE mv.account_id = m.account_id AND mv.user_id = m.user_id
+    AND pv.sublocation_id = sub.sublocation_id
+)
 GROUP BY sub.sublocation_id, s.name, s.slug
 ORDER BY sub.name;
 
 -- name: GetSublocationForOwner :one
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
-       sub.status, sub.owner_id, sub.review_note,
+       sub.status, sub.owner_id, sub.account_id, sub.review_note,
        sub.lat, sub.lng, sub.host_name, sub.host_url, sub.host_since, sub.address,
        sub.created_at, sub.updated_at,
        s.name AS state_name, s.slug AS state_slug,
@@ -42,8 +52,8 @@ WHERE sub.sublocation_id = $1
 GROUP BY sub.sublocation_id, s.name, s.slug;
 
 -- name: CreateOwnerSublocation :one
-INSERT INTO sublocations (name, description, state_id, address, lat, lng, host_name, host_url, host_since, owner_id, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
+INSERT INTO sublocations (name, description, state_id, address, lat, lng, host_name, host_url, host_since, owner_id, account_id, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
 RETURNING sublocation_id;
 
 -- UpdateOwnerSublocation leaves status alone: an owner edit never re-enters
@@ -53,9 +63,13 @@ UPDATE sublocations SET name = $2, description = $3, state_id = $4,
        address = $5, lat = $6, lng = $7, host_name = $8, host_url = $9, host_since = $10
 WHERE sublocation_id = $1;
 
+-- ListOwnerVideos lists the cameras the user can see through their
+-- memberships — the same rule as CanViewCamera in handler/access.go: account
+-- admins and all-cameras viewers every camera of the account, restricted
+-- viewers only their picked ones.
 -- name: ListOwnerVideos :many
 SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
-       v.status, v.owner_id, v.stream_id, v.review_note, v.about,
+       v.status, v.owner_id, v.account_id, v.stream_id, v.review_note, v.about,
        v.created_at, v.updated_at,
        s.name AS state_name, s.slug AS state_slug,
        COALESCE(sub.name, '') AS sublocation_name,
@@ -63,13 +77,17 @@ SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
        COALESCE(sub.status, '') AS sublocation_status
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
+JOIN account_members m ON m.account_id = v.account_id AND m.user_id = sqlc.arg(user_id)::text
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
-WHERE v.owner_id = $1
+WHERE m.role = 'admin' OR m.all_cameras OR EXISTS (
+  SELECT 1 FROM account_member_videos mv
+  WHERE mv.account_id = m.account_id AND mv.user_id = m.user_id AND mv.video_id = v.video_id
+)
 ORDER BY v.title;
 
 -- name: GetVideoForOwner :one
 SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
-       v.status, v.owner_id, v.stream_id, v.review_note, v.about,
+       v.status, v.owner_id, v.account_id, v.stream_id, v.review_note, v.about,
        v.created_at, v.updated_at,
        s.name AS state_name, s.slug AS state_slug,
        COALESCE(sub.name, '') AS sublocation_name,
@@ -81,8 +99,8 @@ LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.video_id = $1;
 
 -- name: CreateOwnerVideo :one
-INSERT INTO videos (title, src, type, state_id, sublocation_id, about, owner_id, stream_id, created_by, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+INSERT INTO videos (title, src, type, state_id, sublocation_id, about, owner_id, account_id, stream_id, created_by, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
 RETURNING video_id;
 
 -- name: UpdateOwnerVideo :exec

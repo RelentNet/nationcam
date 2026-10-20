@@ -35,6 +35,14 @@ type fakeStore struct {
 	vids    map[int32]db.GetVideoForOwnerRow
 	nextSub int32
 	nextVid int32
+	// Accounts (DAN-381).
+	accounts   map[int32]db.Account
+	members    map[memberKey]db.AccountMember
+	picks      map[memberKey]map[int32]bool
+	invites    map[int32]db.AccountInvite
+	nextAcct   int32
+	nextInvite int32
+	nextTick   time.Duration
 	// txDepth counts nested Tx calls so a test can assert a cascade ran in one.
 	txCalls int
 }
@@ -44,7 +52,107 @@ func newFakeStore() *fakeStore {
 		states: map[int32]string{1: "Louisiana", 2: "Texas"},
 		subs:   map[int32]db.GetSublocationForOwnerRow{},
 		vids:   map[int32]db.GetVideoForOwnerRow{},
+
+		accounts: map[int32]db.Account{},
+		members:  map[memberKey]db.AccountMember{},
+		picks:    map[memberKey]map[int32]bool{},
+		invites:  map[int32]db.AccountInvite{},
 	}
+}
+
+type memberKey struct {
+	account int32
+	user    string
+}
+
+// personalLocked returns owner's personal account, creating it with an admin
+// membership the way the schema backfill does for a migrated owner. owner ""
+// (admin-owned) has none.
+func (f *fakeStore) personalLocked(owner string) *int32 {
+	if owner == "" {
+		return nil
+	}
+	for id, a := range f.accounts {
+		if a.PersonalOwnerID.Valid && a.PersonalOwnerID.String == owner {
+			id := id
+			return &id
+		}
+	}
+	f.nextAcct++
+	id := f.nextAcct
+	f.accounts[id] = db.Account{AccountID: id, Name: "Personal account", PersonalOwnerID: pgtype.Text{String: owner, Valid: true}, CreatedBy: owner}
+	f.members[memberKey{id, owner}] = db.AccountMember{AccountID: id, UserID: owner, Role: roleAdmin, AllCameras: true, CreatedAt: f.tickLocked()}
+	return &id
+}
+
+// tickLocked hands out strictly increasing timestamps so member order is stable.
+func (f *fakeStore) tickLocked() time.Time {
+	f.nextTick++
+	return time.Unix(1_700_000_000, 0).Add(f.nextTick * time.Second)
+}
+
+// personal is personalLocked for tests.
+func (f *fakeStore) personal(owner string) int32 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return *f.personalLocked(owner)
+}
+
+// addAccount seeds a shared account with the given admin and returns its id.
+func (f *fakeStore) addAccount(name, admin string) int32 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nextAcct++
+	id := f.nextAcct
+	f.accounts[id] = db.Account{AccountID: id, Name: name, CreatedBy: admin}
+	f.members[memberKey{id, admin}] = db.AccountMember{AccountID: id, UserID: admin, Role: roleAdmin, AllCameras: true, CreatedAt: f.tickLocked()}
+	return id
+}
+
+// addMember seeds a membership (and picks, for a restricted viewer).
+func (f *fakeStore) addMember(account int32, user, role string, all bool, picks ...int32) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	k := memberKey{account, user}
+	f.members[k] = db.AccountMember{AccountID: account, UserID: user, Role: role, AllCameras: all, CreatedAt: f.tickLocked()}
+	for _, v := range picks {
+		if f.picks[k] == nil {
+			f.picks[k] = map[int32]bool{}
+		}
+		f.picks[k][v] = true
+	}
+}
+
+// moveSub files a seeded sublocation (and its cameras) under another account.
+func (f *fakeStore) moveSub(sub, account int32) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s := f.subs[sub]
+	s.AccountID = &account
+	f.subs[sub] = s
+	for id, v := range f.vids {
+		if v.SublocationID != nil && *v.SublocationID == sub {
+			v.AccountID = &account
+			f.vids[id] = v
+		}
+	}
+}
+
+func (f *fakeStore) memberLocked(account *int32, user string) (db.AccountMember, bool) {
+	if account == nil {
+		return db.AccountMember{}, false
+	}
+	m, ok := f.members[memberKey{*account, user}]
+	return m, ok
+}
+
+// canSeeLocked is the ListOwnerVideos / GetMemberVideoAccess rule.
+func (f *fakeStore) canSeeLocked(v db.GetVideoForOwnerRow, user string) bool {
+	m, ok := f.memberLocked(v.AccountID, user)
+	if !ok {
+		return false
+	}
+	return memberCanView(m.Role, m.AllCameras, f.picks[memberKey{m.AccountID, user}][v.VideoID])
 }
 
 func fkViolation() error {
@@ -60,7 +168,7 @@ func (f *fakeStore) addSub(owner, status string, stateID int32) int32 {
 	f.subs[id] = db.GetSublocationForOwnerRow{
 		SublocationID: id, Name: fmt.Sprintf("Sub %d", id), Slug: fmt.Sprintf("sub-%d", id),
 		StateID: stateID, StateName: f.states[stateID], StateSlug: strings.ToLower(f.states[stateID]),
-		Status: status, OwnerID: owner, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		Status: status, OwnerID: owner, AccountID: f.personalLocked(owner), CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	return id
 }
@@ -76,7 +184,7 @@ func (f *fakeStore) addVid(owner, status string, subID int32, streamID string) i
 	v := db.GetVideoForOwnerRow{
 		VideoID: id, Title: fmt.Sprintf("Cam %d", id), Slug: fmt.Sprintf("cam-%d", id),
 		Src: "https://streamer.example/memfs/" + streamID + ".m3u8", Type: "application/x-mpegURL",
-		StateID: sub.StateID, SublocationID: &sid, Status: status, OwnerID: owner,
+		StateID: sub.StateID, SublocationID: &sid, Status: status, OwnerID: owner, AccountID: f.personalLocked(owner),
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 		StateName: sub.StateName, StateSlug: sub.StateSlug,
 		SublocationName: sub.Name, SublocationSlug: sub.Slug, SublocationStatus: sub.Status,
@@ -127,36 +235,28 @@ func (f *fakeStore) Tx(ctx context.Context, fn func(q ownerQueries) error) error
 	return fn(f)
 }
 
-func (f *fakeStore) CountOwnerSublocations(_ context.Context, owner string) (int32, error) {
+func sameAccount(a, b *int32) bool {
+	return a != nil && b != nil && *a == *b
+}
+
+func (f *fakeStore) CountAccountVideos(_ context.Context, account *int32) (int32, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var n int32
-	for _, s := range f.subs {
-		if s.OwnerID == owner {
+	for _, v := range f.vids {
+		if sameAccount(v.AccountID, account) {
 			n++
 		}
 	}
 	return n, nil
 }
 
-func (f *fakeStore) CountOwnerVideos(_ context.Context, owner string) (int32, error) {
+func (f *fakeStore) CountAccountVideosSince(_ context.Context, arg db.CountAccountVideosSinceParams) (int32, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var n int32
 	for _, v := range f.vids {
-		if v.OwnerID == owner {
-			n++
-		}
-	}
-	return n, nil
-}
-
-func (f *fakeStore) CountOwnerVideosSince(_ context.Context, arg db.CountOwnerVideosSinceParams) (int32, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	var n int32
-	for _, v := range f.vids {
-		if v.OwnerID == arg.OwnerID && v.CreatedAt.After(arg.CreatedAt) {
+		if sameAccount(v.AccountID, arg.AccountID) && v.CreatedAt.After(arg.CreatedAt) {
 			n++
 		}
 	}
@@ -177,7 +277,16 @@ func (f *fakeStore) ListOwnerSublocations(_ context.Context, owner string) ([]db
 	defer f.mu.Unlock()
 	out := []db.ListOwnerSublocationsRow{}
 	for _, s := range f.subs {
-		if s.OwnerID == owner {
+		m, member := f.memberLocked(s.AccountID, owner)
+		visible := member && (m.Role == roleAdmin || m.AllCameras)
+		if member && !visible {
+			for _, v := range f.vids {
+				if v.SublocationID != nil && *v.SublocationID == s.SublocationID && f.picks[memberKey{m.AccountID, owner}][v.VideoID] {
+					visible = true
+				}
+			}
+		}
+		if visible {
 			s.VideoCount = f.subVideoCountLocked(s.SublocationID)
 			out = append(out, db.ListOwnerSublocationsRow(s))
 		}
@@ -209,7 +318,7 @@ func (f *fakeStore) CreateOwnerSublocation(_ context.Context, arg db.CreateOwner
 	f.subs[id] = db.GetSublocationForOwnerRow{
 		SublocationID: id, Name: arg.Name, Description: arg.Description, Slug: strings.ToLower(strings.ReplaceAll(arg.Name, " ", "-")),
 		StateID: arg.StateID, StateName: name, StateSlug: strings.ToLower(name),
-		Status: statusPending, OwnerID: arg.OwnerID,
+		Status: statusPending, OwnerID: arg.OwnerID, AccountID: arg.AccountID,
 		Lat: arg.Lat, Lng: arg.Lng, HostName: arg.HostName, HostUrl: arg.HostUrl, HostSince: arg.HostSince, Address: arg.Address,
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
@@ -257,7 +366,7 @@ func (f *fakeStore) ListOwnerVideos(_ context.Context, owner string) ([]db.ListO
 	defer f.mu.Unlock()
 	out := []db.ListOwnerVideosRow{}
 	for _, v := range f.vids {
-		if v.OwnerID == owner {
+		if f.canSeeLocked(v, owner) {
 			out = append(out, db.ListOwnerVideosRow(f.refreshVideoLocked(v)))
 		}
 	}
@@ -283,7 +392,7 @@ func (f *fakeStore) CreateOwnerVideo(_ context.Context, arg db.CreateOwnerVideoP
 	f.vids[id] = f.refreshVideoLocked(db.GetVideoForOwnerRow{
 		VideoID: id, Title: arg.Title, Slug: strings.ToLower(strings.ReplaceAll(arg.Title, " ", "-")),
 		Src: arg.Src, Type: arg.Type, StateID: arg.StateID, SublocationID: arg.SublocationID,
-		Status: statusPending, OwnerID: arg.OwnerID, StreamID: arg.StreamID, About: arg.About,
+		Status: statusPending, OwnerID: arg.OwnerID, AccountID: arg.AccountID, StreamID: arg.StreamID, About: arg.About,
 		CreatedAt: time.Now(), UpdatedAt: time.Now(), StateName: f.states[arg.StateID],
 	})
 	return id, nil
@@ -305,6 +414,9 @@ func (f *fakeStore) DeleteVideo(_ context.Context, id int32) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	delete(f.vids, id)
+	for _, p := range f.picks { // ON DELETE CASCADE
+		delete(p, id)
+	}
 	return nil
 }
 
