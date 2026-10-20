@@ -8,7 +8,9 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Globe,
   Loader2,
+  Lock,
   Plus,
   Search,
   ShieldAlert,
@@ -16,7 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { Branding } from '@/lib/types'
+import type { Branding, Visibility } from '@/lib/types'
 import { uploadAsset } from '@/lib/api'
 import Button, { buttonClasses } from '@/components/Button'
 import Field, {
@@ -555,6 +557,62 @@ export function StatusDot({
         }
       />
       {label}
+    </span>
+  )
+}
+
+/**
+ * The NationCam-admin public/private switch (DAN-205/DAN-383): two segments,
+ * always visible in the row (unlike the hover-only action buttons), so which
+ * way a camera or location is set is readable at a glance. `onChange` fires
+ * only for the segment that is not already selected.
+ */
+export function VisibilitySwitch({
+  value,
+  onChange,
+  busy = false,
+  label,
+}: {
+  value: Visibility
+  onChange: (next: Visibility) => void
+  busy?: boolean
+  /** Names the thing being switched, for screen readers. */
+  label: string
+}) {
+  const seg = (v: Visibility, Icon: LucideIcon, text: string) => {
+    const on = value === v
+    return (
+      <button
+        type="button"
+        aria-pressed={on}
+        disabled={busy}
+        onClick={() => {
+          if (!on) onChange(v)
+        }}
+        className={`inline-flex items-center gap-1 rounded px-2 py-1 font-mono text-[11px] font-medium tracking-[0.02em] uppercase transition-colors duration-150 disabled:cursor-wait ${
+          on
+            ? v === 'private'
+              ? 'bg-accent/15 text-accent-ink'
+              : 'bg-teal/10 text-teal'
+            : 'text-subtext0 hover:text-text'
+        }`}
+      >
+        <Icon size={11} />
+        {text}
+      </button>
+    )
+  }
+  return (
+    <span
+      role="group"
+      aria-label={`${label} visibility`}
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-base p-0.5"
+    >
+      {seg('public', Globe, 'Public')}
+      {seg('private', Lock, 'Private')}
+      {busy && (
+        <Loader2 size={12} className="mx-1 animate-spin text-subtext0" />
+      )}
     </span>
   )
 }

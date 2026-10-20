@@ -50,6 +50,7 @@ import type {
   UpdateSublocationInput,
   UpdateVideoInput,
   Video,
+  Visibility,
   Weather,
 } from '@/lib/types'
 
@@ -410,9 +411,16 @@ export function hlsProxyVideoId(src: string): number | null {
  * cached: the player calls it at mount and again before the token expires.
  * Throws the API's message on failure.
  */
-export async function fetchStreamToken(videoId: number): Promise<StreamToken> {
+export async function fetchStreamToken(
+  videoId: number,
+  bearer?: string | null,
+): Promise<StreamToken> {
+  // A private camera (DAN-205) needs the caller's bearer token; a public one
+  // sends no Authorization header at all, exactly as before.
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (bearer) headers['Authorization'] = `Bearer ${bearer}`
   const res = await fetch(`/api/videos/${videoId}/stream-token`, {
-    headers: { Accept: 'application/json' },
+    headers,
     cache: 'no-store',
   })
   if (!res.ok) throw new Error(`stream token: ${res.status}`)
@@ -572,6 +580,73 @@ export async function updateVideo(
       about: input.about ?? '',
     },
     token,
+  )
+}
+
+/** `PUT /videos/{id}/visibility` — NationCam admins only (DAN-205). */
+export function setVideoVisibility(
+  id: number,
+  visibility: Visibility,
+  token?: string | null,
+): Promise<unknown> {
+  return meWrite<unknown>(
+    'PUT',
+    `/videos/${id}/visibility`,
+    { visibility },
+    token,
+  )
+}
+
+/** `PUT /sublocations/{id}/visibility` — a private location hides itself and
+ *  every camera in it. NationCam admins only (DAN-205). */
+export function setSublocationVisibility(
+  id: number,
+  visibility: Visibility,
+  token?: string | null,
+): Promise<unknown> {
+  return meWrite<unknown>(
+    'PUT',
+    `/sublocations/${id}/visibility`,
+    { visibility },
+    token,
+  )
+}
+
+/** Largest page the API serves (`per_page` is capped at 500). */
+const ADMIN_PAGE_SIZE = 500
+
+/**
+ * Every row of an admin paginated list, any status and visibility. The
+ * console's pickers and panels need the full set, so this walks the pages.
+ */
+async function fetchAllPages<T>(
+  fetchPage: (page: number) => Promise<PaginatedResponse<T>>,
+): Promise<Array<T>> {
+  const rows: Array<T> = []
+  for (let page = 1; ; page++) {
+    const res = await fetchPage(page)
+    const data = Array.isArray(res.data) ? res.data : []
+    rows.push(...data)
+    if (data.length === 0 || rows.length >= res.total) break
+  }
+  return rows
+}
+
+/** Every camera for the admin console, private ones included. */
+export function fetchAllVideosAdmin(
+  token?: string | null,
+): Promise<Array<Video>> {
+  return fetchAllPages((page) =>
+    fetchVideosPaginated(page, ADMIN_PAGE_SIZE, token),
+  )
+}
+
+/** Every location for the admin console, private ones included. */
+export function fetchAllSublocationsAdmin(
+  token?: string | null,
+): Promise<Array<Sublocation>> {
+  return fetchAllPages((page) =>
+    fetchSublocationsPaginated(page, ADMIN_PAGE_SIZE, token),
   )
 }
 
@@ -939,6 +1014,55 @@ export async function fetchFrameDays(
   )
     .then((r) => r.days)
     .catch(() => [])
+}
+
+/* ──── Private cameras (DAN-205/DAN-383) ──── */
+
+/** Browser-facing path of a private camera's route, e.g. `snapshot.jpg?w=640`. */
+export function privateVideoPath(videoId: number, rest: string): string {
+  return `/api/private/videos/${videoId}/${rest}`
+}
+
+/**
+ * Fetches a bearer-authenticated image (a private still or archive frame) and
+ * returns a blob. An `<img>` cannot send headers, so the caller turns this
+ * into an object URL and revokes it when done. `url` is the browser-facing
+ * `/api/private/videos/...` path, as the frames listing returns it.
+ */
+export async function fetchPrivateImage(
+  url: string,
+  token?: string | null,
+): Promise<Blob> {
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(url, { headers })
+  if (!res.ok) throw new Error(`image: ${res.status}`)
+  return res.blob()
+}
+
+/** `GET /private/videos/{id}/frames/days` — newest first; [] on failure. */
+export async function fetchPrivateFrameDays(
+  videoId: number,
+  token?: string | null,
+): Promise<Array<string>> {
+  return meGet<{ days: Array<string> }>(
+    `/private/videos/${videoId}/frames/days`,
+    token,
+  )
+    .then((r) => r.days)
+    .catch(() => [])
+}
+
+/** `GET /private/videos/{id}/frames?day=` — an empty day on failure. */
+export async function fetchPrivateFrames(
+  videoId: number,
+  day: string,
+  token?: string | null,
+): Promise<FramesResponse> {
+  return meGet<FramesResponse>(
+    `/private/videos/${videoId}/frames?day=${encodeURIComponent(day)}`,
+    token,
+  ).catch(() => ({ day, frames: [] }))
 }
 
 /* ──── Owner accounts (DAN-39/DAN-41) ──── */

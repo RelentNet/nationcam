@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Landmark, Pencil, Trash2 } from 'lucide-react'
-import type { ConditionsOverride, Host, State, Sublocation } from '@/lib/types'
+import type {
+  ConditionsOverride,
+  Host,
+  State,
+  Sublocation,
+  Visibility,
+} from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
 import {
   AboutField,
@@ -18,6 +24,8 @@ import {
   PaginationBar,
   PanelHeader,
   SelectField,
+  StatusBanner,
+  VisibilitySwitch,
   staggerStyle,
   useAutoHide,
   useBranding,
@@ -25,6 +33,7 @@ import {
 import {
   createSublocation,
   deleteSublocation,
+  setSublocationVisibility,
   updateSublocation,
 } from '@/lib/api'
 
@@ -277,6 +286,37 @@ export default function SublocationsPanel({
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState<Sublocation | null>(null)
 
+  // Public/private switch (DAN-205/DAN-383): a private location hides itself
+  // and every camera in it.
+  const [visBusy, setVisBusy] = useState<number | null>(null)
+  const [listMsg, setListMsg] = useState<FormMsg>(null)
+  useAutoHide(listMsg, setListMsg)
+
+  const handleVisibility = async (s: Sublocation, next: Visibility) => {
+    setVisBusy(s.sublocation_id)
+    setListMsg(null)
+    try {
+      const token = await getToken()
+      await setSublocationVisibility(s.sublocation_id, next, token)
+      setListMsg({
+        text:
+          next === 'private'
+            ? `${s.name} is now private, and so are its cameras.`
+            : `${s.name} is now public.`,
+        ok: true,
+      })
+      onSuccess()
+    } catch (err) {
+      setListMsg({
+        text:
+          err instanceof Error ? err.message : 'Failed to change visibility.',
+        ok: false,
+      })
+    } finally {
+      setVisBusy(null)
+    }
+  }
+
   // Search + sort + client-side pagination
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState('a-z')
@@ -447,6 +487,8 @@ export default function SublocationsPanel({
           </CreatePanel>
         )}
 
+        <StatusBanner msg={listMsg} />
+
         <DataList
           loading={loading}
           empty={allSublocations.length === 0}
@@ -479,6 +521,8 @@ export default function SublocationsPanel({
                   key={s.sublocation_id}
                   sublocation={s}
                   index={i}
+                  visibilityBusy={visBusy === s.sublocation_id}
+                  onVisibility={(next) => handleVisibility(s, next)}
                   onEdit={() => setEditing(s)}
                   onDelete={() =>
                     setConfirmDelete({ id: s.sublocation_id, name: s.name })
@@ -525,11 +569,15 @@ export default function SublocationsPanel({
 function SublocationRow({
   sublocation,
   index,
+  visibilityBusy,
+  onVisibility,
   onEdit,
   onDelete,
 }: {
   sublocation: Sublocation
   index: number
+  visibilityBusy: boolean
+  onVisibility: (next: Visibility) => void
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -553,6 +601,12 @@ function SublocationRow({
           </span>
         </div>
       </div>
+      <VisibilitySwitch
+        value={sublocation.visibility ?? 'public'}
+        onChange={onVisibility}
+        busy={visibilityBusy}
+        label={sublocation.name}
+      />
       <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <ActionBtn icon={Pencil} onClick={onEdit} label="Edit" />
         <ActionBtn

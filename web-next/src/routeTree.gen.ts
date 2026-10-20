@@ -28,6 +28,7 @@ import { Route as CamerasPopularRouteImport } from './routes/cameras.popular'
 import { Route as LocationsIndexRouteImport } from './routes/locations/index'
 import { Route as NotesIndexRouteImport } from './routes/notes.index'
 import { Route as NotesSlugRouteImport } from './routes/notes.$slug'
+import { Route as DashboardCamerasVideoIdRouteImport } from './routes/dashboard_.cameras.$videoId'
 import { Route as LocationsSlugIndexRouteImport } from './routes/locations/$slug.index'
 import { Route as EmbedSlugSublocationSlugCameraSlugRouteImport } from './routes/embed.$slug.$sublocationSlug.$cameraSlug'
 import { Route as LocationsSlugSublocationSlugIndexRouteImport } from './routes/locations/$slug.$sublocationSlug.index'
@@ -130,6 +131,11 @@ const NotesSlugRoute = NotesSlugRouteImport.update({
   path: '/notes/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardCamerasVideoIdRoute = DashboardCamerasVideoIdRouteImport.update({
+  id: '/dashboard_/cameras/$videoId',
+  path: '/dashboard/cameras/$videoId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LocationsSlugIndexRoute = LocationsSlugIndexRouteImport.update({
   id: '/locations/$slug/',
   path: '/locations/$slug/',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
+  '/dashboard/cameras/$videoId': typeof DashboardCamerasVideoIdRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
   '/embed/$slug/$sublocationSlug/$cameraSlug': typeof EmbedSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/notes/$slug': typeof NotesSlugRoute
   '/locations': typeof LocationsIndexRoute
   '/notes': typeof NotesIndexRoute
+  '/dashboard/cameras/$videoId': typeof DashboardCamerasVideoIdRoute
   '/locations/$slug': typeof LocationsSlugIndexRoute
   '/embed/$slug/$sublocationSlug/$cameraSlug': typeof EmbedSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
+  '/dashboard_/cameras/$videoId': typeof DashboardCamerasVideoIdRoute
   '/locations/$slug/': typeof LocationsSlugIndexRoute
   '/embed/$slug/$sublocationSlug/$cameraSlug': typeof EmbedSlugSublocationSlugCameraSlugRoute
   '/locations/$slug/$sublocationSlug/$cameraSlug': typeof LocationsSlugSublocationSlugCameraSlugRoute
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/notes/$slug'
     | '/locations/'
     | '/notes/'
+    | '/dashboard/cameras/$videoId'
     | '/locations/$slug/'
     | '/embed/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/notes/$slug'
     | '/locations'
     | '/notes'
+    | '/dashboard/cameras/$videoId'
     | '/locations/$slug'
     | '/embed/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/notes/$slug'
     | '/locations/'
     | '/notes/'
+    | '/dashboard_/cameras/$videoId'
     | '/locations/$slug/'
     | '/embed/$slug/$sublocationSlug/$cameraSlug'
     | '/locations/$slug/$sublocationSlug/$cameraSlug'
@@ -352,6 +364,7 @@ export interface RootRouteChildren {
   NotesSlugRoute: typeof NotesSlugRoute
   LocationsIndexRoute: typeof LocationsIndexRoute
   NotesIndexRoute: typeof NotesIndexRoute
+  DashboardCamerasVideoIdRoute: typeof DashboardCamerasVideoIdRoute
   LocationsSlugIndexRoute: typeof LocationsSlugIndexRoute
   EmbedSlugSublocationSlugCameraSlugRoute: typeof EmbedSlugSublocationSlugCameraSlugRoute
   LocationsSlugSublocationSlugCameraSlugRoute: typeof LocationsSlugSublocationSlugCameraSlugRoute
@@ -495,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard_/cameras/$videoId': {
+      id: '/dashboard_/cameras/$videoId'
+      path: '/dashboard/cameras/$videoId'
+      fullPath: '/dashboard/cameras/$videoId'
+      preLoaderRoute: typeof DashboardCamerasVideoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/locations/$slug/': {
       id: '/locations/$slug/'
       path: '/locations/$slug'
@@ -560,6 +580,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotesSlugRoute: NotesSlugRoute,
   LocationsIndexRoute: LocationsIndexRoute,
   NotesIndexRoute: NotesIndexRoute,
+  DashboardCamerasVideoIdRoute: DashboardCamerasVideoIdRoute,
   LocationsSlugIndexRoute: LocationsSlugIndexRoute,
   EmbedSlugSublocationSlugCameraSlugRoute:
     EmbedSlugSublocationSlugCameraSlugRoute,

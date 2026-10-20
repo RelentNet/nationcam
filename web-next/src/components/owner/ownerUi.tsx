@@ -2,6 +2,8 @@ import {
   AlertTriangle,
   Check,
   Clock,
+  Globe,
+  Lock,
   PauseCircle,
   ShieldCheck,
 } from 'lucide-react'
@@ -77,6 +79,27 @@ export function RolePill({ role }: { role: 'admin' | 'viewer' }) {
     >
       {role === 'admin' && <ShieldCheck size={12} />}
       {role === 'admin' ? 'Admin' : 'Viewer'}
+    </span>
+  )
+}
+
+/** Read-only visibility for customers (DAN-205): only NationCam admins can
+ *  change it. A private camera is visible to the account's members only. */
+export function VisibilityPill({ isPrivate }: { isPrivate: boolean }) {
+  const Icon = isPrivate ? Lock : Globe
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[11px] font-medium tracking-[0.02em] uppercase ${
+        isPrivate ? 'bg-accent/10 text-accent' : 'bg-surface2 text-subtext0'
+      }`}
+      title={
+        isPrivate
+          ? 'Only your team can watch this camera'
+          : 'Anyone can watch this camera on NationCam'
+      }
+    >
+      <Icon size={12} />
+      {isPrivate ? 'Private' : 'Public'}
     </span>
   )
 }

@@ -42,6 +42,13 @@ interface StreamPlayerProps {
   videoId?: number
   /** Still frame shown while the stream loads (see `streamPoster`). */
   poster?: string
+  /**
+   * Private cameras (DAN-205): the caller's bearer-token getter. When set,
+   * every `GET /videos/{id}/stream-token` (mount, renewal, recovery) carries
+   * `Authorization: Bearer …`. Public cameras leave it unset and send no
+   * header, exactly as before.
+   */
+  getToken?: () => Promise<string | null>
 }
 
 interface AudioStation {
@@ -99,6 +106,7 @@ export default function StreamPlayer({
   audioChannels = false,
   videoId,
   poster,
+  getToken,
 }: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -106,6 +114,10 @@ export default function StreamPlayer({
   const containerRef = useRef<HTMLDivElement>(null)
   const retriesRef = useRef(0)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Latest getter, read at fetch time so a new function identity never
+  // re-runs the init effect (and never restarts the stream).
+  const getTokenRef = useRef(getToken)
+  getTokenRef.current = getToken
 
   const [playing, setPlaying] = useState(autoplay)
   const [isMuted, setIsMuted] = useState(muted)
@@ -233,7 +245,12 @@ export default function StreamPlayer({
       const renewToken = (): Promise<void> => {
         if (proxyVideoId === null) return Promise.resolve()
         if (!renewing) {
-          renewing = fetchStreamToken(proxyVideoId)
+          renewing = (async () => {
+            const bearer = getTokenRef.current
+              ? await getTokenRef.current()
+              : null
+            return fetchStreamToken(proxyVideoId, bearer)
+          })()
             .then((t) => {
               if (cancelled) return
               token = t
