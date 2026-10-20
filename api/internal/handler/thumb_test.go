@@ -110,7 +110,7 @@ func TestServeSnapshotsThumbs(t *testing.T) {
 	if err := os.WriteFile(frame, orig, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h := ServeSnapshots(&archive.Store{Dir: dir})
+	h := ServeSnapshots(&archive.Store{Dir: dir}, noPrivateCameras)
 	get := func(path string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))

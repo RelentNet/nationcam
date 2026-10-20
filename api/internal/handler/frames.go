@@ -2,10 +2,12 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,64 +98,96 @@ func resolveDay(q string) (string, error) {
 // the three components are validated against the exact shape the archive
 // writes before any file is opened, so traversal cannot reach the filesystem.
 // A frame never changes once written, hence the immutable cache header.
-func ServeSnapshots(store *archive.Store) http.Handler {
+//
+// isPrivate (DAN-205) reports whether a camera is private (or in a private
+// location); such a camera's frames 404 here — they are served only by the
+// authenticated GET /private/videos/{id}/frames/{day}/{file}. An unknown id
+// (a deleted camera) is not private.
+func ServeSnapshots(store *archive.Store, isPrivate func(ctx context.Context, videoID int32) (bool, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		tw, ok := parseThumbWidth(r)
-		if !ok {
-			badWidth(w)
-			return
-		}
 		rel := strings.TrimPrefix(r.URL.Path, "/snapshots/")
-		path, err := store.Resolve(rel)
+		if _, err := store.Resolve(rel); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		idStr, _, _ := strings.Cut(rel, "/")
+		id, err := strconv.ParseInt(idStr, 10, 32)
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
-		if tw != 0 {
-			// Resized copies are made on first request and kept beside the
-			// originals; the original is only ever read.
-			tp := archive.ThumbPath(path, tw)
-			if _, err := os.Stat(tp); err != nil {
-				orig, err := os.ReadFile(path)
-				if err != nil {
-					http.NotFound(w, r)
-					return
-				}
-				b, err := resizeJPEG(orig, tw)
-				if err != nil {
-					http.Error(w, "could not resize", http.StatusInternalServerError)
-					return
-				}
-				if err := archive.WriteAtomic(tp, b); err != nil {
-					slog.Warn("write thumb failed", "path", tp, "error", err)
-					serveImmutable(w, r, "thumb.jpg", time.Now(), bytes.NewReader(b))
-					return
-				}
-			}
-			path = tp
-		}
-		f, err := os.Open(path)
+		private, err := isPrivate(r.Context(), int32(id))
 		if err != nil {
+			slog.Warn("snapshots: visibility lookup failed", "video_id", id, "error", err)
+			http.Error(w, "lookup failed", http.StatusInternalServerError)
+			return
+		}
+		if private {
 			http.NotFound(w, r)
 			return
 		}
-		defer f.Close()
-		info, err := f.Stat()
-		if err != nil || !info.Mode().IsRegular() {
-			http.NotFound(w, r)
-			return
-		}
-		serveImmutable(w, r, info.Name(), info.ModTime(), f)
+		serveArchiveFile(w, r, store, rel, "public, max-age=31536000, immutable")
 	})
 }
 
-func serveImmutable(w http.ResponseWriter, r *http.Request, name string, mod time.Time, f io.ReadSeeker) {
+// serveArchiveFile serves one archived still (or its ?w= thumbnail) at rel,
+// "{video_id}/{day}/{HHMM}.jpg", with the given Cache-Control. Shared by the
+// public /snapshots route and the private frames route.
+func serveArchiveFile(w http.ResponseWriter, r *http.Request, store *archive.Store, rel, cacheControl string) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	tw, ok := parseThumbWidth(r)
+	if !ok {
+		badWidth(w)
+		return
+	}
+	path, err := store.Resolve(rel)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if tw != 0 {
+		// Resized copies are made on first request and kept beside the
+		// originals; the original is only ever read.
+		tp := archive.ThumbPath(path, tw)
+		if _, err := os.Stat(tp); err != nil {
+			orig, err := os.ReadFile(path)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			b, err := resizeJPEG(orig, tw)
+			if err != nil {
+				http.Error(w, "could not resize", http.StatusInternalServerError)
+				return
+			}
+			if err := archive.WriteAtomic(tp, b); err != nil {
+				slog.Warn("write thumb failed", "path", tp, "error", err)
+				serveFrame(w, r, cacheControl, "thumb.jpg", time.Now(), bytes.NewReader(b))
+				return
+			}
+		}
+		path = tp
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		http.NotFound(w, r)
+		return
+	}
+	serveFrame(w, r, cacheControl, info.Name(), info.ModTime(), f)
+}
+
+func serveFrame(w http.ResponseWriter, r *http.Request, cacheControl, name string, mod time.Time, f io.ReadSeeker) {
 	w.Header().Set("Content-Type", "image/jpeg")
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Header().Set("Cache-Control", cacheControl)
 	http.ServeContent(w, r, name, mod, f)
 }

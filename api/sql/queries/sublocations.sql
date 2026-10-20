@@ -5,6 +5,11 @@
 -- and the paginated admin list return every status and carry the
 -- ownership/review columns. Video counts and first_src count active cameras
 -- only, so a paused camera still lists but does not count as live.
+--
+-- Private (DAN-205): the two public queries also require sub.visibility =
+-- 'public' (a private location's slug 404s, which takes weather/conditions/
+-- lightning/alerts with it), and their first_src/video_count skip private
+-- cameras. The admin queries see every visibility.
 
 -- name: ListSublocationsByState :many
 SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
@@ -16,12 +21,13 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
        COALESCE((SELECT v2.src FROM videos v2
                  WHERE v2.sublocation_id = sub.sublocation_id AND v2.status = 'active'
+                   AND v2.visibility = 'public'
                  ORDER BY v2.video_id LIMIT 1), '')::text AS first_src,
        COUNT(v.video_id)::int AS video_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
-LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.state_id = $1 AND sub.status = 'approved'
+LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active' AND v.visibility = 'public'
+WHERE sub.state_id = $1 AND sub.status = 'approved' AND sub.visibility = 'public'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 ORDER BY sub.name;
 
@@ -35,12 +41,13 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
        COALESCE((SELECT v2.src FROM videos v2
                  WHERE v2.sublocation_id = sub.sublocation_id AND v2.status = 'active'
+                   AND v2.visibility = 'public'
                  ORDER BY v2.video_id LIMIT 1), '')::text AS first_src,
        COUNT(v.video_id)::int AS video_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
-LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.slug = $1 AND sub.status = 'approved'
+LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active' AND v.visibility = 'public'
+WHERE sub.slug = $1 AND sub.status = 'approved' AND sub.visibility = 'public'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url;
 
 -- name: GetSublocationByID :one
@@ -98,6 +105,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
                  WHERE v2.sublocation_id = sub.sublocation_id AND v2.status = 'active'
                  ORDER BY v2.video_id LIMIT 1), '')::text AS first_src,
        COUNT(v.video_id)::int AS video_count,
+       sub.visibility,
        COUNT(*) OVER()::int AS total_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
@@ -110,3 +118,8 @@ LIMIT $1 OFFSET $2;
 -- (DAN-241): the host_url of every approved sublocation that has one.
 -- name: ListLicensedHostURLs :many
 SELECT host_url FROM sublocations WHERE status = 'approved' AND host_url <> '';
+
+-- SetSublocationVisibility is the NationCam-admin visibility switch for a
+-- location; a private location hides every camera in it (DAN-205).
+-- name: SetSublocationVisibility :execrows
+UPDATE sublocations SET visibility = $2 WHERE sublocation_id = $1;

@@ -82,8 +82,9 @@ func (q *Queries) DeleteVideo(ctx context.Context, videoID int32) error {
 	return err
 }
 
-const getPublicVideoSource = `-- name: GetPublicVideoSource :one
-SELECT v.src
+const getPlayableVideoSource = `-- name: GetPlayableVideoSource :one
+SELECT v.src,
+       (v.visibility = 'private' OR COALESCE(sub.visibility, 'public') = 'private')::bool AS private
 FROM videos v
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.video_id = $1
@@ -91,9 +92,37 @@ WHERE v.video_id = $1
   AND (v.sublocation_id IS NULL OR sub.status = 'approved')
 `
 
+type GetPlayableVideoSourceRow struct {
+	Src     string `json:"src"`
+	Private bool   `json:"private"`
+}
+
+// GetPlayableVideoSource backs the HLS proxy, the stream-token endpoint and
+// the authenticated private routes (DAN-205): the raw src of a camera that is
+// live (active/paused, sublocation approved) whatever its visibility, plus
+// whether it is private (its own visibility or its sublocation's). Callers
+// gate a private one on CanViewCamera / a private-scope signature.
+func (q *Queries) GetPlayableVideoSource(ctx context.Context, videoID int32) (GetPlayableVideoSourceRow, error) {
+	row := q.db.QueryRow(ctx, getPlayableVideoSource, videoID)
+	var i GetPlayableVideoSourceRow
+	err := row.Scan(&i.Src, &i.Private)
+	return i, err
+}
+
+const getPublicVideoSource = `-- name: GetPublicVideoSource :one
+SELECT v.src
+FROM videos v
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.video_id = $1
+  AND v.status IN ('active', 'paused')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
+`
+
 // GetPublicVideoSource backs the HLS proxy (DAN-241): the stored (raw) src of
 // a camera that is publicly visible — same predicate as GetVideoBySlug — so a
-// pending, inactive or rejected camera never streams. Returns no row otherwise.
+// pending, inactive, rejected or private camera never streams or posters
+// publicly. Returns no row otherwise.
 func (q *Queries) GetPublicVideoSource(ctx context.Context, videoID int32) (string, error) {
 	row := q.db.QueryRow(ctx, getPublicVideoSource, videoID)
 	var src string
@@ -170,7 +199,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
   AND s.slug = $1
   AND COALESCE(sub.slug, '') = $2
   AND v.slug = $3
@@ -244,6 +274,23 @@ func (q *Queries) IncrementVideoViews(ctx context.Context, arg IncrementVideoVie
 	return err
 }
 
+const isVideoPrivate = `-- name: IsVideoPrivate :one
+SELECT (v.visibility = 'private' OR COALESCE(sub.visibility, 'public') = 'private')::bool AS private
+FROM videos v
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.video_id = $1
+`
+
+// IsVideoPrivate backs the public /snapshots archive file route: a private
+// camera's (or a camera in a private location's) frames 404 there. No row for
+// an unknown id.
+func (q *Queries) IsVideoPrivate(ctx context.Context, videoID int32) (bool, error) {
+	row := q.db.QueryRow(ctx, isVideoPrivate, videoID)
+	var private bool
+	err := row.Scan(&private)
+	return private, err
+}
+
 const listArchiveSources = `-- name: ListArchiveSources :many
 SELECT v.video_id, v.src
 FROM videos v
@@ -260,7 +307,9 @@ type ListArchiveSourcesRow struct {
 
 // ListArchiveSources is the snapshot archive's source list: active cameras
 // only. Paused cameras are public (placeholder) but not capturing, and
-// pending/rejected ones must not be archived at all.
+// pending/rejected ones must not be archived at all. Visibility is ignored on
+// purpose: private cameras keep being archived (DAN-205); their frames are
+// served only through the authenticated /private/videos routes.
 func (q *Queries) ListArchiveSources(ctx context.Context) ([]ListArchiveSourcesRow, error) {
 	rows, err := q.db.Query(ctx, listArchiveSources)
 	if err != nil {
@@ -291,7 +340,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
   AND v.video_id <> $1
   AND (v.sublocation_id = $2 OR v.state_id = $3)
 ORDER BY (v.sublocation_id IS NOT DISTINCT FROM $2) DESC, v.title
@@ -396,7 +446,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.title
 `
 
@@ -424,6 +475,11 @@ type ListVideosRow struct {
 // the per-camera page, related cameras, the popular/newest sorts, and via
 // GetVideoBySlug the frames/snapshot/stream endpoints — applies the same
 // predicate, so pending, inactive and rejected rows never leak.
+//
+// Private cameras (DAN-205): the predicate also requires v.visibility =
+// 'public' and, when the camera has a sublocation, sub.visibility = 'public'
+// (a private location hides every camera in it). Private cameras are reached
+// only through GetPlayableVideoSource behind the authenticated routes.
 func (q *Queries) ListVideos(ctx context.Context) ([]ListVideosRow, error) {
 	rows, err := q.db.Query(ctx, listVideos)
 	if err != nil {
@@ -468,7 +524,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.created_at DESC, v.title
 `
 
@@ -538,7 +595,8 @@ JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.state_id = $1
   AND v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.title
 `
 
@@ -604,7 +662,8 @@ JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.sublocation_id = $1
   AND v.status IN ('active', 'paused')
-  AND sub.status = 'approved'
+  AND v.visibility = 'public'
+  AND sub.status = 'approved' AND sub.visibility = 'public'
 ORDER BY v.title
 `
 
@@ -669,7 +728,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.view_count DESC, v.title
 `
 
@@ -735,6 +795,8 @@ SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name,
+       v.visibility,
+       COALESCE(sub.visibility, '') AS sublocation_visibility,
        COUNT(*) OVER()::int AS total_count
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
@@ -749,30 +811,34 @@ type ListVideosPaginatedParams struct {
 }
 
 type ListVideosPaginatedRow struct {
-	VideoID         int32       `json:"video_id"`
-	Title           string      `json:"title"`
-	Src             string      `json:"src"`
-	Type            string      `json:"type"`
-	Slug            string      `json:"slug"`
-	StateID         int32       `json:"state_id"`
-	SublocationID   *int32      `json:"sublocation_id"`
-	Status          string      `json:"status"`
-	About           string      `json:"about"`
-	OwnerID         string      `json:"owner_id"`
-	StreamID        pgtype.Text `json:"stream_id"`
-	ReviewNote      string      `json:"review_note"`
-	CreatedBy       string      `json:"created_by"`
-	CreatedAt       time.Time   `json:"created_at"`
-	UpdatedAt       time.Time   `json:"updated_at"`
-	StateName       string      `json:"state_name"`
-	SublocationName string      `json:"sublocation_name"`
-	TotalCount      int32       `json:"total_count"`
+	VideoID               int32       `json:"video_id"`
+	Title                 string      `json:"title"`
+	Src                   string      `json:"src"`
+	Type                  string      `json:"type"`
+	Slug                  string      `json:"slug"`
+	StateID               int32       `json:"state_id"`
+	SublocationID         *int32      `json:"sublocation_id"`
+	Status                string      `json:"status"`
+	About                 string      `json:"about"`
+	OwnerID               string      `json:"owner_id"`
+	StreamID              pgtype.Text `json:"stream_id"`
+	ReviewNote            string      `json:"review_note"`
+	CreatedBy             string      `json:"created_by"`
+	CreatedAt             time.Time   `json:"created_at"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+	StateName             string      `json:"state_name"`
+	SublocationName       string      `json:"sublocation_name"`
+	Visibility            string      `json:"visibility"`
+	SublocationVisibility string      `json:"sublocation_visibility"`
+	TotalCount            int32       `json:"total_count"`
 }
 
 // ListVideosPaginated backs the admin dashboard, so it deliberately returns
 // every status — filtering here made deactivated cameras unreachable from the
 // dashboard with no way to reactivate them. Carries owner_id/stream_id/
-// review_note so the admin console can tell owner-submitted cameras apart.
+// review_note so the admin console can tell owner-submitted cameras apart,
+// and visibility/sublocation_visibility (DAN-205): this is the admin list of
+// every camera, private ones included.
 func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginatedParams) ([]ListVideosPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listVideosPaginated, arg.Limit, arg.Offset)
 	if err != nil {
@@ -800,6 +866,8 @@ func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginat
 			&i.UpdatedAt,
 			&i.StateName,
 			&i.SublocationName,
+			&i.Visibility,
+			&i.SublocationVisibility,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -810,6 +878,24 @@ func (q *Queries) ListVideosPaginated(ctx context.Context, arg ListVideosPaginat
 		return nil, err
 	}
 	return items, nil
+}
+
+const setVideoVisibility = `-- name: SetVideoVisibility :execrows
+UPDATE videos SET visibility = $2 WHERE video_id = $1
+`
+
+type SetVideoVisibilityParams struct {
+	VideoID    int32  `json:"video_id"`
+	Visibility string `json:"visibility"`
+}
+
+// SetVideoVisibility is the NationCam-admin visibility switch for a camera.
+func (q *Queries) SetVideoVisibility(ctx context.Context, arg SetVideoVisibilityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setVideoVisibility, arg.VideoID, arg.Visibility)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateVideo = `-- name: UpdateVideo :exec

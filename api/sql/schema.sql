@@ -202,6 +202,21 @@ ALTER TABLE sublocations DROP CONSTRAINT IF EXISTS sublocations_status_check;
 ALTER TABLE sublocations ADD CONSTRAINT sublocations_status_check
   CHECK (status IN ('pending', 'approved', 'rejected'));
 
+-- Private cameras (DAN-205). visibility is 'public' (the default, so every
+-- existing row stays public) or 'private'. A camera is publicly visible only
+-- when its own visibility AND its sublocation's (if any) are 'public': a
+-- private location hides itself and every camera in it. Private cameras are
+-- watchable only through the authenticated routes (CanViewCamera). Only
+-- NationCam admins change it. Same drop-then-add CHECK pattern as above.
+ALTER TABLE videos       ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public';
+ALTER TABLE sublocations ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public';
+ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_visibility_check;
+ALTER TABLE videos ADD CONSTRAINT videos_visibility_check
+  CHECK (visibility IN ('public', 'private'));
+ALTER TABLE sublocations DROP CONSTRAINT IF EXISTS sublocations_visibility_check;
+ALTER TABLE sublocations ADD CONSTRAINT sublocations_visibility_check
+  CHECK (visibility IN ('public', 'private'));
+
 -- ────────────────────────────────────────────────
 -- Indexes
 -- ────────────────────────────────────────────────

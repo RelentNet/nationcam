@@ -301,7 +301,7 @@ func ListMyVideos(store ownerStore) http.HandlerFunc {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusOK, rows)
+		writeJSON(w, http.StatusOK, redactOwnerVideos(rows))
 	}
 }
 
@@ -429,7 +429,7 @@ func createMyVideo(store ownerStore, c *cache.Cache, rc *restreamer.Client, now 
 			return
 		}
 		invalidateCatalog(ctx, c)
-		writeJSON(w, http.StatusCreated, row)
+		writeJSON(w, http.StatusCreated, redactOwnerVideo(row))
 	}
 }
 
@@ -473,7 +473,7 @@ func UpdateMyVideo(store ownerStore, c *cache.Cache) http.HandlerFunc {
 			return
 		}
 		invalidateCatalog(ctx, c)
-		writeJSON(w, http.StatusOK, row)
+		writeJSON(w, http.StatusOK, redactOwnerVideo(row))
 	}
 }
 
@@ -530,7 +530,7 @@ func ownerVideoAction(store ownerStore, c *cache.Cache, rc *restreamer.Client, a
 			return
 		}
 		invalidateCatalog(ctx, c)
-		writeJSON(w, http.StatusOK, row)
+		writeJSON(w, http.StatusOK, redactOwnerVideo(row))
 	}
 }
 

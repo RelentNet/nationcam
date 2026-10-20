@@ -5,6 +5,7 @@ import (
 
 	"github.com/brandon-relentnet/nationcam/api/internal/archive"
 	"github.com/brandon-relentnet/nationcam/api/internal/cache"
+	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/brandon-relentnet/nationcam/api/internal/lightning"
 	"github.com/brandon-relentnet/nationcam/api/internal/logtoadmin"
 	mw "github.com/brandon-relentnet/nationcam/api/internal/middleware"
@@ -142,7 +143,19 @@ func NewRouter(pool *pgxpool.Pool, c *cache.Cache, auth *mw.Auth, corsOrigins []
 	// served read-only from the snapshots volume with an immutable cache header.
 	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/frames", ListFrames(pool, c, snapshots))
 	r.Get("/videos/{stateSlug}/{sublocationSlug}/{slug}/frames/days", ListFrameDays(pool, c, snapshots))
-	r.Get("/snapshots/*", ServeSnapshots(snapshots).ServeHTTP)
+	// A private camera's frames 404 here (DAN-205); they are served by the
+	// authenticated /private/videos routes below.
+	r.Get("/snapshots/*", ServeSnapshots(snapshots, VideoPrivacy(pool)).ServeHTTP)
+
+	// ── Private cameras (DAN-205) ─────────────────────────────────
+	// Bearer + CanViewCamera: a camera's latest still and archived frames
+	// for account members and NationCam admins (any camera they can view,
+	// private or not). The live stream goes through /videos/{id}/stream-token
+	// and /hls like a public camera. Admins set visibility and list every
+	// camera (GET /videos/paginated carries visibility).
+	mountPrivateRoutes(r, pgHLSStore{pool}, c, snapshots, NewSnapshotClient())
+	r.With(mw.RequireAdmin).Put("/videos/{id}/visibility", SetVideoVisibility(db.New(pool), c))
+	r.With(mw.RequireAdmin).Put("/sublocations/{id}/visibility", SetSublocationVisibility(db.New(pool), c))
 
 	// ── Events (DAN-27) ────────────────────────────────────────────
 	// Hosts' events shown on the cameras that can watch them and on the

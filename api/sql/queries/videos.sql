@@ -5,6 +5,11 @@
 -- the per-camera page, related cameras, the popular/newest sorts, and via
 -- GetVideoBySlug the frames/snapshot/stream endpoints — applies the same
 -- predicate, so pending, inactive and rejected rows never leak.
+--
+-- Private cameras (DAN-205): the predicate also requires v.visibility =
+-- 'public' and, when the camera has a sublocation, sub.visibility = 'public'
+-- (a private location hides every camera in it). Private cameras are reached
+-- only through GetPlayableVideoSource behind the authenticated routes.
 
 -- name: ListVideos :many
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
@@ -15,7 +20,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.title;
 
 -- name: ListVideosByState :many
@@ -28,7 +34,8 @@ JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.state_id = $1
   AND v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.title;
 
 -- name: ListVideosBySublocation :many
@@ -41,7 +48,8 @@ JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.sublocation_id = $1
   AND v.status IN ('active', 'paused')
-  AND sub.status = 'approved'
+  AND v.visibility = 'public'
+  AND sub.status = 'approved' AND sub.visibility = 'public'
 ORDER BY v.title;
 
 -- GetVideoByID backs the admin create/update responses, so it returns any
@@ -70,7 +78,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
   AND s.slug = sqlc.arg(state_slug)
   AND COALESCE(sub.slug, '') = sqlc.arg(sublocation_slug)
   AND v.slug = sqlc.arg(slug);
@@ -87,7 +96,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
   AND v.video_id <> $1
   AND (v.sublocation_id = $2 OR v.state_id = $3)
 ORDER BY (v.sublocation_id IS NOT DISTINCT FROM $2) DESC, v.title
@@ -104,7 +114,8 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.view_count DESC, v.title;
 
 -- ListVideosByCreated backs GET /videos?sort=newest — the "Newest" ranking,
@@ -118,12 +129,15 @@ FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.status IN ('active', 'paused')
-  AND (v.sublocation_id IS NULL OR sub.status = 'approved')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'))
 ORDER BY v.created_at DESC, v.title;
 
 -- ListArchiveSources is the snapshot archive's source list: active cameras
 -- only. Paused cameras are public (placeholder) but not capturing, and
--- pending/rejected ones must not be archived at all.
+-- pending/rejected ones must not be archived at all. Visibility is ignored on
+-- purpose: private cameras keep being archived (DAN-205); their frames are
+-- served only through the authenticated /private/videos routes.
 -- name: ListArchiveSources :many
 SELECT v.video_id, v.src
 FROM videos v
@@ -152,13 +166,17 @@ DELETE FROM videos WHERE video_id = $1;
 -- ListVideosPaginated backs the admin dashboard, so it deliberately returns
 -- every status — filtering here made deactivated cameras unreachable from the
 -- dashboard with no way to reactivate them. Carries owner_id/stream_id/
--- review_note so the admin console can tell owner-submitted cameras apart.
+-- review_note so the admin console can tell owner-submitted cameras apart,
+-- and visibility/sublocation_visibility (DAN-205): this is the admin list of
+-- every camera, private ones included.
 -- name: ListVideosPaginated :many
 SELECT v.video_id, v.title, v.src, v.type, v.slug, v.state_id, v.sublocation_id,
        v.status, v.about, v.owner_id, v.stream_id, v.review_note,
        v.created_by, v.created_at, v.updated_at,
        s.name AS state_name,
        COALESCE(sub.name, '') AS sublocation_name,
+       v.visibility,
+       COALESCE(sub.visibility, '') AS sublocation_visibility,
        COUNT(*) OVER()::int AS total_count
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
@@ -168,11 +186,40 @@ LIMIT $1 OFFSET $2;
 
 -- GetPublicVideoSource backs the HLS proxy (DAN-241): the stored (raw) src of
 -- a camera that is publicly visible — same predicate as GetVideoBySlug — so a
--- pending, inactive or rejected camera never streams. Returns no row otherwise.
+-- pending, inactive, rejected or private camera never streams or posters
+-- publicly. Returns no row otherwise.
 -- name: GetPublicVideoSource :one
 SELECT v.src
 FROM videos v
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
 WHERE v.video_id = $1
   AND v.status IN ('active', 'paused')
+  AND v.visibility = 'public'
+  AND (v.sublocation_id IS NULL OR (sub.status = 'approved' AND sub.visibility = 'public'));
+
+-- GetPlayableVideoSource backs the HLS proxy, the stream-token endpoint and
+-- the authenticated private routes (DAN-205): the raw src of a camera that is
+-- live (active/paused, sublocation approved) whatever its visibility, plus
+-- whether it is private (its own visibility or its sublocation's). Callers
+-- gate a private one on CanViewCamera / a private-scope signature.
+-- name: GetPlayableVideoSource :one
+SELECT v.src,
+       (v.visibility = 'private' OR COALESCE(sub.visibility, 'public') = 'private')::bool AS private
+FROM videos v
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.video_id = $1
+  AND v.status IN ('active', 'paused')
   AND (v.sublocation_id IS NULL OR sub.status = 'approved');
+
+-- IsVideoPrivate backs the public /snapshots archive file route: a private
+-- camera's (or a camera in a private location's) frames 404 there. No row for
+-- an unknown id.
+-- name: IsVideoPrivate :one
+SELECT (v.visibility = 'private' OR COALESCE(sub.visibility, 'public') = 'private')::bool AS private
+FROM videos v
+LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
+WHERE v.video_id = $1;
+
+-- SetVideoVisibility is the NationCam-admin visibility switch for a camera.
+-- name: SetVideoVisibility :execrows
+UPDATE videos SET visibility = $2 WHERE video_id = $1;
