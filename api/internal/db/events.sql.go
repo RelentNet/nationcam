@@ -79,6 +79,11 @@ SELECT event_id, title, description_md, starts_at, ends_at, url, sublocation_id,
 // agree before writing. Every listing here joins the sublocation and its
 // parent state so the frontend can link straight to the camera/sublocation
 // page without a second round trip.
+//
+// Private (DAN-205): the three public listings drop events in a private
+// location and blank video_title/video_slug for a private camera, so no
+// public output names or links a private camera. ListAllEvents (admin) is
+// unfiltered.
 func (q *Queries) GetEvent(ctx context.Context, eventID int32) (Event, error) {
 	row := q.db.QueryRow(ctx, getEvent, eventID)
 	var i Event
@@ -180,8 +185,8 @@ SELECT e.event_id, e.title, e.description_md, e.starts_at, e.ends_at, e.url,
 FROM events e
 JOIN sublocations sub ON sub.sublocation_id = e.sublocation_id
 JOIN states st ON st.state_id = sub.state_id
-LEFT JOIN videos v ON v.video_id = e.video_id
-WHERE COALESCE(e.ends_at, e.starts_at) >= now()
+LEFT JOIN videos v ON v.video_id = e.video_id AND v.visibility = 'public'
+WHERE sub.visibility = 'public' AND COALESCE(e.ends_at, e.starts_at) >= now()
 ORDER BY e.starts_at ASC
 LIMIT 50
 `
@@ -258,8 +263,8 @@ SELECT e.event_id, e.title, e.description_md, e.starts_at, e.ends_at, e.url,
 FROM events e
 JOIN sublocations sub ON sub.sublocation_id = e.sublocation_id
 JOIN states st ON st.state_id = sub.state_id
-LEFT JOIN videos v ON v.video_id = e.video_id
-WHERE e.sublocation_id = $1 AND COALESCE(e.ends_at, e.starts_at) >= now()
+LEFT JOIN videos v ON v.video_id = e.video_id AND v.visibility = 'public'
+WHERE sub.visibility = 'public' AND e.sublocation_id = $1 AND COALESCE(e.ends_at, e.starts_at) >= now()
 ORDER BY e.starts_at ASC
 LIMIT $2
 `
@@ -339,8 +344,8 @@ SELECT e.event_id, e.title, e.description_md, e.starts_at, e.ends_at, e.url,
 FROM events e
 JOIN sublocations sub ON sub.sublocation_id = e.sublocation_id
 JOIN states st ON st.state_id = sub.state_id
-LEFT JOIN videos v ON v.video_id = e.video_id
-WHERE e.video_id = $1 AND COALESCE(e.ends_at, e.starts_at) >= now()
+LEFT JOIN videos v ON v.video_id = e.video_id AND v.visibility = 'public'
+WHERE sub.visibility = 'public' AND e.video_id = $1 AND COALESCE(e.ends_at, e.starts_at) >= now()
 ORDER BY e.starts_at ASC
 LIMIT $2
 `

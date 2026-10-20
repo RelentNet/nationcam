@@ -9,13 +9,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/brandon-relentnet/nationcam/api/internal/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 )
 
 type fakeHLSStore struct {
-	srcs  map[int32]string // only publicly visible cameras are present
-	hosts []string
+	srcs    map[int32]string   // only publicly visible cameras are present
+	private map[int32]string   // live private cameras (DAN-205)
+	members map[int32][]string // camera -> users who can view it (account admins)
+	hosts   []string
 }
 
 func (f fakeHLSStore) PublicVideoSource(_ context.Context, id int32) (string, error) {
@@ -23,6 +26,25 @@ func (f fakeHLSStore) PublicVideoSource(_ context.Context, id int32) (string, er
 		return s, nil
 	}
 	return "", pgx.ErrNoRows
+}
+
+func (f fakeHLSStore) PlayableVideoSource(_ context.Context, id int32) (db.GetPlayableVideoSourceRow, error) {
+	if s, ok := f.srcs[id]; ok {
+		return db.GetPlayableVideoSourceRow{Src: s}, nil
+	}
+	if s, ok := f.private[id]; ok {
+		return db.GetPlayableVideoSourceRow{Src: s, Private: true}, nil
+	}
+	return db.GetPlayableVideoSourceRow{}, pgx.ErrNoRows
+}
+
+func (f fakeHLSStore) GetMemberVideoAccess(_ context.Context, arg db.GetMemberVideoAccessParams) (db.GetMemberVideoAccessRow, error) {
+	for _, u := range f.members[arg.VideoID] {
+		if u == arg.UserID {
+			return db.GetMemberVideoAccessRow{Role: roleAdmin, AllCameras: true}, nil
+		}
+	}
+	return db.GetMemberVideoAccessRow{}, pgx.ErrNoRows
 }
 
 func (f fakeHLSStore) LicensedHostURLs(context.Context) ([]string, error) { return f.hosts, nil }

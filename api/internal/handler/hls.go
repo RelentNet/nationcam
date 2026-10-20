@@ -60,18 +60,33 @@ var hlsSegmentName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*\.(m3u8|ts|m
 // hlsStore is the slice of the database the proxy needs, so tests can run on a
 // fake.
 type hlsStore interface {
-	// PublicVideoSource returns the stored src of a publicly visible camera,
-	// or pgx.ErrNoRows.
+	// PublicVideoSource returns the stored src of a publicly visible camera
+	// (never a private one), or pgx.ErrNoRows. Backs the public poster.
 	PublicVideoSource(ctx context.Context, videoID int32) (string, error)
+	// PlayableVideoSource returns the stored src of a live camera whatever
+	// its visibility, and whether it is private (DAN-205), or pgx.ErrNoRows.
+	// Backs the proxy, the stream token and the private routes, which gate a
+	// private one themselves.
+	PlayableVideoSource(ctx context.Context, videoID int32) (db.GetPlayableVideoSourceRow, error)
 	// LicensedHostURLs returns the host_url of every approved sublocation
 	// that has one.
 	LicensedHostURLs(ctx context.Context) ([]string, error)
+	// GetMemberVideoAccess backs CanViewCamera for private cameras.
+	CameraAccessQuerier
 }
 
 type pgHLSStore struct{ pool *pgxpool.Pool }
 
 func (s pgHLSStore) PublicVideoSource(ctx context.Context, id int32) (string, error) {
 	return db.New(s.pool).GetPublicVideoSource(ctx, id)
+}
+
+func (s pgHLSStore) PlayableVideoSource(ctx context.Context, id int32) (db.GetPlayableVideoSourceRow, error) {
+	return db.New(s.pool).GetPlayableVideoSource(ctx, id)
+}
+
+func (s pgHLSStore) GetMemberVideoAccess(ctx context.Context, arg db.GetMemberVideoAccessParams) (db.GetMemberVideoAccessRow, error) {
+	return db.New(s.pool).GetMemberVideoAccess(ctx, arg)
 }
 
 func (s pgHLSStore) LicensedHostURLs(ctx context.Context) ([]string, error) {
@@ -218,8 +233,8 @@ func newHLSClient() *http.Client {
 	}
 }
 
-// hlsSrcCache memoizes PublicVideoSource hits for hlsSrcTTL. Misses and errors
-// are never cached.
+// hlsSrcCache memoizes PlayableVideoSource hits for hlsSrcTTL. Misses and
+// errors are never cached.
 type hlsSrcCache struct {
 	store hlsStore
 	mu    sync.RWMutex
@@ -227,20 +242,20 @@ type hlsSrcCache struct {
 }
 
 type hlsSrcEntry struct {
-	src string
+	src db.GetPlayableVideoSourceRow
 	at  time.Time
 }
 
-func (c *hlsSrcCache) get(ctx context.Context, id int32) (string, error) {
+func (c *hlsSrcCache) get(ctx context.Context, id int32) (db.GetPlayableVideoSourceRow, error) {
 	c.mu.RLock()
 	e, ok := c.m[id]
 	c.mu.RUnlock()
 	if ok && time.Since(e.at) < hlsSrcTTL {
 		return e.src, nil
 	}
-	src, err := c.store.PublicVideoSource(ctx, id)
+	src, err := c.store.PlayableVideoSource(ctx, id)
 	if err != nil {
-		return "", err
+		return db.GetPlayableVideoSourceRow{}, err
 	}
 	c.mu.Lock()
 	if c.m == nil || len(c.m) > 10000 {
@@ -257,6 +272,10 @@ type hlsAccess struct {
 	// (?exp=&sig=): a manifest served to it gets signed URIs that expire no
 	// later than this.
 	signedExp int64
+	// private is the scope the signature was made for (DAN-205). It must
+	// match the camera's current visibility, so a public-era URL dies when a
+	// camera turns private and a private token never plays a public one.
+	private bool
 }
 
 var hlsCopyBufs = sync.Pool{New: func() any { b := make([]byte, hlsCopyBufSize); return &b }}
@@ -298,13 +317,15 @@ func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manife
 				forbid(w, errHLSBadSig)
 				return hlsAccess{}, false
 			}
-			if err := signer.verify(videoID, file, exp, q.Get("sig"), now); err != nil {
+			private, err := signer.verifyScoped(videoID, file, exp, q.Get("sig"), now)
+			if err != nil {
 				forbid(w, err)
 				return hlsAccess{}, false
 			}
-			return hlsAccess{signedExp: exp}, true
+			return hlsAccess{signedExp: exp, private: private}, true
 		}
-		if err := signer.verifyPlayerToken(videoID, r.Header.Get(hlsTokenHeader), now); err != nil {
+		private, err := signer.verifyPlayerTokenScoped(videoID, r.Header.Get(hlsTokenHeader), now)
+		if err != nil {
 			forbid(w, err)
 			return hlsAccess{}, false
 		}
@@ -312,7 +333,7 @@ func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manife
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden", "detail": "stream not available from this site"})
 			return hlsAccess{}, false
 		}
-		return hlsAccess{}, true
+		return hlsAccess{private: private}, true
 	}
 
 	// lookup resolves {video_id} to the raw upstream src, or writes the error.
@@ -336,12 +357,18 @@ func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manife
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
 			return 0, nil, hlsAccess{}, false
 		}
-		if !memfsHLS.MatchString(src) {
+		if src.Private != access.private {
+			// A signature from the other scope: a public-era URL or token
+			// for a camera that has since turned private, or the reverse.
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
+			return 0, nil, hlsAccess{}, false
+		}
+		if !memfsHLS.MatchString(src.Src) {
 			// External sources are played directly, never through here.
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
 			return 0, nil, hlsAccess{}, false
 		}
-		u, err := url.Parse(src)
+		u, err := url.Parse(src.Src)
 		if err != nil {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "camera not found"})
 			return 0, nil, hlsAccess{}, false
@@ -375,7 +402,8 @@ func newHLSHandlers(store hlsStore, c *cache.Cache, client *http.Client) (manife
 
 	// poster is the camera's latest watermarked still, public like snapshot.jpg
 	// (no Referer check): crawlers and link previews need it, and it is a
-	// single frame.
+	// single frame. A private camera has none here (PublicVideoSource skips
+	// it); its still is GET /private/videos/{id}/snapshot.jpg.
 	poster = func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.ParseInt(chi.URLParam(r, "video_id"), 10, 32)
 		if err != nil || id <= 0 {
@@ -454,7 +482,7 @@ func serveHLSUpstream(w http.ResponseWriter, r *http.Request, client *http.Clien
 		}
 		var sign func(file string) string
 		if access.signedExp != 0 {
-			sign = hlsURISigner(videoID, access.signedExp)
+			sign = hlsURISignerScoped(videoID, access.signedExp, access.private)
 		}
 		out := rewriteHLSManifest(body, videoID, upstream, sign)
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
@@ -488,6 +516,12 @@ func serveHLSUpstream(w http.ResponseWriter, r *http.Request, client *http.Clien
 // init maps get min(now+hlsSegmentURLTTL, manifestExp). Every manifest fetch
 // re-signs, so a live player always holds fresh segment URIs.
 func hlsURISigner(videoID int32, manifestExp int64) func(file string) string {
+	return hlsURISignerScoped(videoID, manifestExp, false)
+}
+
+// hlsURISignerScoped is hlsURISigner in the manifest's own scope, so a
+// private manifest's URIs are private-scope too (DAN-205).
+func hlsURISignerScoped(videoID int32, manifestExp int64, private bool) func(file string) string {
 	signer := currentHLSSigner()
 	segExp := hlsNow().Add(hlsSegmentURLTTL).Unix()
 	if segExp > manifestExp {
@@ -498,7 +532,7 @@ func hlsURISigner(videoID int32, manifestExp int64) func(file string) string {
 		if strings.HasSuffix(strings.ToLower(file), ".m3u8") {
 			exp = manifestExp
 		}
-		return signer.signedURL(videoID, file, exp)
+		return signer.signedURLScoped(videoID, file, exp, private)
 	}
 }
 

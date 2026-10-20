@@ -241,12 +241,13 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
        COALESCE((SELECT v2.src FROM videos v2
                  WHERE v2.sublocation_id = sub.sublocation_id AND v2.status = 'active'
+                   AND v2.visibility = 'public'
                  ORDER BY v2.video_id LIMIT 1), '')::text AS first_src,
        COUNT(v.video_id)::int AS video_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
-LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.slug = $1 AND sub.status = 'approved'
+LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active' AND v.visibility = 'public'
+WHERE sub.slug = $1 AND sub.status = 'approved' AND sub.visibility = 'public'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 `
 
@@ -356,12 +357,13 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
        s.tourism_name AS state_tourism_name, s.tourism_url AS state_tourism_url,
        COALESCE((SELECT v2.src FROM videos v2
                  WHERE v2.sublocation_id = sub.sublocation_id AND v2.status = 'active'
+                   AND v2.visibility = 'public'
                  ORDER BY v2.video_id LIMIT 1), '')::text AS first_src,
        COUNT(v.video_id)::int AS video_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
-LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active'
-WHERE sub.state_id = $1 AND sub.status = 'approved'
+LEFT JOIN videos v ON v.sublocation_id = sub.sublocation_id AND v.status = 'active' AND v.visibility = 'public'
+WHERE sub.state_id = $1 AND sub.status = 'approved' AND sub.visibility = 'public'
 GROUP BY sub.sublocation_id, s.name, s.tourism_name, s.tourism_url
 ORDER BY sub.name
 `
@@ -405,6 +407,11 @@ type ListSublocationsByStateRow struct {
 // and the paginated admin list return every status and carry the
 // ownership/review columns. Video counts and first_src count active cameras
 // only, so a paused camera still lists but does not count as live.
+//
+// Private (DAN-205): the two public queries also require sub.visibility =
+// 'public' (a private location's slug 404s, which takes weather/conditions/
+// lightning/alerts with it), and their first_src/video_count skip private
+// cameras. The admin queries see every visibility.
 func (q *Queries) ListSublocationsByState(ctx context.Context, stateID int32) ([]ListSublocationsByStateRow, error) {
 	rows, err := q.db.Query(ctx, listSublocationsByState, stateID)
 	if err != nil {
@@ -468,6 +475,7 @@ SELECT sub.sublocation_id, sub.name, sub.description, sub.state_id, sub.slug,
                  WHERE v2.sublocation_id = sub.sublocation_id AND v2.status = 'active'
                  ORDER BY v2.video_id LIMIT 1), '')::text AS first_src,
        COUNT(v.video_id)::int AS video_count,
+       sub.visibility,
        COUNT(*) OVER()::int AS total_count
 FROM sublocations sub
 JOIN states s ON s.state_id = sub.state_id
@@ -515,6 +523,7 @@ type ListSublocationsPaginatedRow struct {
 	StateTourismUrl  string        `json:"state_tourism_url"`
 	FirstSrc         string        `json:"first_src"`
 	VideoCount       int32         `json:"video_count"`
+	Visibility       string        `json:"visibility"`
 	TotalCount       int32         `json:"total_count"`
 }
 
@@ -560,6 +569,7 @@ func (q *Queries) ListSublocationsPaginated(ctx context.Context, arg ListSubloca
 			&i.StateTourismUrl,
 			&i.FirstSrc,
 			&i.VideoCount,
+			&i.Visibility,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -570,6 +580,25 @@ func (q *Queries) ListSublocationsPaginated(ctx context.Context, arg ListSubloca
 		return nil, err
 	}
 	return items, nil
+}
+
+const setSublocationVisibility = `-- name: SetSublocationVisibility :execrows
+UPDATE sublocations SET visibility = $2 WHERE sublocation_id = $1
+`
+
+type SetSublocationVisibilityParams struct {
+	SublocationID int32  `json:"sublocation_id"`
+	Visibility    string `json:"visibility"`
+}
+
+// SetSublocationVisibility is the NationCam-admin visibility switch for a
+// location; a private location hides every camera in it (DAN-205).
+func (q *Queries) SetSublocationVisibility(ctx context.Context, arg SetSublocationVisibilityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setSublocationVisibility, arg.SublocationID, arg.Visibility)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateSublocation = `-- name: UpdateSublocation :exec

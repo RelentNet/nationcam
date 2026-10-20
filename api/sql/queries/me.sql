@@ -74,7 +74,9 @@ SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
        s.name AS state_name, s.slug AS state_slug,
        COALESCE(sub.name, '') AS sublocation_name,
        COALESCE(sub.slug, '') AS sublocation_slug,
-       COALESCE(sub.status, '') AS sublocation_status
+       COALESCE(sub.status, '') AS sublocation_status,
+       v.visibility,
+       COALESCE(sub.visibility, '') AS sublocation_visibility
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 JOIN account_members m ON m.account_id = v.account_id AND m.user_id = sqlc.arg(user_id)::text
@@ -92,7 +94,9 @@ SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
        s.name AS state_name, s.slug AS state_slug,
        COALESCE(sub.name, '') AS sublocation_name,
        COALESCE(sub.slug, '') AS sublocation_slug,
-       COALESCE(sub.status, '') AS sublocation_status
+       COALESCE(sub.status, '') AS sublocation_status,
+       v.visibility,
+       COALESCE(sub.visibility, '') AS sublocation_visibility
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id

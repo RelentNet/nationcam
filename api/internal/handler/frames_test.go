@@ -82,7 +82,7 @@ func TestArchiveCapturePipeline(t *testing.T) {
 
 	// The served file is a JPEG of the right size with the watermark stamped.
 	rec := httptest.NewRecorder()
-	ServeSnapshots(store).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/snapshots/1/2026-09-25/1215.jpg", nil))
+	ServeSnapshots(store, noPrivateCameras).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/snapshots/1/2026-09-25/1215.jpg", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("serve status = %d", rec.Code)
 	}
@@ -132,7 +132,7 @@ func TestServeSnapshots(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "7", "2026-09-25", "notes.txt"), []byte("nope"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h := ServeSnapshots(&archive.Store{Dir: dir})
+	h := ServeSnapshots(&archive.Store{Dir: dir}, noPrivateCameras)
 
 	get := func(method, path string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()

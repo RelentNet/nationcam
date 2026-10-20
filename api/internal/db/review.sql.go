@@ -100,7 +100,9 @@ SELECT v.video_id, v.title, v.slug, v.src, v.type, v.state_id, v.sublocation_id,
        s.name AS state_name, s.slug AS state_slug,
        COALESCE(sub.name, '') AS sublocation_name,
        COALESCE(sub.slug, '') AS sublocation_slug,
-       COALESCE(sub.status, '') AS sublocation_status
+       COALESCE(sub.status, '') AS sublocation_status,
+       v.visibility,
+       COALESCE(sub.visibility, '') AS sublocation_visibility
 FROM videos v
 JOIN states s ON s.state_id = v.state_id
 LEFT JOIN sublocations sub ON sub.sublocation_id = v.sublocation_id
@@ -109,26 +111,28 @@ ORDER BY v.created_at
 `
 
 type ListPendingVideosRow struct {
-	VideoID           int32       `json:"video_id"`
-	Title             string      `json:"title"`
-	Slug              string      `json:"slug"`
-	Src               string      `json:"src"`
-	Type              string      `json:"type"`
-	StateID           int32       `json:"state_id"`
-	SublocationID     *int32      `json:"sublocation_id"`
-	Status            string      `json:"status"`
-	OwnerID           string      `json:"owner_id"`
-	AccountID         *int32      `json:"account_id"`
-	StreamID          pgtype.Text `json:"stream_id"`
-	ReviewNote        string      `json:"review_note"`
-	About             string      `json:"about"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	StateName         string      `json:"state_name"`
-	StateSlug         string      `json:"state_slug"`
-	SublocationName   string      `json:"sublocation_name"`
-	SublocationSlug   string      `json:"sublocation_slug"`
-	SublocationStatus string      `json:"sublocation_status"`
+	VideoID               int32       `json:"video_id"`
+	Title                 string      `json:"title"`
+	Slug                  string      `json:"slug"`
+	Src                   string      `json:"src"`
+	Type                  string      `json:"type"`
+	StateID               int32       `json:"state_id"`
+	SublocationID         *int32      `json:"sublocation_id"`
+	Status                string      `json:"status"`
+	OwnerID               string      `json:"owner_id"`
+	AccountID             *int32      `json:"account_id"`
+	StreamID              pgtype.Text `json:"stream_id"`
+	ReviewNote            string      `json:"review_note"`
+	About                 string      `json:"about"`
+	CreatedAt             time.Time   `json:"created_at"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+	StateName             string      `json:"state_name"`
+	StateSlug             string      `json:"state_slug"`
+	SublocationName       string      `json:"sublocation_name"`
+	SublocationSlug       string      `json:"sublocation_slug"`
+	SublocationStatus     string      `json:"sublocation_status"`
+	Visibility            string      `json:"visibility"`
+	SublocationVisibility string      `json:"sublocation_visibility"`
 }
 
 func (q *Queries) ListPendingVideos(ctx context.Context) ([]ListPendingVideosRow, error) {
@@ -161,6 +165,8 @@ func (q *Queries) ListPendingVideos(ctx context.Context) ([]ListPendingVideosRow
 			&i.SublocationName,
 			&i.SublocationSlug,
 			&i.SublocationStatus,
+			&i.Visibility,
+			&i.SublocationVisibility,
 		); err != nil {
 			return nil, err
 		}

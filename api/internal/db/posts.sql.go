@@ -85,6 +85,10 @@ SELECT post_id, title, slug, body_md, excerpt, cover_url, state_id, sublocation_
 // (same pattern as ads); all three NULL is an unscoped post shown only at
 // /notes. Every public-facing query filters status = 'published' so a draft
 // is never reachable outside the admin listing.
+//
+// Private (DAN-205): in the two public queries that resolve attachment names,
+// a private camera or location (or a camera in a private location) resolves
+// to nothing, so the post shows but never names or links it.
 func (q *Queries) GetPost(ctx context.Context, postID int32) (Post, error) {
 	row := q.db.QueryRow(ctx, getPost, postID)
 	var i Post
@@ -119,9 +123,11 @@ SELECT p.post_id, p.title, p.slug, p.body_md, p.excerpt, p.cover_url,
        COALESCE(v.slug, '') AS video_slug
 FROM posts p
 LEFT JOIN states st ON st.state_id = p.state_id
-LEFT JOIN sublocations sub ON sub.sublocation_id = p.sublocation_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = p.sublocation_id AND sub.visibility = 'public'
 LEFT JOIN states substate ON substate.state_id = sub.state_id
-LEFT JOIN videos v ON v.video_id = p.video_id
+LEFT JOIN videos v ON v.video_id = p.video_id AND v.visibility = 'public'
+  AND NOT EXISTS (SELECT 1 FROM sublocations ps
+                  WHERE ps.sublocation_id = v.sublocation_id AND ps.visibility = 'private')
 LEFT JOIN sublocations vsub ON vsub.sublocation_id = v.sublocation_id
 LEFT JOIN states vstate ON vstate.state_id = v.state_id
 WHERE p.slug = $1 AND p.status = 'published'
@@ -266,9 +272,11 @@ SELECT p.post_id, p.title, p.slug, p.body_md, p.excerpt, p.cover_url,
        COALESCE(v.slug, '') AS video_slug
 FROM posts p
 LEFT JOIN states st ON st.state_id = p.state_id
-LEFT JOIN sublocations sub ON sub.sublocation_id = p.sublocation_id
+LEFT JOIN sublocations sub ON sub.sublocation_id = p.sublocation_id AND sub.visibility = 'public'
 LEFT JOIN states substate ON substate.state_id = sub.state_id
-LEFT JOIN videos v ON v.video_id = p.video_id
+LEFT JOIN videos v ON v.video_id = p.video_id AND v.visibility = 'public'
+  AND NOT EXISTS (SELECT 1 FROM sublocations ps
+                  WHERE ps.sublocation_id = v.sublocation_id AND ps.visibility = 'private')
 LEFT JOIN sublocations vsub ON vsub.sublocation_id = v.sublocation_id
 LEFT JOIN states vstate ON vstate.state_id = v.state_id
 WHERE p.status = 'published'

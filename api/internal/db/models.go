@@ -168,6 +168,7 @@ type Sublocation struct {
 	Status        string        `json:"status"`
 	OwnerID       string        `json:"owner_id"`
 	ReviewNote    string        `json:"review_note"`
+	Visibility    string        `json:"visibility"`
 	AccountID     *int32        `json:"account_id"`
 }
 
@@ -203,5 +204,6 @@ type Video struct {
 	OwnerID       string      `json:"owner_id"`
 	StreamID      pgtype.Text `json:"stream_id"`
 	ReviewNote    string      `json:"review_note"`
+	Visibility    string      `json:"visibility"`
 	AccountID     *int32      `json:"account_id"`
 }

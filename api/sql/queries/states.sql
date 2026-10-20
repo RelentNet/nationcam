@@ -1,3 +1,7 @@
+-- ListStates and GetStateBySlug are public: their video_count skips private
+-- cameras and cameras in private locations (DAN-205). The admin queries
+-- (GetStateByID, ListStatesPaginated) count every active camera.
+
 -- name: ListStates :many
 SELECT s.state_id, s.name, s.description, s.slug,
        s.hero_url, s.hero_kind, s.logo_url, s.sponsor_url, s.sponsor_link, s.title_url, s.tourism_name, s.tourism_url, s.about,
@@ -5,6 +9,9 @@ SELECT s.state_id, s.name, s.description, s.slug,
        COUNT(v.video_id)::int AS video_count
 FROM states s
 LEFT JOIN videos v ON v.state_id = s.state_id AND v.status = 'active'
+  AND v.visibility = 'public'
+  AND NOT EXISTS (SELECT 1 FROM sublocations ps
+                  WHERE ps.sublocation_id = v.sublocation_id AND ps.visibility = 'private')
 GROUP BY s.state_id
 ORDER BY s.name;
 
@@ -15,6 +22,9 @@ SELECT s.state_id, s.name, s.description, s.slug,
        COUNT(v.video_id)::int AS video_count
 FROM states s
 LEFT JOIN videos v ON v.state_id = s.state_id AND v.status = 'active'
+  AND v.visibility = 'public'
+  AND NOT EXISTS (SELECT 1 FROM sublocations ps
+                  WHERE ps.sublocation_id = v.sublocation_id AND ps.visibility = 'private')
 WHERE s.slug = $1
 GROUP BY s.state_id;
 

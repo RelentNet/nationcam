@@ -241,6 +241,7 @@ new-nationcam/                        # Repo root
         status.go                     # Owner limits + the status transition tables (the one place they live)
         ownerstore.go                 # ownerStore interface (sqlc queries + Tx) so handler tests run on a fake
         access.go                     # Account roles + CanViewCamera (the one access check) — DAN-381
+        private.go                    # Private cameras: /private/videos/* routes, admin visibility switch, member src redaction — DAN-205
         accounts.go                   # /me/accounts, /accounts/*, /invites/accept, ownership moves — DAN-381
         admin_users.go                # GET /admin/users, /admin/users/stats, /admin/roles (Logto management)
         json.go                       # JSON read/write helpers
@@ -315,8 +316,8 @@ new-nationcam/                        # Repo root
 Tables (no users table — Logto handles authentication; accounts reference Logto `sub`s):
 
 - **states**: `state_id`, `name`, `description`, `slug`, `created_at`, `updated_at`
-- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `noaa_station_id`/`usgs_site_id` (nullable, pin or disable the conditions page's tide station / river gauge — see API Endpoints), `status` (`pending` | `approved` | `rejected`, default `approved`), `owner_id` (Logto `sub` of the creator; `''` = admin-owned), `account_id` (nullable FK → accounts, `ON DELETE SET NULL`; NULL = admin-owned), `review_note`, `created_at`, `updated_at`
-- **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status` (`pending` | `active` | `inactive` | `paused` | `rejected`), `owner_id` (Logto `sub` of the creator; `''` = admin-owned), `account_id` (nullable FK → accounts, `ON DELETE SET NULL`), `stream_id` (nullable — the Restreamer process UUID when the API created the ingest), `review_note`, `created_by`, `created_at`, `updated_at`
+- **sublocations**: `sublocation_id`, `name`, `description`, `state_id` (FK), `slug`, `lat`/`lng` (nullable, unlock the weather panel), `host_name`, `host_url`, `host_since` (nullable date), `address`, `noaa_station_id`/`usgs_site_id` (nullable, pin or disable the conditions page's tide station / river gauge — see API Endpoints), `status` (`pending` | `approved` | `rejected`, default `approved`), `owner_id` (Logto `sub` of the creator; `''` = admin-owned), `account_id` (nullable FK → accounts, `ON DELETE SET NULL`; NULL = admin-owned), `review_note`, `visibility` (`public` | `private`, default `public` — a private location hides itself and every camera in it, DAN-205), `created_at`, `updated_at`
+- **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status` (`pending` | `active` | `inactive` | `paused` | `rejected`), `owner_id` (Logto `sub` of the creator; `''` = admin-owned), `account_id` (nullable FK → accounts, `ON DELETE SET NULL`), `stream_id` (nullable — the Restreamer process UUID when the API created the ingest), `review_note`, `visibility` (`public` | `private`, default `public`; see "Private cameras"), `created_by`, `created_at`, `updated_at`
 - **ads**: `ad_id`, `name`, `video_url`, `click_url`, `weight`, `starts_at`, `ends_at`, `enabled`, `state_id` / `sublocation_id` / `video_id` (all nullable FKs — at most one set, this is the targeting scope), `created_by`, `created_at`, `updated_at`
 - **ad_impressions**: `impression_id`, `ad_id` (FK), `video_id` (nullable FK), `kind` (`impression` | `click`), `created_at`
 - **videos**: `video_id`, `title`, `src`, `type`, `state_id` (FK), `sublocation_id` (nullable FK), `status`, `slug`, `view_count`, `created_by`, `created_at`, `updated_at`
@@ -361,13 +362,20 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | GET    | `/videos/{state}/{sub}/{slug}`   | Single camera + related cameras | None         |
 | GET    | `/videos/{state}/{sub}/{slug}/snapshot.jpg` | Latest still, watermarked (60s Redis cache) — the stable URL for Windy/Ventusky. `?w=320` or `?w=640` returns a JPEG resized to that width (aspect kept, never upscaled; cached 60s per width; any other `w` is 400) | None |
 | GET    | `/videos/{state}/{sub}/{slug}/stream.m3u8`  | 302 (`Cache-Control: no-store`) to a **signed** `/api/hls/{id}/index.m3u8?exp=&sig=` valid 12 h, whose rewrite carries signed segment URIs — works in any plain HLS player; 404 for non-Restreamer cameras | None |
-| GET    | `/videos/{id}/stream-token`      | Uncached (`no-store`) player token: `{ video_id, token, header: "X-HLS-Token", expires_at, ttl_seconds: 300, manifest_url, signed_manifest_url, native_ttl_seconds: 3600 }`; 404 unless the camera is public and proxied. DAN-205 adds its permission check here | None |
-| GET    | `/hls/{video_id}/index.m3u8`     | Proxied HLS manifest, URIs rewritten; 403 without a valid unexpired signature (player token + Referer/Origin, or a signed URL); 404 unless the camera is public | Signed (see "HLS proxy") |
+| GET    | `/videos/{id}/stream-token`      | Uncached (`no-store`) player token: `{ video_id, token, header: "X-HLS-Token", expires_at, ttl_seconds: 300, manifest_url, signed_manifest_url, native_ttl_seconds: 3600 }`; 404 unless the camera is live (active/paused, place approved) and proxied. A **private** camera needs a bearer token (401 without) and `CanViewCamera` (404 otherwise); its token/URL are private-scope | None (public) / User + `CanViewCamera` (private) |
+| GET    | `/hls/{video_id}/index.m3u8`     | Proxied HLS manifest, URIs rewritten; 403 without a valid unexpired signature (player token + Referer/Origin, or a signed URL); 404 unless the camera is live, or when the signature's scope (public/private) is not the camera's current visibility | Signed (see "HLS proxy") |
 | GET    | `/hls/{video_id}/{segment}`      | Proxied variant playlist / segment, same gate | Signed |
-| GET    | `/hls/{video_id}/poster.jpg`     | Latest watermarked still for a Restreamer camera | None |
+| GET    | `/hls/{video_id}/poster.jpg`     | Latest watermarked still for a public Restreamer camera (404 for a private one) | None |
+| GET    | `/private/videos/{id}/snapshot.jpg` | Latest watermarked still of a camera the caller can view (`?w=320\|640` as `snapshot.jpg`), `Cache-Control: private` — the private camera's still (DAN-205) | User + `CanViewCamera` (401 / 404) |
+| GET    | `/private/videos/{id}/frames?day=` | Archived stills for one day, same body as the public `frames`, URLs on the route below | User + `CanViewCamera` |
+| GET    | `/private/videos/{id}/frames/days` | Days with at least one archived still | User + `CanViewCamera` |
+| GET    | `/private/videos/{id}/frames/{day}/{HHMM}.jpg` | One archived still (`?w=320\|640`), `Cache-Control: private, max-age=3600` | User + `CanViewCamera` |
+| PUT    | `/videos/{id}/visibility`        | `{ visibility: public\|private }`; flushes `videos:*`, `sublocations:*`, `states:*` | Admin (Logto) |
+| PUT    | `/sublocations/{id}/visibility`  | Same, for a location (a private one hides every camera in it) | Admin (Logto) |
+| GET    | `/videos/paginated?page=&per_page=` | Every camera, any status and visibility, with raw `src`, `visibility` and `sublocation_visibility` — the admin list | Admin (Logto) |
 | GET    | `/videos/{state}/{sub}/{slug}/frames?day=YYYY-MM-DD` | Archived stills for one local day (default today), sorted by time | None |
 | GET    | `/videos/{state}/{sub}/{slug}/frames/days`  | Days with at least one archived still, newest first | None |
-| GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header). `?w=320` or `?w=640` serves a resized copy, made on first request and kept at `{video_id}/{day}/thumbs/{HHMM}.w{W}.jpg` (retention deletes thumbs with the frame; other `w` is 400) | None |
+| GET    | `/snapshots/{video_id}/{day}/{HHMM}.jpg` | One archived still (immutable, 1-year cache header); 404 for a private camera. `?w=320` or `?w=640` serves a resized copy, made on first request and kept at `{video_id}/{day}/thumbs/{HHMM}.w{W}.jpg` (retention deletes thumbs with the frame; other `w` is 400) | None |
 | POST   | `/videos`                        | Create video                   | Admin (Logto) |
 | GET    | `/me`                            | `{ user_id, is_admin, limits: { max_cameras, per_day }, counts: { sublocations, videos }, personal_account_id, accounts: [...] }` — counts are the personal account's; `accounts` as `/me/accounts` | User (Logto) |
 | GET    | `/me/accounts`                   | Every account the caller belongs to: `{ account_id, name, personal, role, all_cameras, sublocation_count, video_count }` | User (Logto) |
@@ -483,7 +491,9 @@ everything else in the table above marked Admin) are unchanged.
   weather/conditions/lightning — so a pending sublocation's slug 404s. Paused
   cameras list (the player shows a placeholder, DAN-40) but do not count in
   `video_count`/`first_src`, and the snapshot archive (`ListArchiveSources`)
-  captures active cameras only.
+  captures active cameras only. Since DAN-205 the predicate also requires
+  `visibility = 'public'` on the camera and its sublocation — see "Private
+  cameras" below.
 - **Creating a camera** (`POST /me/videos`) validates the RTSP URL with the
   same `restreamer.ValidateRTSPURL` as `/streams`, creates the ingest through
   the same `createIngestStream` (passthrough codec, auto-reconnect, UI
@@ -548,8 +558,9 @@ user, so a customer's team can share them.
 - **Caches**: nothing under `/me`, `/accounts` or `/invites` is cached. The
   two ownership moves flush `videos:*`, `sublocations:*`, `states:*`;
   member and invite changes touch no public data.
-- **Not here**: private visibility and capture interval per camera (DAN-205,
-  DAN-208); the dashboard screens (the sibling UI issue).
+- **Not here**: capture interval per camera (DAN-208); the dashboard screens
+  (the sibling UI issue). Private visibility is DAN-205, "Private cameras"
+  below.
 - **Tests**: `handler/accounts_test.go` (on the same fake store, account half
   in `account_fakes_test.go`) and `sql/accounts_test.go` (migration and
   queries, `TEST_DATABASE_URL`).
@@ -897,8 +908,10 @@ keeps the stored URL, since the admin list reads the public endpoint.
   `/hls/{video_id}/poster.jpg` (watermarked still, public, 60 s Redis cache;
   what `streamPoster` returns for a proxied src).
 - **Upstream is pinned**: the URL comes from `videos.src` (via
-  `GetPublicVideoSource`, the same visibility predicate as `GetVideoBySlug`;
-  anything else is 404), the segment resolves to a file beside the manifest,
+  `GetPlayableVideoSource`: a live camera — active/paused, place approved —
+  of either visibility, plus whether it is private; anything else is 404.
+  The public poster uses `GetPublicVideoSource`, which also requires
+  `visibility = 'public'`), the segment resolves to a file beside the manifest,
   redirects are not followed. Manifests (≤1 MB) are rewritten so each URI
   becomes `/api/hls/{id}/{file}` (URIs leaving the directory/host are
   dropped); segments are streamed (≤50 MB, 15 s timeout) through one pooled
@@ -937,12 +950,26 @@ keeps the stored URL, since the admin list reads the public endpoint.
     the window only has to cover one long session (a wall display through a
     working day) while a URL copied out of the redirect still dies the same
     day. The redirect is public, so its signature buys expiry, not exclusivity.
+  - **Private scope** (DAN-205): a private camera's token and signed URLs are
+    signed over `private/*` / `private/{file}` instead, and are minted only
+    by `stream-token` after `CanViewCamera`. The guard accepts either scope
+    and the lookup then requires it to match the camera's current
+    visibility (else 404), so a public-era URL or token dies the moment a
+    camera turns private and a private one never plays a public camera. A
+    private signed URL is never valid longer than 1 h + 1 min (the
+    native-HLS window), so the 12 h `stream.m3u8` shape can never exist for
+    a private camera — and `stream.m3u8` itself 404s for one, since it is
+    keyed off `GetVideoBySlug`. Otherwise private playback is identical:
+    same Referer gate on token requests, same rewriting, same proxy.
   - Unset `HLS_SIGNING_KEY` → random per-process key + one WARN at boot; URLs
     die on restart and differ across replicas (fails closed). Rotating the key
     ends every outstanding token/URL; live players recover by renewing.
   - `/hls/{id}/poster.jpg`, `snapshot.jpg` and the snapshot archive stay
-    unsigned and public. Admin/owner/review previews play the raw `src` from
-    `/review` and `/me` through `/api/stream-proxy`, unchanged.
+    unsigned and public for public cameras (all three 404 for a private
+    one). Admin/owner/review previews play the raw `src` from
+    `/review` and `/me` through `/api/stream-proxy`, unchanged — except that
+    `/me` returns a private camera's `src` in the proxy form and its
+    `stream_id` as null, so a private camera plays there with a stream token.
 - **Referer/Origin gate** (player-token requests only): a request must carry a
   Referer or Origin and
   every one it carries must be nationcam.com / www.nationcam.com, localhost /
@@ -956,6 +983,53 @@ keeps the stored URL, since the admin list reads the public endpoint.
   the proxy at 50 and 200 concurrent clients and compares with direct upstream
   fetches; `go test ./internal/handler -run '^$' -bench HLSSegment -benchmem`
   reports per-segment allocations.
+
+### Private cameras
+
+DAN-205: a camera or a location can be **private** — for construction
+customers whose cameras only their own team may see. `visibility`
+(`public` | `private`, default `public`) on `videos` and `sublocations`,
+added idempotently in `schema.sql`; every existing row stays public.
+
+- **Who sets it**: NationCam admins only, `PUT /videos/{id}/visibility` and
+  `PUT /sublocations/{id}/visibility` (flush `videos:*`, `sublocations:*`,
+  `states:*`). Customers see it read-only; their own "make public" request
+  through review is a later unit. The admin camera list is
+  `GET /videos/paginated` (every status and visibility).
+- **Effective visibility**: a camera is private when its own visibility or
+  its location's is `private` — a private location hides itself and every
+  camera in it.
+- **Public surfaces**: the public-visibility predicate (see "Owner accounts
+  and review") also requires `visibility = 'public'` on the camera and its
+  location, in every public query: the lists (so the sitemap and search),
+  popular/newest, related, `GetVideoBySlug` and everything keyed off it
+  (camera page, embed, frames, `snapshot.jpg`, `stream.m3u8`), the location
+  slug lookup (weather, conditions, lightning, alerts 404),
+  `video_count`/`first_src` on locations and states, and
+  `GetPublicVideoSource` (the public poster). Events in a private location
+  are dropped from the public listings, and an event or post pointing at a
+  private camera/location shows without its title/slug. `/snapshots/{id}/…`
+  404s for a private camera (`IsVideoPrivate`).
+- **Who can view**: `CanViewCamera` (see "Accounts and members"): members of
+  the camera's account by their role and picks, and NationCam admins for
+  support. Live stream: `GET /videos/{id}/stream-token` (401 without a
+  bearer token, 404 to anyone else) → a private-scope token that plays
+  through `/api/hls` like any camera (see "HLS proxy"). Still and archive:
+  the bearer-authenticated `/private/videos/{id}/snapshot.jpg`,
+  `/frames?day=`, `/frames/days`, `/frames/{day}/{HHMM}.jpg` (any camera the
+  caller can view; `Cache-Control: private`). The private still is cached in
+  Redis as `videos:private-snapshot:{id}`, never under the public poster key.
+- **The archive keeps capturing** private cameras (`ListArchiveSources`
+  ignores visibility); their frames are served only by the private routes.
+- **Restreamer UUID**: no public or account-member response carries a
+  private camera's raw Restreamer `src` or `stream_id` (`/me/videos` redacts
+  both). Restreamer's memfs itself stays world-readable to anyone who
+  learns the UUID — accepted for now; the UUID only lives server-side and in
+  admin responses (`/videos/paginated`, `/review`, account moves).
+- **Tests**: `handler/private_test.go` (token 401/404/200, private playback
+  through the proxy, scope mismatch, poster/archive 404, the private
+  routes, the admin switch, redaction) and `sql/private_test.go` (the
+  predicate, CHECKs, counts, archive, events/posts — `TEST_DATABASE_URL`).
 
 ### Stream Management
 
@@ -990,6 +1064,9 @@ from `main.go` runs on the server's root context and stops with it:
   the same browser-facing form as `/api/uploads/...`. `/snapshots/*` only serves a
   path that matches `{digits}/{YYYY-MM-DD}/{HHMM}.jpg` exactly, so traversal never
   reaches the filesystem.
+- **Private cameras** (DAN-205) are captured like any other active camera,
+  but `/snapshots/*` 404s for them; members read them through
+  `/private/videos/{id}/frames…` (see "Private cameras").
 
 ### Caching
 
