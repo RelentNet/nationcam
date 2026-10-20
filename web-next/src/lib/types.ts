@@ -80,7 +80,16 @@ export interface Sublocation
   video_count: number
   /** `src` of the active camera with the lowest id, or '' — for poster tiles. */
   first_src: string
+  /** Only on the admin list (`GET /sublocations/paginated`, DAN-205): a
+   *  private location hides itself and every camera in it. */
+  visibility?: Visibility
+  /** Only on the admin list: review status. */
+  status?: SublocationStatus
 }
+
+/** DAN-205: `private` cameras and locations are visible to account members
+ *  and NationCam admins only. */
+export type Visibility = 'public' | 'private'
 
 /** `heat_stress.level` on `Weather` — a WBGT-style flag-condition estimate. */
 export type HeatStressLevel = 'low' | 'moderate' | 'high' | 'extreme'
@@ -262,7 +271,7 @@ export interface Video extends Editorial {
    *  but CameraPlayer/PosterTile show a placeholder/badge instead of the
    *  live player. 'pending'/'rejected' exist in the database but the public
    *  API never returns them here. */
-  status: 'active' | 'inactive' | 'paused'
+  status: 'active' | 'inactive' | 'paused' | 'pending' | 'rejected'
   created_by: string
   created_at: string
   updated_at: string
@@ -276,6 +285,11 @@ export interface Video extends Editorial {
    *  without needing a stricter prop type at every `CameraPlayer` call site. */
   state_slug?: string
   sublocation_slug?: string
+  /** Only on the admin list (`GET /videos/paginated`, DAN-205). */
+  visibility?: Visibility
+  /** Only on the admin list: the camera's location visibility, '' when it
+   *  has no location. */
+  sublocation_visibility?: Visibility | ''
 }
 
 /**
@@ -599,6 +613,14 @@ export interface SubmitContactInput {
   details?: SubmissionDetails
 }
 
+/** A camera is private when its own visibility or its location's is. */
+export function isPrivateCamera(v: {
+  visibility?: string
+  sublocation_visibility?: string
+}): boolean {
+  return v.visibility === 'private' || v.sublocation_visibility === 'private'
+}
+
 export interface PaginatedResponse<T> {
   data: Array<T>
   total: number
@@ -786,6 +808,10 @@ export interface OwnerVideo {
   sublocation_status: string
   /** The owning account (DAN-381); null on legacy admin-owned rows. */
   account_id?: number | null
+  /** The camera's own visibility and its location's (DAN-205). A camera is
+   *  private when either is — see `isPrivateCamera`. */
+  visibility?: Visibility
+  sublocation_visibility?: Visibility | ''
 }
 
 /** Body of `POST`/`PUT /me/sublocations`. */

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Check, Code, Copy, Film, Pencil, Trash2 } from 'lucide-react'
-import type { State, Sublocation, Video } from '@/lib/types'
+import type { State, Sublocation, Video, Visibility } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
+import { isPrivateCamera } from '@/lib/types'
 import {
   AboutField,
   ActionBtn,
@@ -17,11 +18,18 @@ import {
   PaginationBar,
   PanelHeader,
   SelectField,
+  StatusBanner,
   StatusDot,
+  VisibilitySwitch,
   staggerStyle,
   useAutoHide,
 } from '@/components/dashboardUi'
-import { createVideo, deleteVideo, updateVideo } from '@/lib/api'
+import {
+  createVideo,
+  deleteVideo,
+  setVideoVisibility,
+  updateVideo,
+} from '@/lib/api'
 import { SITE_URL, streamPoster } from '@/lib/seo'
 import EmbedSnippet from '@/components/EmbedSnippet'
 
@@ -85,6 +93,33 @@ export default function CamerasPanel({
   } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState<Video | null>(null)
+
+  // Public/private switch (DAN-205/DAN-383): one request at a time per row.
+  const [visBusy, setVisBusy] = useState<number | null>(null)
+  const [listMsg, setListMsg] = useState<FormMsg>(null)
+  useAutoHide(listMsg, setListMsg)
+
+  const handleVisibility = async (v: Video, next: Visibility) => {
+    setVisBusy(v.video_id)
+    setListMsg(null)
+    try {
+      const token = await getToken()
+      await setVideoVisibility(v.video_id, next, token)
+      setListMsg({
+        text: `${v.title} is now ${next}.`,
+        ok: true,
+      })
+      onSuccess()
+    } catch (err) {
+      setListMsg({
+        text:
+          err instanceof Error ? err.message : 'Failed to change visibility.',
+        ok: false,
+      })
+    } finally {
+      setVisBusy(null)
+    }
+  }
 
   // Search + sort + client-side pagination
   const [search, setSearch] = useState('')
@@ -277,6 +312,8 @@ export default function CamerasPanel({
           </CreatePanel>
         )}
 
+        <StatusBanner msg={listMsg} />
+
         {/* List */}
         <DataList
           loading={loading}
@@ -312,6 +349,8 @@ export default function CamerasPanel({
                   index={i}
                   states={states}
                   sublocations={sublocations}
+                  visibilityBusy={visBusy === v.video_id}
+                  onVisibility={(next) => handleVisibility(v, next)}
                   onEdit={() => setEditing(v)}
                   onDelete={() =>
                     setConfirmDelete({ id: v.video_id, name: v.title })
@@ -361,6 +400,8 @@ function VideoRow({
   index,
   states,
   sublocations,
+  visibilityBusy,
+  onVisibility,
   onEdit,
   onDelete,
 }: {
@@ -368,6 +409,8 @@ function VideoRow({
   index: number
   states: Array<State>
   sublocations: Array<Sublocation>
+  visibilityBusy: boolean
+  onVisibility: (next: Visibility) => void
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -379,7 +422,10 @@ function VideoRow({
   const subSlug = sublocations.find(
     (s) => s.sublocation_id === video.sublocation_id,
   )?.slug
-  const canEmbed = Boolean(stateSlug && subSlug)
+  // A private camera has no public page, embed or directory links.
+  const canEmbed = Boolean(stateSlug && subSlug) && !isPrivateCamera(video)
+  const viaLocation =
+    video.visibility !== 'private' && video.sublocation_visibility === 'private'
 
   return (
     <div style={staggerStyle(index)}>
@@ -403,11 +449,28 @@ function VideoRow({
           </div>
         </div>
 
+        {/* Visibility — always visible, unlike the hover-only actions */}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <VisibilitySwitch
+            value={video.visibility ?? 'public'}
+            onChange={onVisibility}
+            busy={visibilityBusy}
+            label={video.title}
+          />
+          {viaLocation && (
+            <span className="font-mono text-[10px] text-subtext0 uppercase">
+              Private via location
+            </span>
+          )}
+        </div>
+
         {/* Status */}
         <StatusDot active={isActive} label={isActive ? 'Live' : 'Off'} />
 
         {/* Actions */}
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        {/* min-w keeps the columns aligned when a private camera has no
+            Embed button */}
+        <div className="flex min-w-[104px] shrink-0 items-center justify-end gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
           {canEmbed && (
             <ActionBtn
               icon={Code}
@@ -580,9 +643,11 @@ function DirectoryLinks({
   const subSlug = sublocations.find(
     (s) => s.sublocation_id === video.sublocation_id,
   )?.slug
+  // The public still, page and stream.m3u8 all 404 for a private camera.
   if (
     !stateSlug ||
     !subSlug ||
+    isPrivateCamera(video) ||
     !streamPoster(video.src, video.status === 'active')
   )
     return null

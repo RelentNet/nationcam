@@ -639,8 +639,51 @@ console with a review queue and a users panel. Both routes are `ssr:false`
   with a name and an optional first-admin Logto user id (`POST /accounts`),
   and two move forms: camera → account (`PUT /videos/{id}/account`) and
   location with its cameras → account (`PUT /sublocations/{id}/account`); the
-  pickers list the public camera/location lists the console already loads, so
-  a still-pending camera is not offered until it is approved).
+  pickers list the console's shared camera/location lists, which since
+  DAN-383 are the admin lists, so private and still-pending ones are offered).
+- **Private cameras UI** (DAN-383, API in "Private cameras"):
+  - **Admin lists**: `routes/admin.tsx` loads cameras with `GET
+    /videos/paginated` and locations with `GET /sublocations/paginated`
+    (`fetchAllVideosAdmin`/`fetchAllSublocationsAdmin` walk the pages at 500 a
+    page) instead of the public lists, so every status and visibility reaches
+    the Cameras, Locations, Ads/Notes/Events and Accounts panels. Admin rows
+    carry the raw `src`. Each Cameras and Locations row has an always-visible
+    Public/Private switch (`VisibilitySwitch` in `dashboardUi.tsx`, `PUT
+    /videos/{id}/visibility`, `PUT /sublocations/{id}/visibility`; the API's
+    message shows in a banner on failure); a camera that is private only
+    through its location reads "Private via location". Private cameras get no
+    Embed button or directory links (their public page, still and stream
+    404).
+  - **Customers see visibility read-only**: `VisibilityPill` (`ownerUi.tsx`)
+    on each dashboard camera row, from `visibility`/`sublocation_visibility`
+    (`isPrivateCamera` in `lib/types.ts`: either one private). Only NationCam
+    admins change it. A live camera also gets a **Watch** link: its public
+    page, or `/dashboard/cameras/$videoId` when private; a private camera has
+    no Embed code.
+  - **`/dashboard/cameras/$videoId`** (`routes/dashboard_.cameras.$videoId.tsx`,
+    `ssr:false`; the trailing underscore keeps it out of `/dashboard`'s
+    layout, DAN-207's command center links to it): finds the camera in `GET
+    /me/videos` (a NationCam admin who is not a member falls back to the admin
+    list), else "Camera not found" (a restricted viewer opening an unpicked
+    camera lands there too). It shows the live `StreamPlayer`, the latest
+    still with Refresh, and the archive day picker with lazily loaded frame
+    thumbnails, a lightbox and Download. A paused or not-yet-live camera
+    shows a placeholder instead of the player.
+  - **Bearer-token player**: `StreamPlayer` takes an optional `getToken`;
+    when set, every `GET /videos/{id}/stream-token` (mount, 60 s-early
+    renewal, fatal-network-error recovery) sends `Authorization: Bearer`, and
+    the native-HLS fallback still plays the token's `signed_manifest_url`. A
+    public camera passes none and sends no header, as before. The review
+    queue passes it too (its raw `src` still plays through
+    `/api/stream-proxy`; the bearer only matters for an `/api/hls` src).
+    `MyCamerasPanel` has no player; its **Watch** link is the preview
+    path for private cameras, since `/me` returns their `src` in the
+    `/api/hls` form that `/api/stream-proxy` cannot play.
+  - **Private stills and frames** come from `/api/private/videos/{id}/…`
+    with the bearer (`fetchPrivateImage`, `fetchPrivateFrames`,
+    `fetchPrivateFrameDays`) and are shown from object URLs
+    (`hooks/usePrivateImage.ts`), revoked when the image unmounts, its path
+    changes or the still is refreshed.
 - **Shared UI**: `components/dashboardUi.tsx` holds every building block
   used by more than one panel — `PanelHeader`, `CreatePanel`, `AboutField`,
   `FormField`/`FormFooter`, `ConfirmDeleteDialog`/`ModalShell`, `ToggleRow`,

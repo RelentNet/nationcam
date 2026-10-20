@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowRightLeft, Building2 } from 'lucide-react'
 import type { AdminAccount, Sublocation, Video } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
+import { isPrivateCamera } from '@/lib/types'
 import {
   CreatePanel,
   DataList,
@@ -230,13 +231,16 @@ function MovePanel({
     .sort((a, b) => a.title.localeCompare(b.title))
     .map((v) => ({
       value: v.video_id,
-      label: v.sublocation_name
-        ? `${v.title} — ${v.sublocation_name}`
-        : v.title,
+      label:
+        (v.sublocation_name ? `${v.title} — ${v.sublocation_name}` : v.title) +
+        (isPrivateCamera(v) ? ' (private)' : ''),
     }))
   const locationOptions = [...sublocations]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((s) => ({ value: s.sublocation_id, label: s.name }))
+    .map((s) => ({
+      value: s.sublocation_id,
+      label: s.visibility === 'private' ? `${s.name} (private)` : s.name,
+    }))
 
   const [videoId, setVideoId] = useState<number | ''>('')
   const [videoAccount, setVideoAccount] = useState<number | ''>('')

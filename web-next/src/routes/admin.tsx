@@ -34,11 +34,11 @@ import {
   fetchAds,
   fetchAllEvents,
   fetchAllPosts,
+  fetchAllSublocationsAdmin,
+  fetchAllVideosAdmin,
   fetchAudioStations,
   fetchStates,
   fetchStreams,
-  fetchSublocationsByState,
-  fetchVideos,
 } from '@/lib/api'
 import CamerasPanel from '@/components/admin/CamerasPanel'
 import StatesPanel from '@/components/admin/StatesPanel'
@@ -210,17 +210,17 @@ function AdminConsole({ userName }: { userName: string | null }) {
     setDataError(false)
     try {
       const token = await getToken()
-      const [statesData, videosData] = await Promise.all([
+      // The paginated admin lists carry every status and visibility, so
+      // private cameras and locations show up (and can be switched) here and
+      // in the Accounts pickers (DAN-383).
+      const [statesData, videosData, sublocationsData] = await Promise.all([
         fetchStates(),
-        fetchVideos(),
+        fetchAllVideosAdmin(token),
+        fetchAllSublocationsAdmin(token),
       ])
       setAllStates(statesData)
       setAllVideos(videosData)
-
-      const allSubs = await Promise.all(
-        statesData.map((s) => fetchSublocationsByState(s.slug)),
-      )
-      setAllSublocations(allSubs.flat())
+      setAllSublocations(sublocationsData)
 
       try {
         const streamsData = await fetchStreams(token)
@@ -267,17 +267,17 @@ function AdminConsole({ userName }: { userName: string | null }) {
   const refreshData = async () => {
     try {
       const token = await getToken()
-      const [statesData, videosData] = await Promise.all([
+      // The paginated admin lists carry every status and visibility, so
+      // private cameras and locations show up (and can be switched) here and
+      // in the Accounts pickers (DAN-383).
+      const [statesData, videosData, sublocationsData] = await Promise.all([
         fetchStates(),
-        fetchVideos(),
+        fetchAllVideosAdmin(token),
+        fetchAllSublocationsAdmin(token),
       ])
       setAllStates(statesData)
       setAllVideos(videosData)
-
-      const allSubs = await Promise.all(
-        statesData.map((s) => fetchSublocationsByState(s.slug)),
-      )
-      setAllSublocations(allSubs.flat())
+      setAllSublocations(sublocationsData)
 
       try {
         const streamsData = await fetchStreams(token)

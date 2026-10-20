@@ -247,6 +247,7 @@ function VideoReviewRow({
   onReject: () => void
 }) {
   const [showPreview, setShowPreview] = useState(false)
+  const { getToken } = useAuth()
 
   return (
     <div style={staggerStyle(index)}>
@@ -290,7 +291,16 @@ function VideoReviewRow({
       {showPreview && (
         <div className="px-4 pb-4 sm:px-5">
           <div className="overflow-hidden rounded-lg border border-border">
-            <StreamPlayer src={v.src} type={v.type} controls fluid />
+            {/* /review hands out the raw src (played through the stream
+                proxy); getToken covers a src in the /api/hls form, which a
+                private camera's token needs a bearer for. */}
+            <StreamPlayer
+              src={v.src}
+              type={v.type}
+              controls
+              fluid
+              getToken={getToken}
+            />
           </div>
         </div>
       )}

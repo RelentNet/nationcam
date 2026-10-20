@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
+  Eye,
   Film,
   Loader2,
   PauseCircle,
@@ -9,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { OwnerSublocation, OwnerVideo } from '@/lib/types'
 import type { FormMsg } from '@/components/dashboardUi'
+import { isPrivateCamera } from '@/lib/types'
 import {
   AboutField,
   ActionBtn,
@@ -24,7 +27,11 @@ import {
   staggerStyle,
   useAutoHide,
 } from '@/components/dashboardUi'
-import { ReviewNote, StatusPill } from '@/components/owner/ownerUi'
+import {
+  ReviewNote,
+  StatusPill,
+  VisibilityPill,
+} from '@/components/owner/ownerUi'
 import {
   createMyVideo,
   deleteMyVideo,
@@ -312,11 +319,21 @@ function CameraRow({
 }) {
   const [showEmbed, setShowEmbed] = useState(false)
   const canToggle = video.status === 'active' || video.status === 'paused'
+  const isPrivate = isPrivateCamera(video)
+  // A private camera is never embeddable (the embed route 404s for it).
   const canEmbed =
     canEdit &&
+    !isPrivate &&
     video.status !== 'pending' &&
     video.status !== 'rejected' &&
     Boolean(video.sublocation_slug)
+  // Watch needs a live camera in an approved place: its public page, or the
+  // member-only page for a private one (DAN-383).
+  const canWatch =
+    (video.status === 'active' || video.status === 'paused') &&
+    (video.sublocation_id === null || video.sublocation_status === 'approved')
+  const watchClass =
+    'inline-flex items-center gap-1 text-xs font-medium text-accent-ink hover:underline'
 
   return (
     <div style={staggerStyle(index)}>
@@ -328,21 +345,50 @@ function CameraRow({
               {video.title}
             </p>
             <StatusPill status={video.status} />
+            <VisibilityPill isPrivate={isPrivate} />
           </div>
           <p className="mb-0 mt-0.5 truncate text-xs text-subtext0">
             {video.state_name}
             {video.sublocation_name ? ` · ${video.sublocation_name}` : ''}
           </p>
           <ReviewNote note={video.review_note} />
-          {canEmbed && (
-            <button
-              type="button"
-              onClick={() => setShowEmbed((s) => !s)}
-              className="mt-1.5 text-xs font-medium text-accent-ink hover:underline"
-            >
-              {showEmbed ? 'Hide embed code' : 'Embed code'}
-            </button>
-          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+            {canWatch &&
+              (isPrivate ? (
+                <Link
+                  to="/dashboard/cameras/$videoId"
+                  params={{ videoId: String(video.video_id) }}
+                  className={watchClass}
+                >
+                  <Eye size={13} />
+                  Watch
+                </Link>
+              ) : (
+                video.sublocation_slug && (
+                  <Link
+                    to="/locations/$slug/$sublocationSlug/$cameraSlug"
+                    params={{
+                      slug: video.state_slug,
+                      sublocationSlug: video.sublocation_slug,
+                      cameraSlug: video.slug,
+                    }}
+                    className={watchClass}
+                  >
+                    <Eye size={13} />
+                    Watch
+                  </Link>
+                )
+              ))}
+            {canEmbed && (
+              <button
+                type="button"
+                onClick={() => setShowEmbed((s) => !s)}
+                className="text-xs font-medium text-accent-ink hover:underline"
+              >
+                {showEmbed ? 'Hide embed code' : 'Embed code'}
+              </button>
+            )}
+          </div>
         </div>
         {canEdit && (
           <div className="flex shrink-0 items-center gap-1">
