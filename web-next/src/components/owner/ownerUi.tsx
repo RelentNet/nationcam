@@ -67,6 +67,54 @@ export function StatusPill({ status }: { status: string }) {
   )
 }
 
+/** A camera's live state on the command center (`GET /me/videos/status`):
+ *  distinct from `StatusPill`, which is the review status of the row. */
+export function StateBadge({ state }: { state: string }) {
+  const config: Record<
+    string,
+    { label: string; className: string; dot: string }
+  > = {
+    live: { label: 'Live', className: 'bg-teal/10 text-teal', dot: 'bg-teal' },
+    offline: {
+      label: 'Offline',
+      className: 'bg-live/10 text-live',
+      dot: 'bg-live',
+    },
+    paused: {
+      label: 'Paused',
+      className: 'bg-surface2 text-subtext0',
+      dot: 'bg-overlay2',
+    },
+    pending: {
+      label: 'Pending',
+      className: 'bg-accent/10 text-accent',
+      dot: 'bg-accent',
+    },
+    unknown: {
+      label: 'Unknown',
+      className: 'bg-surface2 text-subtext0',
+      dot: 'bg-overlay1',
+    },
+  }
+  const c = config[state] ?? config.unknown
+  return (
+    <span
+      data-state={state}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.02em] uppercase ${c.className}`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${c.dot}`}
+        style={
+          state === 'live'
+            ? { animation: 'pulse-live 2s ease-in-out infinite' }
+            : undefined
+        }
+      />
+      {c.label}
+    </span>
+  )
+}
+
 /** A member's role in an account (DAN-382). */
 export function RolePill({ role }: { role: 'admin' | 'viewer' }) {
   return (

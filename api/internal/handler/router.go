@@ -225,6 +225,7 @@ func mountOwnerRoutes(r chi.Router, owners ownerStore, c *cache.Cache, rc *restr
 		r.Put("/sublocations/{id}", UpdateMySublocation(owners, c))
 		r.Delete("/sublocations/{id}", DeleteMySublocation(owners, c))
 		r.Get("/videos", ListMyVideos(owners))
+		r.Get("/videos/status", ListMyVideoStatus(owners, rc))
 		r.With(mw.RateLimit(mw.NewRateLimiter(10, time.Minute))).Post("/videos", CreateMyVideo(owners, c, rc))
 		r.Put("/videos/{id}", UpdateMyVideo(owners, c))
 		r.Post("/videos/{id}/pause", PauseMyVideo(owners, c, rc))

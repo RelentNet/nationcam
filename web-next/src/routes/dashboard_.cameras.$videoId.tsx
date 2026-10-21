@@ -26,6 +26,7 @@ import {
   fetchPrivateFrames,
   fetchPrivateImage,
   privateVideoPath,
+  watchSrc,
 } from '@/lib/api'
 
 /**
@@ -267,7 +268,7 @@ function LiveSection({
       <div>
         {live ? (
           <StreamPlayer
-            src={camera.src}
+            src={watchSrc(camera)}
             type={camera.type}
             autoplay
             muted

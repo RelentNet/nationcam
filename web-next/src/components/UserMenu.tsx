@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ExternalLink,
   LayoutDashboard,
+  LayoutGrid,
   LogIn,
   LogOut,
   Shield,
@@ -96,6 +97,12 @@ export default function UserMenu() {
             to="/dashboard"
             icon={LayoutDashboard}
             label="My cameras"
+            onClick={() => setOpen(false)}
+          />
+          <MenuLink
+            to="/dashboard/command-center"
+            icon={LayoutGrid}
+            label="Command center"
             onClick={() => setOpen(false)}
           />
           <MenuExternalLink

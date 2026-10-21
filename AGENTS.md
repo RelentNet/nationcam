@@ -237,6 +237,7 @@ new-nationcam/                        # Repo root
         ad.go                         # /ads/next, impression + click tracking, admin CRUD
         stream.go                     # CRUD handlers for /streams (Restreamer proxy); createIngestStream shared with /me/videos
         me.go                         # Owner endpoints: GET /me, /me/sublocations, /me/videos, pause/resume (DAN-39)
+        mestatus.go                   # GET /me/videos/status — command center live/offline badges (DAN-207)
         review.go                     # GET /review, approve/reject for videos and sublocations (DAN-39)
         status.go                     # Owner limits + the status transition tables (the one place they live)
         ownerstore.go                 # ownerStore interface (sqlc queries + Tx) so handler tests run on a fake
@@ -383,6 +384,7 @@ All endpoints are under `/api/` (nginx strips the prefix before forwarding to Go
 | POST   | `/me/sublocations`               | `{ name, description, state_id, account_id?, address?, lat?, lng?, host_name?, host_url?, host_since? }` → status `pending`, in `account_id` (must be an admin of it) or the caller's personal account (created on first use) | User (Logto) |
 | PUT    | `/me/sublocations/{id}`          | Same fields (not `account_id`); status unchanged (403 unless an admin of its account) | User (Logto) |
 | DELETE | `/me/sublocations/{id}`          | Only while it has no cameras (409 otherwise) | User (Logto) |
+| GET    | `/me/videos/status`              | `[{ video_id, state }]` for every camera `/me/videos` lists; `state` is `live`/`offline` (Restreamer process exec state for cameras with a `stream_id`, probed 5 at a time, cached 15 s per stream), `paused`, `pending`, or `unknown` (non-Restreamer src, Restreamer unset or unreachable — never an error for the list); rejected/inactive read `offline` | User (Logto) |
 | GET    | `/me/videos`                     | Cameras the caller can view through their accounts (`CanViewCamera`), any status, with `review_note`, `account_id` and `sublocation_status` | User (Logto) |
 | POST   | `/me/videos`                     | `{ title, rtsp_url, sublocation_id (caller must be an admin of its account), about? }` → validates RTSP, creates the Restreamer ingest, status `pending`, same account as the sublocation; 429 past 10 cameras or 5 per 24 h **per account**; 503 without Restreamer | User (Logto) |
 | PUT    | `/me/videos/{id}`                | `{ title, about }`             | User (Logto) |
@@ -707,6 +709,41 @@ console with a review queue and a users panel. Both routes are `ssr:false`
   cameras" → `/dashboard` for every signed-in user, and "Admin" → `/admin`
   only when `isAdmin`. `Navbar.tsx` itself carries no auth-aware links (both
   its desktop and mobile menus render `UserMenu`).
+- **Command center** (DAN-207): `/dashboard/command-center`
+  (`routes/dashboard_.command-center.tsx`, `ssr:false`, underscore pattern as
+  above; linked from a card on `/dashboard` and "Command center" in
+  `UserMenu`). Every camera the caller can view (`GET /me/videos`) in one
+  account on one wall. The account picker appears with more than one account;
+  with no saved choice the first account that has cameras is shown. Tiles are
+  grouped under location headings (sorted by location, then title) and paged
+  by layout: 1, 4, 9 or 16 tiles per screen, 1/2/3/4 columns. **Wall mode**
+  is a fixed full-viewport grid (plus the browser Fullscreen API when it
+  grants it; Esc leaves) without headings, since each tile names its
+  location. Layout and account choice live in localStorage
+  (`nationcam.wall.layout`, `nationcam.wall.account`, every access in
+  try/catch; `lib/wall.ts`). `components/wall/WallTile.tsx`: the 320-wide still
+  by default (public camera: `cameraStill(..., 320)` with a cache-buster,
+  falling back to the bearer route if it fails; private or unapproved-location
+  camera: `/api/private/videos/{id}/snapshot.jpg?w=320` with the bearer into an
+  object URL that is swapped in place and revoked on replace/unmount), refreshed
+  every 60 s while the tab is visible and skipped while the tile is live.
+  Live playback (`StreamPlayer`, muted, no controls, `getToken`) starts after
+  400 ms of hover or from the tile's play button (first tap on touch screens)
+  and stops from the same button; at most 4 players run at once
+  (`startLive` in `lib/wall.ts`: the oldest is dropped when a fifth starts;
+  tiles that leave the page release their slot). Only `active` cameras not
+  reported offline can go live. The badge (`StateBadge` in `ownerUi.tsx`) comes
+  from `GET /me/videos/status`, polled every 30 s while the tab is visible and
+  again when it becomes visible. The whole tile is a link to
+  `/dashboard/cameras/$videoId`. A user with no cameras sees an empty state
+  pointing at `/dashboard`.
+- **Camera page for public cameras**: `/me/videos` returns a public camera's
+  raw Restreamer `src` (only private ones are redacted). `watchSrc` in
+  `lib/api.ts` rewrites a raw `memfs/*.m3u8` src to `/api/hls/{id}/index.m3u8`
+  so the camera page and the wall play every Restreamer camera through the
+  signed proxy with a bearer-authenticated stream token, public or private;
+  non-Restreamer srcs are left as stored.
+
 
 ### Ads
 
