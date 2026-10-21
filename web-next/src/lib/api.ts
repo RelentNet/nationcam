@@ -50,6 +50,7 @@ import type {
   UpdateSublocationInput,
   UpdateVideoInput,
   Video,
+  VideoStatus,
   Visibility,
   Weather,
 } from '@/lib/types'
@@ -404,6 +405,23 @@ const HLS_PROXY_SRC = /^\/api\/hls\/(\d+)\/index\.m3u8$/
 export function hlsProxyVideoId(src: string): number | null {
   const m = src.match(HLS_PROXY_SRC)
   return m ? Number(m[1]) : null
+}
+
+/** A raw Restreamer HLS src, as /me/videos returns it for a public camera. */
+const RAW_RESTREAMER_SRC = /^https?:\/\/[^?]+\/memfs\/[^/?]+\.m3u8/
+
+/**
+ * The src to hand a signed-in player for a camera from /me/videos (DAN-207).
+ * A private camera already arrives as the `/api/hls/{id}` proxy form; a public
+ * one arrives as its raw Restreamer URL, which would play through the
+ * unsigned stream-proxy. Normalising it to the proxy form plays every
+ * Restreamer camera the same way: a stream token (sent with the bearer) and
+ * the signed proxy. Anything else (external HLS/MP4) is left as stored.
+ */
+export function watchSrc(video: { video_id: number; src: string }): string {
+  return RAW_RESTREAMER_SRC.test(video.src)
+    ? `/api/hls/${video.video_id}/index.m3u8`
+    : video.src
 }
 
 /**
@@ -1166,6 +1184,15 @@ export function fetchMyVideos(
   token?: string | null,
 ): Promise<Array<OwnerVideo>> {
   return meGet<Array<OwnerVideo>>('/me/videos', token)
+}
+
+/** `GET /me/videos/status` — live/offline/paused/pending/unknown per camera
+ *  the caller can view (DAN-207). Never fails per camera: an unreachable
+ *  Restreamer just reads `unknown`. */
+export function fetchMyVideoStatuses(
+  token?: string | null,
+): Promise<Array<VideoStatus>> {
+  return meGet<Array<VideoStatus>>('/me/videos/status', token)
 }
 
 /** 429 past the camera limit or the daily creation limit; 503 when stream

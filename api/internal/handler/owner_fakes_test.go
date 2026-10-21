@@ -485,6 +485,9 @@ type fakeRestreamer struct {
 	commands  []string // "<process id> <command>"
 	deleted   []string
 	metadata  []string
+	execs     map[string]string // process id → exec state; unset means "running"
+	down      bool              // state calls answer 502
+	stateHits int
 }
 
 func newFakeRestreamer(t *testing.T) *fakeRestreamer {
@@ -526,6 +529,25 @@ func newFakeRestreamer(t *testing.T) *fakeRestreamer {
 		}
 		fr.commands = append(fr.commands, r.PathValue("id")+" "+cmd.Command)
 		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("GET /api/v3/process/{id}/state", func(w http.ResponseWriter, r *http.Request) {
+		fr.mu.Lock()
+		defer fr.mu.Unlock()
+		fr.stateHits++
+		if fr.down {
+			http.Error(w, `{"message":"bad gateway"}`, http.StatusBadGateway)
+			return
+		}
+		id := r.PathValue("id")
+		if _, ok := fr.processes[id]; !ok {
+			http.Error(w, `{"message":"unknown process"}`, http.StatusNotFound)
+			return
+		}
+		exec := "running"
+		if e, ok := fr.execs[id]; ok {
+			exec = e
+		}
+		_ = json.NewEncoder(w).Encode(restreamer.ProcessState{Exec: exec})
 	})
 	mux.HandleFunc("DELETE /api/v3/process/{id}", func(w http.ResponseWriter, r *http.Request) {
 		fr.mu.Lock()
@@ -580,6 +602,22 @@ func (fr *fakeRestreamer) ingestConfigs() []restreamer.ProcessConfig {
 		}
 	}
 	return out
+}
+
+// setExec sets the exec state Restreamer reports for a stream.
+func (fr *fakeRestreamer) setExec(streamID, exec string) {
+	fr.mu.Lock()
+	defer fr.mu.Unlock()
+	if fr.execs == nil {
+		fr.execs = map[string]string{}
+	}
+	fr.execs[restreamer.IngestProcessID(streamID)] = exec
+}
+
+func (fr *fakeRestreamer) stateCalls() int {
+	fr.mu.Lock()
+	defer fr.mu.Unlock()
+	return fr.stateHits
 }
 
 // ── Test harness ─────────────────────────────────────────────────────

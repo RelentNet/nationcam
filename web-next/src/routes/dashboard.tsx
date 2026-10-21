@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Info, LogIn, Shield } from 'lucide-react'
+import { ArrowRight, Info, LayoutGrid, LogIn, Shield } from 'lucide-react'
 import type { Me, MyAccount, OwnerSublocation, OwnerVideo } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/Button'
@@ -178,6 +178,27 @@ function DashboardContent({ userName }: { userName: string | null }) {
               <p className="mb-0 text-xs text-subtext1">
                 Manage the full site, review submissions, and see all users at
                 the admin console.
+              </p>
+            </div>
+            <ArrowRight size={16} className="shrink-0 text-subtext1" />
+          </Panel>
+        </Link>
+      )}
+
+      {videos.length > 0 && (
+        <Link
+          to="/dashboard/command-center"
+          className="group block no-underline"
+        >
+          <Panel className="flex items-center gap-3 transition-colors duration-150 group-hover:border-accent">
+            <LayoutGrid size={17} className="shrink-0 text-accent" />
+            <div className="min-w-0 flex-1">
+              <p className="mb-0 text-sm font-medium text-text">
+                Command center
+              </p>
+              <p className="mb-0 text-xs text-subtext1">
+                Every camera you can view on one wall, grouped by location, with
+                live status.
               </p>
             </div>
             <ArrowRight size={16} className="shrink-0 text-subtext1" />

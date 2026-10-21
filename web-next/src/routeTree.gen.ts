@@ -25,6 +25,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as CamerasNewRouteImport } from './routes/cameras.new'
 import { Route as CamerasPopularRouteImport } from './routes/cameras.popular'
+import { Route as DashboardCommandCenterRouteImport } from './routes/dashboard_.command-center'
 import { Route as LocationsIndexRouteImport } from './routes/locations/index'
 import { Route as NotesIndexRouteImport } from './routes/notes.index'
 import { Route as NotesSlugRouteImport } from './routes/notes.$slug'
@@ -116,6 +117,11 @@ const CamerasPopularRoute = CamerasPopularRouteImport.update({
   path: '/cameras/popular',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardCommandCenterRoute = DashboardCommandCenterRouteImport.update({
+  id: '/dashboard_/command-center',
+  path: '/dashboard/command-center',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LocationsIndexRoute = LocationsIndexRouteImport.update({
   id: '/locations/',
   path: '/locations/',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/api/$': typeof ApiSplatRoute
   '/cameras/new': typeof CamerasNewRoute
   '/cameras/popular': typeof CamerasPopularRoute
+  '/dashboard/command-center': typeof DashboardCommandCenterRoute
   '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/api/$': typeof ApiSplatRoute
   '/cameras/new': typeof CamerasNewRoute
   '/cameras/popular': typeof CamerasPopularRoute
+  '/dashboard/command-center': typeof DashboardCommandCenterRoute
   '/notes/$slug': typeof NotesSlugRoute
   '/locations': typeof LocationsIndexRoute
   '/notes': typeof NotesIndexRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/api/$': typeof ApiSplatRoute
   '/cameras/new': typeof CamerasNewRoute
   '/cameras/popular': typeof CamerasPopularRoute
+  '/dashboard_/command-center': typeof DashboardCommandCenterRoute
   '/notes/$slug': typeof NotesSlugRoute
   '/locations/': typeof LocationsIndexRoute
   '/notes/': typeof NotesIndexRoute
@@ -276,6 +285,7 @@ export interface FileRouteTypes {
     | '/api/$'
     | '/cameras/new'
     | '/cameras/popular'
+    | '/dashboard/command-center'
     | '/notes/$slug'
     | '/locations/'
     | '/notes/'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/api/$'
     | '/cameras/new'
     | '/cameras/popular'
+    | '/dashboard/command-center'
     | '/notes/$slug'
     | '/locations'
     | '/notes'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/api/$'
     | '/cameras/new'
     | '/cameras/popular'
+    | '/dashboard_/command-center'
     | '/notes/$slug'
     | '/locations/'
     | '/notes/'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   ApiSplatRoute: typeof ApiSplatRoute
   CamerasNewRoute: typeof CamerasNewRoute
   CamerasPopularRoute: typeof CamerasPopularRoute
+  DashboardCommandCenterRoute: typeof DashboardCommandCenterRoute
   NotesSlugRoute: typeof NotesSlugRoute
   LocationsIndexRoute: typeof LocationsIndexRoute
   NotesIndexRoute: typeof NotesIndexRoute
@@ -487,6 +500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CamerasPopularRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard_/command-center': {
+      id: '/dashboard_/command-center'
+      path: '/dashboard/command-center'
+      fullPath: '/dashboard/command-center'
+      preLoaderRoute: typeof DashboardCommandCenterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/locations/': {
       id: '/locations/'
       path: '/locations'
@@ -577,6 +597,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSplatRoute: ApiSplatRoute,
   CamerasNewRoute: CamerasNewRoute,
   CamerasPopularRoute: CamerasPopularRoute,
+  DashboardCommandCenterRoute: DashboardCommandCenterRoute,
   NotesSlugRoute: NotesSlugRoute,
   LocationsIndexRoute: LocationsIndexRoute,
   NotesIndexRoute: NotesIndexRoute,

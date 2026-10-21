@@ -776,6 +776,14 @@ export interface OwnerSublocation {
   account_id?: number | null
 }
 
+/** A camera's live state on the command center wall (`GET /me/videos/status`). */
+export type VideoState = 'live' | 'offline' | 'paused' | 'pending' | 'unknown'
+
+export interface VideoStatus {
+  video_id: number
+  state: VideoState
+}
+
 export type OwnerVideoStatus =
   'pending' | 'active' | 'inactive' | 'paused' | 'rejected'
 
