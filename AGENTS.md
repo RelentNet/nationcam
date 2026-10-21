@@ -1213,3 +1213,9 @@ Rules learned while running Home sessions on this repo; every worker reads them.
 - **New env vars** go in `api/internal/config`, `docker-compose.yml`, `.env.example`
   and the env list at the top of this file, and are called out in the PR body so they
   are set in Coolify before the deploy (`HLS_SIGNING_KEY`, 2026-10-07).
+- **Stop every dev server you started before you return.** A `vite dev` left running
+  from a worktree locks its folder on Windows, so the merged worktree cannot be
+  removed (DAN-207, 2026-10-21: two `vite dev --port 3111` processes).
+- **Screenshots stay local.** Uploading them to a GitHub branch is refused by the
+  permission check. Save them to the session scratchpad named in the brief and list
+  the paths in your report; Home reviews them and sends them on.
