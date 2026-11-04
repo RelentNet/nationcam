@@ -49,7 +49,7 @@ export const Route = createFileRoute('/locations/$slug/')({
       description:
         videos.length > 0
           ? `Watch ${videos.length} live camera${videos.length === 1 ? '' : 's'} streaming from ${state.name} — ${state.description}. Free, real-time views from across the state.`
-          : `Live cameras from ${state.name} — ${state.description}. New feeds are being added to NationCam soon.`,
+          : `Live cameras from ${state.name} — ${state.description}. New feeds are planned for NationCam.`,
       path: `/locations/${params.slug}`,
       image: featured
         ? streamPoster(featured.src, featured.status === 'active')
@@ -295,14 +295,13 @@ function StatePage() {
             <Panel padding="lg" className="mt-12 py-12 text-center">
               <Video size={32} className="mx-auto mb-4 text-overlay1" />
               <h2 className="text-[16px] leading-[1.35] font-semibold">
-                {state.upcoming ? 'Coming soon to' : 'Coming to'} {state.name}
+                {state.upcoming ? 'Planned for' : 'Coming to'} {state.name}
               </h2>
               <p className="mx-auto max-w-lg">
                 {state.upcoming ? (
                   <>
-                    A camera is confirmed for {state.name} and will be live
-                    soon. Know another spot here worth watching? You could host
-                    it &mdash; it costs nothing.
+                    A camera is planned for {state.name}. Know another spot here
+                    worth watching? You could host it &mdash; it costs nothing.
                   </>
                 ) : (
                   <>

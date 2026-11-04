@@ -186,7 +186,7 @@ function ComingSoonSection({ states }: { states: Array<State> }) {
       <Reveal variant="blur">
         <SectionHead
           id="locations-coming-soon"
-          title={`Coming soon — ${comingSoon.length} more state${
+          title={`Planned — ${comingSoon.length} more state${
             comingSoon.length === 1 ? '' : 's'
           }`}
           body="We’re adding cameras state by state. Know a marina, waterfront, or landmark worth watching? You could host the first camera in your state — it costs nothing."
