@@ -52,7 +52,7 @@ export const Route = createFileRoute('/locations/$slug/$sublocationSlug/')({
       description:
         videos.length > 0
           ? `Watch ${videos.length} live camera${videos.length === 1 ? '' : 's'} streaming from ${sublocation.name} in ${sublocation.state_name}.${sublocation.description ? ` ${sublocation.description}` : ''}`
-          : `Live cameras from ${sublocation.name} in ${sublocation.state_name} are coming to NationCam soon.`,
+          : `Live cameras from ${sublocation.name} in ${sublocation.state_name} are planned for NationCam.`,
       path: `/locations/${params.slug}/${params.sublocationSlug}`,
       image: featured
         ? streamPoster(featured.src, featured.status === 'active')
